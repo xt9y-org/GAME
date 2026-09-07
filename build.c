@@ -55,5 +55,10 @@ void build(C_Build *b)
     C_Target *earth = c_test(b, "earth");
     configureViewer(earth, rasterizer, "Examples/earth.cpp");
 
+    C_Target *earth_sun_orbit_contract = c_test(b, "earth-sun-orbit-contract");
+    c_sources(earth_sun_orbit_contract, "tests/earth_sun_orbit_contract.cpp");
+    c_flag(earth_sun_orbit_contract, "-std=c++20");
+    c_warnings_strict(earth_sun_orbit_contract);
+
     c_default_target(b, sponza);
 }
