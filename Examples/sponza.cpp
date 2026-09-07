@@ -20,7 +20,7 @@
 class Example
 {
 private:
-    Renderer::Rasterizer *renderer_ = new Renderer::Rasterizer();
+    Renderer::PathTracer *renderer_ = new Renderer::PathTracer();
     Camera::Controller *camera_controller_ = new Camera::Controller();
     Animation::System *animation_system_ = new Animation::System();
     Ecs::World *world_ = new Ecs::World();
@@ -155,7 +155,7 @@ public:
             const Ecs::Entity _entity = e->world_->createEntity();
 
             e->world_->add<Renderer::Transform>(
-                _entity,
+                _entity, 
                 Renderer::Transform{}
             );
 
