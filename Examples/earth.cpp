@@ -127,15 +127,23 @@ public:
         const float _extent_x = _valid_bounds ? std::max(_max_x - _min_x, 1.0f) : 20.0f;
         const float _extent_y = _valid_bounds ? std::max(_max_y - _min_y, 1.0f) : 20.0f;
         const float _extent_z = _valid_bounds ? std::max(_max_z - _min_z, 1.0f) : 20.0f;
-        const float _scene_radius = std::max({_extent_x, _extent_y, _extent_z});
+        const float _globe_radius = std::max({_extent_x, _extent_y, _extent_z}) * 0.5f;
+        const float _center_x = _valid_bounds ? (_min_x + _max_x) * 0.5f : 0.0f;
+        const float _center_y = _valid_bounds ? (_min_y + _max_y) * 0.5f : 0.0f;
+        const float _center_z = _valid_bounds ? (_min_z + _max_z) * 0.5f : 0.0f;
+        const float _sun_orbit_radius = std::max(_globe_radius * 3.0f, 1.0f);
+        const float _sun_vertical_offset = _globe_radius * 0.35f;
+        constexpr float _sun_orbit_seconds = 25.0f;
+        constexpr float _two_pi = 6.28318530717958647692f;
+        float _sun_angle = 0.0f;
 
         const Ecs::Entity _light = e->world_->createEntity();
 
         e->world_->add<Renderer::Transform>(_light, Renderer::Transform{
             .position = {
-                .x = _valid_bounds ? (_min_x + _max_x)  * 0.5f  : 0.0f,
-                .y = _valid_bounds ? _min_y + _extent_y * 0.78f : 8.0f,
-                .z = _valid_bounds ? (_min_z + _max_z)  * 0.5f  : 0.0f,
+                .x = _center_x + _sun_orbit_radius,
+                .y = _center_y + _sun_vertical_offset,
+                .z = _center_z,
             },
             .rotation = {},
             .scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f},
@@ -144,7 +152,7 @@ public:
         e->world_->add<Renderer::LightComponent>(_light, Renderer::LightComponent{
             .type = Renderer::LightType::Point,
             .color = {.x = 1.0f, .y = 0.96f, .z = 0.90f},
-            .intensity = _scene_radius * _scene_radius * 3.0f,
+            .intensity = _sun_orbit_radius * _sun_orbit_radius * 4.0f,
         });
 
         for (std::size_t i = 0; i < Models::partCount(_model); ++i)
@@ -155,7 +163,7 @@ public:
             const Ecs::Entity _entity = e->world_->createEntity();
 
             e->world_->add<Renderer::Transform>(
-                _entity, 
+                _entity,
                 Renderer::Transform{}
             );
 
@@ -183,6 +191,19 @@ public:
             _previous = now;
             const float frame_delta = std::min(delta_seconds, 0.1f);
 
+            _sun_angle = std::fmod(
+                _sun_angle + frame_delta * (_two_pi / _sun_orbit_seconds),
+                _two_pi
+            );
+
+            if (Renderer::Transform *sun = e->world_->get<Renderer::Transform>(_light))
+            {
+                sun->position.x = _center_x + std::cos(_sun_angle) * _sun_orbit_radius;
+                sun->position.y = _center_y + _sun_vertical_offset;
+                sun->position.z = _center_z + std::sin(_sun_angle) * _sun_orbit_radius;
+                e->world_->markChanged();
+            }
+
             e->animation_system_->update(*e->world_, frame_delta);
             e->camera_controller_->update(*e->world_, frame_delta);
 
@@ -209,4 +230,3 @@ int main(int argc, char **argv)
 {
     return Example::run(argc, argv);
 }
-
