@@ -59,6 +59,11 @@ void build(C_Build *b)
     c_sources(earth_sun_orbit_contract, "tests/earth_sun_orbit_contract.cpp");
     c_flag(earth_sun_orbit_contract, "-std=c++20");
     c_warnings_strict(earth_sun_orbit_contract);
+#ifdef __APPLE__
+    c_link_system(earth_sun_orbit_contract, "c++");
+#else
+    c_link_system(earth_sun_orbit_contract, "stdc++");
+#endif
 
     c_default_target(b, sponza);
 }
