@@ -41,7 +41,7 @@ void build(C_Build *b)
 {
     C_Dependency *horse = c_git(
         b,
-        "horse",
+        "Horse",
         "https://github.com/xt9y/Horse.git",
         "main"
     );
