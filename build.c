@@ -55,6 +55,9 @@ void build(C_Build *b)
     C_Target *earth = c_test(b, "earth");
     configureViewer(earth, horse, "Examples/earth.cpp");
 
+    C_Target *earth_texture_contract = c_test(b, "earth-texture-contract");
+    configureViewer(earth_texture_contract, horse, "tests/earth_texture_contract.cpp");
+
     C_Target *earth_sun_orbit_contract = c_test(b, "earth-sun-orbit-contract");
     c_sources(earth_sun_orbit_contract, "tests/earth_sun_orbit_contract.cpp");
     c_flag(earth_sun_orbit_contract, "-std=c++20");
