@@ -13,8 +13,8 @@ int main()
 
     const Models::TextureAsset *asset = Models::texture(texture);
     if (!asset) return 3;
-    if (asset->image.width != 2048 || asset->image.height != 1024) return 4;
-    if (asset->image.rgba.size() != static_cast<std::size_t>(2048 * 1024 * 4)) return 5;
+    if (asset->image.width != 8192 || asset->image.height != 4096) return 4;
+    if (asset->image.rgba.size() != static_cast<std::size_t>(8192ull * 4096ull * 4ull)) return 5;
 
     Models::clearTextureCache();
     return 0;
