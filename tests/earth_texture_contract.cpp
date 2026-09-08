@@ -6,7 +6,7 @@ int main()
 {
     std::string error;
     const Models::TextureHandle texture = Models::loadTexture(
-        "Assets/Textures/earth_diffuse.jpg",
+        "Assets/Textures/earth_diffuse.png",
         &error
     );
     if (texture == Models::INVALID_TEXTURE) return 2;
