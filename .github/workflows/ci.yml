@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 brew install pkg-config glfw
+          git clone --depth 1 --branch v2.9.3 https://github.com/xt9y/lwcgl.git "$RUNNER_TEMP/lwcgl"
+          make -C "$RUNNER_TEMP/lwcgl" clean all
+          sudo make -C "$RUNNER_TEMP/lwcgl" install
+          git clone --depth 1 https://github.com/xt9y/lwmgl.git "$RUNNER_TEMP/lwmgl"
+          make -C "$RUNNER_TEMP/lwmgl" clean all
+          sudo make -C "$RUNNER_TEMP/lwmgl" install
+          git clone --depth 1 https://github.com/xt9y/C-BuildSystem.git "$RUNNER_TEMP/c-buildsystem"
+          make -C "$RUNNER_TEMP/c-buildsystem" clean all
+          sudo make -C "$RUNNER_TEMP/c-buildsystem" install
+      - name: Build Earth PathTracer example
+        run: c build test earth
+      - name: Build Sponza PathTracer example
+        run: c build test sponza
