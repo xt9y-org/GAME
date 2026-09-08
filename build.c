@@ -22,14 +22,14 @@ static void configurePlatform(C_Target *target)
     c_link_system(target, "glfw");
 }
 
-static void configureViewer(C_Target *target, C_Dependency *rasterizer, const char *source)
+static void configureViewer(C_Target *target, C_Dependency *horse, const char *source)
 {
     c_sources(target, source);
     c_include(target, "/usr/local/include/lwcgl-2.9.3");
     c_flag(target, "-std=c++20");
     c_warnings_strict(target);
 
-    c_use(target, rasterizer);
+    c_use(target, horse);
 
     configurePlatform(target);
     c_link_flag(target, "-L/usr/local/lib");
@@ -39,21 +39,21 @@ static void configureViewer(C_Target *target, C_Dependency *rasterizer, const ch
 
 void build(C_Build *b)
 {
-    C_Dependency *rasterizer = c_git(
+    C_Dependency *horse = c_git(
         b,
-        "ecs-model-rasterizer",
-        "https://github.com/xt9y/ECS-MODEL-RASTERIZER.git",
+        "horse",
+        "https://github.com/xt9y/Horse.git",
         "main"
     );
-    c_dep_cbuild(rasterizer, "ecs-model-rasterizer", C_TARGET_SHARED_LIBRARY);
-    c_dep_include(rasterizer, ".");
-    c_dep_include(rasterizer, "Sources");
+    c_dep_cbuild(horse, "ecs-model-rasterizer", C_TARGET_SHARED_LIBRARY);
+    c_dep_include(horse, ".");
+    c_dep_include(horse, "Sources");
 
     C_Target *sponza = c_test(b, "sponza");
-    configureViewer(sponza, rasterizer, "Examples/sponza.cpp");
+    configureViewer(sponza, horse, "Examples/sponza.cpp");
 
     C_Target *earth = c_test(b, "earth");
-    configureViewer(earth, rasterizer, "Examples/earth.cpp");
+    configureViewer(earth, horse, "Examples/earth.cpp");
 
     C_Target *earth_sun_orbit_contract = c_test(b, "earth-sun-orbit-contract");
     c_sources(earth_sun_orbit_contract, "tests/earth_sun_orbit_contract.cpp");
