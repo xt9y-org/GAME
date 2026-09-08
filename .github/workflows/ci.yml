@@ -23,6 +23,6 @@ jobs:
           make -C "$RUNNER_TEMP/c-buildsystem" clean all
           sudo make -C "$RUNNER_TEMP/c-buildsystem" install
       - name: Build Earth PathTracer example
-        run: c build test earth
+        run: c build earth
       - name: Build Sponza PathTracer example
-        run: c build test sponza
+        run: c build sponza
