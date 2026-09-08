@@ -21,16 +21,16 @@ jobs:
           set -euo pipefail
           curl -fL --retry 3 \
             'https://eoimages.gsfc.nasa.gov/images/imagerecords/57000/57730/land_ocean_ice_8192.png' \
-            -o Assets/Textures/earth_diffuse.png
+            -o /tmp/earth_diffuse.png
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('Assets/Textures/earth_diffuse.png')
+          p = Path('/tmp/earth_diffuse.png')
           data = p.read_bytes()
           if len(data) < 10_000_000:
               raise SystemExit(f'unexpectedly small Blue Marble payload: {len(data)} bytes')
           if data[:8] != b'\x89PNG\r\n\x1a\n':
               raise SystemExit('Blue Marble payload is not PNG')
-          Path('Assets/Textures/earth_diffuse.SOURCE').write_text(
+          Path('/tmp/earth_diffuse.SOURCE').write_text(
               'NASA Visible Earth / Earth Observatory\n'
               'The Blue Marble: Land Surface, Ocean Color and Sea Ice\n'
               '8192x4096 equirectangular PNG\n'
@@ -40,8 +40,12 @@ jobs:
           PY
       - name: Commit texture
         run: |
+          set -euo pipefail
           git config user.name xt9y
           git config user.email felix@xt9y.de
+          git pull --rebase origin main
+          cp /tmp/earth_diffuse.png Assets/Textures/earth_diffuse.png
+          cp /tmp/earth_diffuse.SOURCE Assets/Textures/earth_diffuse.SOURCE
           git add Assets/Textures/earth_diffuse.png Assets/Textures/earth_diffuse.SOURCE
           git commit -m 'earth: add complete 8K Blue Marble texture'
           git push origin HEAD:main
