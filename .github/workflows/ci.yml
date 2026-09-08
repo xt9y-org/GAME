@@ -31,6 +31,8 @@ jobs:
           sudo make -C "$RUNNER_TEMP/c-buildsystem" install
       - name: Build Earth PathTracer example
         run: c build earth
+      - name: Require Horse dependency update name
+        run: c update Horse
       - name: Build Sponza PathTracer example
         run: c build sponza
 
