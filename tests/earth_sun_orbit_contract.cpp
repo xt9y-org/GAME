@@ -29,5 +29,14 @@ int main()
     assert(source.find("samples_per_frame = 2") != std::string::npos);
     assert(source.find("max_bounces = 1") != std::string::npos);
 
+    // The source FBX is intentionally retained as an importer regression and
+    // size reference, but its 512-triangle shell is not suitable as the final
+    // presentation globe. The demo must render the dense seamless sphere via
+    // Horse's generic runtime mesh/material registry.
+    assert(source.find("EarthDemo::makeSphere") != std::string::npos);
+    assert(source.find("Models::registerMesh") != std::string::npos);
+    assert(source.find("Models::registerMaterial") != std::string::npos);
+    assert(source.find("_display_radius") != std::string::npos);
+
     return 0;
 }
