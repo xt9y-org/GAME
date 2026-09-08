@@ -1,6 +1,7 @@
 #include "Sources/Animation/Animation.hpp"
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
+#include "Sources/Models/Core/Texture.hpp"
 #include "Sources/Models/Models.hpp"
 #include "Sources/Renderer/Render.hpp"
 
@@ -67,6 +68,9 @@ public:
 
     static inline int run(int argc, char **argv)
     {
+        (void)argc;
+        (void)argv;
+
         Example *e = new Example("Earth", {1280, 720});
 
         int _framebuffer_width  = std::max(Display.getWidth(),  1),
@@ -76,12 +80,7 @@ public:
 
         e->camera_ = e->world_->createEntity();
 
-        e->world_->add<Renderer::Transform>(e->camera_, Renderer::Transform{
-            .position = {.x = 0.0f, .y = 1.5f, .z = 5.0f},
-            .rotation = {.x = 0.0f, .y = 0.0f, .z = 0.0f},
-            .scale    = {.x = 1.0f, .y = 1.0f, .z = 1.0f},
-        });
-
+        e->world_->add<Renderer::Transform>(e->camera_, Renderer::Transform{});
         e->world_->add<Camera::CameraComponent>(e->camera_, Camera::CameraComponent{
             60.0f, 0.1f, true
         });
@@ -103,12 +102,8 @@ public:
             return 3;
         }
 
-        float _min_x =  std::numeric_limits<float>::infinity();
-        float _min_y =  std::numeric_limits<float>::infinity();
-        float _min_z =  std::numeric_limits<float>::infinity();
-        float _max_x = -std::numeric_limits<float>::infinity();
-        float _max_y = -std::numeric_limits<float>::infinity();
-        float _max_z = -std::numeric_limits<float>::infinity();
+        std::size_t _surface_index = 0u;
+        float _surface_extent = std::numeric_limits<float>::infinity();
 
         for (std::size_t i = 0; i < Models::partCount(_model); ++i)
         {
@@ -117,25 +112,83 @@ public:
             const Models::MeshData *mesh = Models::mesh(part->mesh);
             if (!mesh) continue;
 
-            _min_x = std::min(_min_x, mesh->bounds.minimum.x);
-            _min_y = std::min(_min_y, mesh->bounds.minimum.y);
-            _min_z = std::min(_min_z, mesh->bounds.minimum.z);
-            _max_x = std::max(_max_x, mesh->bounds.maximum.x);
-            _max_y = std::max(_max_y, mesh->bounds.maximum.y);
-            _max_z = std::max(_max_z, mesh->bounds.maximum.z);
+            const float extent_x = std::max(mesh->bounds.maximum.x - mesh->bounds.minimum.x, 0.0f);
+            const float extent_y = std::max(mesh->bounds.maximum.y - mesh->bounds.minimum.y, 0.0f);
+            const float extent_z = std::max(mesh->bounds.maximum.z - mesh->bounds.minimum.z, 0.0f);
+            const float extent = std::max({extent_x, extent_y, extent_z});
+            if (extent > 0.0f && extent < _surface_extent)
+            {
+                _surface_extent = extent;
+                _surface_index = i;
+            }
         }
 
-        const bool _valid_bounds =
-            std::isfinite(_min_x) && std::isfinite(_min_y) && std::isfinite(_min_z) &&
-            std::isfinite(_max_x) && std::isfinite(_max_y) && std::isfinite(_max_z);
+        const Models::ModelPart *_surface_part = Models::part(_model, _surface_index);
+        const Models::MeshData *_surface_mesh = _surface_part
+            ? Models::mesh(_surface_part->mesh)
+            : nullptr;
+        const Models::MaterialData *_surface_material = _surface_part
+            ? Models::material(_surface_part->material)
+            : nullptr;
 
-        const float _extent_x = _valid_bounds ? std::max(_max_x - _min_x, 1.0f) : 20.0f;
-        const float _extent_y = _valid_bounds ? std::max(_max_y - _min_y, 1.0f) : 20.0f;
-        const float _extent_z = _valid_bounds ? std::max(_max_z - _min_z, 1.0f) : 20.0f;
+        if (!_surface_part || !_surface_mesh || !_surface_material)
+        {
+            std::fprintf(stderr, "[LOG]: failed to select Earth surface shell\n");
+            delete e;
+            return 3;
+        }
+
+        std::string _texture_error;
+        const Models::TextureHandle _earth_texture = Models::loadTexture(
+            "Assets/Textures/earth_diffuse.jpg",
+            &_texture_error
+        );
+        if (_earth_texture == Models::INVALID_TEXTURE)
+        {
+            std::fprintf(stderr, "[LOG]: Earth texture: %s\n", _texture_error.c_str());
+            delete e;
+            return 3;
+        }
+
+        Models::MaterialData _textured_surface = *_surface_material;
+        _textured_surface.color = {1.0f, 1.0f, 1.0f};
+        _textured_surface.opacity = 1.0f;
+        _textured_surface.texture_path = "Assets/Textures/earth_diffuse.jpg";
+        _textured_surface.diffuse_texture = _earth_texture;
+        if (!Models::updateMaterial(_surface_part->material, _textured_surface))
+        {
+            std::fprintf(stderr, "[LOG]: failed to bind Earth diffuse material\n");
+            delete e;
+            return 3;
+        }
+
+        const float _min_x = _surface_mesh->bounds.minimum.x;
+        const float _min_y = _surface_mesh->bounds.minimum.y;
+        const float _min_z = _surface_mesh->bounds.minimum.z;
+        const float _max_x = _surface_mesh->bounds.maximum.x;
+        const float _max_y = _surface_mesh->bounds.maximum.y;
+        const float _max_z = _surface_mesh->bounds.maximum.z;
+
+        const float _extent_x = std::max(_max_x - _min_x, 1.0e-4f);
+        const float _extent_y = std::max(_max_y - _min_y, 1.0e-4f);
+        const float _extent_z = std::max(_max_z - _min_z, 1.0e-4f);
         const float _globe_radius = std::max({_extent_x, _extent_y, _extent_z}) * 0.5f;
-        const float _center_x = _valid_bounds ? (_min_x + _max_x) * 0.5f : 0.0f;
-        const float _center_y = _valid_bounds ? (_min_y + _max_y) * 0.5f : 0.0f;
-        const float _center_z = _valid_bounds ? (_min_z + _max_z) * 0.5f : 0.0f;
+        const float _center_x = (_min_x + _max_x) * 0.5f;
+        const float _center_y = (_min_y + _max_y) * 0.5f;
+        const float _center_z = (_min_z + _max_z) * 0.5f;
+
+        if (Renderer::Transform *camera = e->world_->get<Renderer::Transform>(e->camera_))
+        {
+            camera->position = {
+                .x = _center_x,
+                .y = _center_y,
+                .z = _center_z + std::max(_globe_radius * 3.0f, 1.0f),
+            };
+            camera->rotation = {};
+            camera->scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
+            e->world_->markChanged();
+        }
+
         const float _sun_orbit_radius = std::max(_globe_radius * 3.0f, 1.0f);
         const float _sun_vertical_offset = _globe_radius * 0.35f;
         constexpr float _sun_orbit_seconds = 25.0f;
@@ -160,28 +213,16 @@ public:
             .intensity = _sun_orbit_radius * _sun_orbit_radius * 4.0f,
         });
 
-        for (std::size_t i = 0; i < Models::partCount(_model); ++i)
-        {
-            const Models::ModelPart *part = Models::part(_model, i);
-            if (!part) continue;
-
-            const Ecs::Entity _entity = e->world_->createEntity();
-
-            e->world_->add<Renderer::Transform>(
-                _entity,
-                Renderer::Transform{}
-            );
-
-            e->world_->add<Renderer::MeshComponent>(
-                _entity,
-                Renderer::MeshComponent{part->mesh, part->material}
-            );
-
-            e->world_->add<Renderer::RenderableComponent>(
-                _entity,
-                Renderer::RenderableComponent{true}
-            );
-        }
+        const Ecs::Entity _earth = e->world_->createEntity();
+        e->world_->add<Renderer::Transform>(_earth, Renderer::Transform{});
+        e->world_->add<Renderer::MeshComponent>(
+            _earth,
+            Renderer::MeshComponent{_surface_part->mesh, _surface_part->material}
+        );
+        e->world_->add<Renderer::RenderableComponent>(
+            _earth,
+            Renderer::RenderableComponent{true}
+        );
 
         using Clock = std::chrono::steady_clock;
         auto _previous = Clock::now();
