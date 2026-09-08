@@ -4,12 +4,21 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   macos:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Require PathTracer examples
+        run: |
+          grep -q 'Renderer::PathTracer' Examples/earth.cpp
+          grep -q 'Renderer::PathTracer' Examples/sponza.cpp
+          if grep -R -n 'Renderer::Rasterizer' Examples; then
+            echo "rasterizer fallback remains in GAME examples"
+            exit 1
+          fi
       - name: Install dependencies
         run: |
           HOMEBREW_NO_AUTO_UPDATE=1 brew install pkg-config glfw
