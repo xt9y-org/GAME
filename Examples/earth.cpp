@@ -48,6 +48,12 @@ public:
         Mouse.create();
 
         renderer_->init();
+
+        Renderer::PathTracerSettings& settings = renderer_->settings();
+        settings.resolution_divisor = 2;
+        settings.samples_per_frame = 2;
+        settings.max_bounces = 1;
+        settings.exposure = 1.05f;
     }
 
     ~Example()
@@ -82,7 +88,7 @@ public:
 
         e->world_->add<Renderer::Transform>(e->camera_, Renderer::Transform{});
         e->world_->add<Camera::CameraComponent>(e->camera_, Camera::CameraComponent{
-            60.0f, 0.1f, true
+            45.0f, 0.1f, true
         });
 
         std::string _error;
@@ -182,7 +188,7 @@ public:
             camera->position = {
                 .x = _center_x,
                 .y = _center_y,
-                .z = _center_z + std::max(_globe_radius * 3.0f, 1.0f),
+                .z = _center_z + std::max(_globe_radius * 2.65f, 1.0f),
             };
             camera->rotation = {};
             camera->scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
@@ -190,18 +196,15 @@ public:
         }
 
         const float _sun_orbit_radius = std::max(_globe_radius * 3.0f, 1.0f);
-        const float _sun_vertical_offset = _globe_radius * 0.35f;
-        constexpr float _sun_orbit_seconds = 25.0f;
-        constexpr float _two_pi = 6.28318530717958647692f;
-        float _sun_angle = 0.0f;
+        const float _sun_vertical_offset = _globe_radius * 1.15f;
 
         const Ecs::Entity _light = e->world_->createEntity();
 
         e->world_->add<Renderer::Transform>(_light, Renderer::Transform{
             .position = {
-                .x = _center_x + _sun_orbit_radius,
+                .x = _center_x + _sun_orbit_radius * 0.72f,
                 .y = _center_y + _sun_vertical_offset,
-                .z = _center_z,
+                .z = _center_z + _sun_orbit_radius * 0.68f,
             },
             .rotation = {},
             .scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f},
@@ -210,7 +213,7 @@ public:
         e->world_->add<Renderer::LightComponent>(_light, Renderer::LightComponent{
             .type = Renderer::LightType::Point,
             .color = {.x = 1.0f, .y = 0.96f, .z = 0.90f},
-            .intensity = _sun_orbit_radius * _sun_orbit_radius * 4.0f,
+            .intensity = _sun_orbit_radius * _sun_orbit_radius * 1.8f,
         });
 
         const Ecs::Entity _earth = e->world_->createEntity();
@@ -236,19 +239,6 @@ public:
             const float delta_seconds = std::chrono::duration<float>(now - _previous).count();
             _previous = now;
             const float frame_delta = std::min(delta_seconds, 0.1f);
-
-            _sun_angle = std::fmod(
-                _sun_angle + frame_delta * (_two_pi / _sun_orbit_seconds),
-                _two_pi
-            );
-
-            if (Renderer::Transform *sun = e->world_->get<Renderer::Transform>(_light))
-            {
-                sun->position.x = _center_x + std::cos(_sun_angle) * _sun_orbit_radius;
-                sun->position.y = _center_y + _sun_vertical_offset;
-                sun->position.z = _center_z + std::sin(_sun_angle) * _sun_orbit_radius;
-                e->world_->markChanged();
-            }
 
             e->animation_system_->update(*e->world_, frame_delta);
             e->camera_controller_->update(*e->world_, frame_delta);
