@@ -31,6 +31,8 @@ jobs:
           sudo make -C "$RUNNER_TEMP/c-buildsystem" install
       - name: Require Earth diffuse texture
         run: c test earth-texture-contract
+      - name: Require static Earth light and quality settings
+        run: c test earth-sun-orbit-contract
       - name: Build Earth PathTracer example
         run: c build earth
       - name: Require Horse dependency update name
@@ -64,6 +66,8 @@ jobs:
           sudo make -C "$RUNNER_TEMP/c-buildsystem" install
       - name: Require Earth diffuse texture
         run: c test earth-texture-contract
+      - name: Require static Earth light and quality settings
+        run: c test earth-sun-orbit-contract
       - name: Build Earth PathTracer example
         run: c build earth
       - name: Build Sponza PathTracer example
