@@ -1,6 +1,6 @@
 GAME-TEMPLATE for utilizing my own "game engine" as a shared library
 
-Engine: C++ ECS, model loader and rasterizer using lwcgl v2.9.3. https://github.com/xt9y/ECS-MODEL-RASTERIZER.git
+Engine: C++ ECS, Model loader and Path Tracer using lwcgl v2.9.3. https://github.com/xt9y/Horse.git
 
 Prerequisites: https://github.com/xt9y/lwcgl/tree/v2.9.3
 
