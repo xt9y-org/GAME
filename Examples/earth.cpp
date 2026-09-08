@@ -20,7 +20,7 @@
 class Example
 {
 private:
-    Renderer::Rasterizer *renderer_ = new Renderer::Rasterizer();
+    Renderer::PathTracer *renderer_ = new Renderer::PathTracer();
     Camera::Controller *camera_controller_ = new Camera::Controller();
     Animation::System *animation_system_ = new Animation::System();
     Ecs::World *world_ = new Ecs::World();
@@ -31,8 +31,13 @@ public:
     {
         lwcglInstallFastRuntime();
 
+#ifdef __APPLE__
+        lwcglSetContextVersion(2, 1);
+        lwcglSetContextProfile(LWCGL_CONTEXT_ANY_PROFILE);
+#else
         lwcglSetContextVersion(4, 3);
         lwcglSetContextProfile(LWCGL_CONTEXT_COMPATIBILITY_PROFILE);
+#endif
 
         Display.setDisplayMode(new DisplayMode(_dim[0], _dim[1]));
         Display.create();
@@ -218,7 +223,9 @@ public:
             }
 
             e->renderer_->render(*e->world_);
+#ifndef __APPLE__
             Display.updateNoMessages();
+#endif
         }
 
         delete e;
