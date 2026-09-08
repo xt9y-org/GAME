@@ -1,3 +1,5 @@
+#include "EarthSphere.hpp"
+
 #include "Sources/Animation/Animation.hpp"
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
@@ -10,7 +12,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -91,6 +92,10 @@ public:
             45.0f, 0.1f, true
         });
 
+        // Keep loading the source FBX so the real asset remains an importer
+        // regression and supplies the canonical scene scale/center. Its
+        // original presentation shell is intentionally very coarse, so the
+        // final display globe is a dense generic runtime mesh below.
         std::string _error;
         const Models::ModelHandle _model = Models::load("Assets/Earth/Earth.fbx", &_error);
 
@@ -133,37 +138,10 @@ public:
         const Models::MeshData *_surface_mesh = _surface_part
             ? Models::mesh(_surface_part->mesh)
             : nullptr;
-        const Models::MaterialData *_surface_material = _surface_part
-            ? Models::material(_surface_part->material)
-            : nullptr;
 
-        if (!_surface_part || !_surface_mesh || !_surface_material)
+        if (!_surface_part || !_surface_mesh)
         {
             std::fprintf(stderr, "[LOG]: failed to select Earth surface shell\n");
-            delete e;
-            return 3;
-        }
-
-        std::string _texture_error;
-        const Models::TextureHandle _earth_texture = Models::loadTexture(
-            "Assets/Textures/earth_diffuse.jpg",
-            &_texture_error
-        );
-        if (_earth_texture == Models::INVALID_TEXTURE)
-        {
-            std::fprintf(stderr, "[LOG]: Earth texture: %s\n", _texture_error.c_str());
-            delete e;
-            return 3;
-        }
-
-        Models::MaterialData _textured_surface = *_surface_material;
-        _textured_surface.color = {1.0f, 1.0f, 1.0f};
-        _textured_surface.opacity = 1.0f;
-        _textured_surface.texture_path = "Assets/Textures/earth_diffuse.jpg";
-        _textured_surface.diffuse_texture = _earth_texture;
-        if (!Models::updateMaterial(_surface_part->material, _textured_surface))
-        {
-            std::fprintf(stderr, "[LOG]: failed to bind Earth diffuse material\n");
             delete e;
             return 3;
         }
@@ -179,24 +157,59 @@ public:
         const float _extent_y = std::max(_max_y - _min_y, 1.0e-4f);
         const float _extent_z = std::max(_max_z - _min_z, 1.0e-4f);
         const float _globe_radius = std::max({_extent_x, _extent_y, _extent_z}) * 0.5f;
+        const float _display_radius = std::max(_globe_radius * 1.5f, 1.5f);
         const float _center_x = (_min_x + _max_x) * 0.5f;
         const float _center_y = (_min_y + _max_y) * 0.5f;
         const float _center_z = (_min_z + _max_z) * 0.5f;
+
+        std::string _texture_error;
+        const Models::TextureHandle _earth_texture = Models::loadTexture(
+            "Assets/Textures/earth_diffuse.png",
+            &_texture_error
+        );
+        if (_earth_texture == Models::INVALID_TEXTURE)
+        {
+            std::fprintf(stderr, "[LOG]: Earth texture: %s\n", _texture_error.c_str());
+            delete e;
+            return 3;
+        }
+
+        Models::MaterialData _earth_surface;
+        _earth_surface.name = "Earth diffuse surface";
+        _earth_surface.color = {1.0f, 1.0f, 1.0f};
+        _earth_surface.opacity = 1.0f;
+        _earth_surface.texture_path = "Assets/Textures/earth_diffuse.png";
+        _earth_surface.diffuse_texture = _earth_texture;
+
+        const Models::MeshHandle _earth_mesh = Models::registerMesh(
+            EarthDemo::makeSphere(_display_radius)
+        );
+        const Models::MaterialHandle _earth_material = Models::registerMaterial(
+            std::move(_earth_surface)
+        );
+
+        if (_earth_mesh == Models::INVALID_MESH ||
+            _earth_material == Models::INVALID_MATERIAL)
+        {
+            std::fprintf(stderr, "[LOG]: failed to register dense Earth mesh/material\n");
+            delete e;
+            return 3;
+        }
 
         if (Renderer::Transform *camera = e->world_->get<Renderer::Transform>(e->camera_))
         {
             camera->position = {
                 .x = _center_x,
                 .y = _center_y,
-                .z = _center_z + std::max(_globe_radius * 2.65f, 1.0f),
+                .z = _center_z + std::max(_display_radius * 2.58f, 1.0f),
             };
             camera->rotation = {};
             camera->scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
             e->world_->markChanged();
         }
 
-        const float _sun_orbit_radius = std::max(_globe_radius * 3.0f, 1.0f);
-        const float _sun_vertical_offset = _globe_radius * 1.15f;
+        const float _sun_orbit_radius = std::max(_display_radius * 3.0f, 1.0f);
+        const float _sun_vertical_offset = _display_radius * 1.15f;
 
         const Ecs::Entity _light = e->world_->createEntity();
 
@@ -217,10 +230,14 @@ public:
         });
 
         const Ecs::Entity _earth = e->world_->createEntity();
-        e->world_->add<Renderer::Transform>(_earth, Renderer::Transform{});
+        e->world_->add<Renderer::Transform>(_earth, Renderer::Transform{
+            .position = {.x = _center_x, .y = _center_y, .z = _center_z},
+            .rotation = {},
+            .scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f},
+        });
         e->world_->add<Renderer::MeshComponent>(
             _earth,
-            Renderer::MeshComponent{_surface_part->mesh, _surface_part->material}
+            Renderer::MeshComponent{_earth_mesh, _earth_material}
         );
         e->world_->add<Renderer::RenderableComponent>(
             _earth,
