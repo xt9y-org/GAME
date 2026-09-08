@@ -29,6 +29,8 @@ jobs:
           git clone --depth 1 https://github.com/xt9y/C-BuildSystem.git "$RUNNER_TEMP/c-buildsystem"
           make -C "$RUNNER_TEMP/c-buildsystem" clean all
           sudo make -C "$RUNNER_TEMP/c-buildsystem" install
+      - name: Require Earth diffuse texture
+        run: c test earth-texture-contract
       - name: Build Earth PathTracer example
         run: c build earth
       - name: Require Horse dependency update name
@@ -60,6 +62,8 @@ jobs:
           git clone --depth 1 https://github.com/xt9y/C-BuildSystem.git "$RUNNER_TEMP/c-buildsystem"
           make -C "$RUNNER_TEMP/c-buildsystem" clean all
           sudo make -C "$RUNNER_TEMP/c-buildsystem" install
+      - name: Require Earth diffuse texture
+        run: c test earth-texture-contract
       - name: Build Earth PathTracer example
         run: c build earth
       - name: Build Sponza PathTracer example
