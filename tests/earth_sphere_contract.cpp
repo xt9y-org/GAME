@@ -1,4 +1,4 @@
-#include "Examples/EarthSphere.hpp"
+#include "../Examples/EarthSphere.hpp"
 
 #include <cmath>
 #include <cstddef>
