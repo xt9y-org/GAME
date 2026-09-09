@@ -30,7 +30,7 @@ static void checkExample(const char *path)
     assert(source.find("lwmglSurfaceAttach") != std::string::npos);
     assert(source.find("Metal.waitIdle") != std::string::npos);
     assert(source.find("setPathTracerSurface") != std::string::npos);
-    assert(source.find("if (e->metal_surface_active_)") != std::string::npos);
+    assert(source.find("e->path_tracer_ready_ && e->metal_surface_active_") != std::string::npos);
 }
 
 int main()
