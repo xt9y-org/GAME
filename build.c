@@ -94,5 +94,15 @@ void build(C_Build *b)
     c_link_system(cursor_toggle_contract, "stdc++");
 #endif
 
+    C_Target *renderer_switch_contract = c_test(b, "renderer-switch-contract");
+    c_sources(renderer_switch_contract, "tests/renderer_switch_contract.cpp");
+    c_flag(renderer_switch_contract, "-std=c++20");
+    c_warnings_strict(renderer_switch_contract);
+#ifdef __APPLE__
+    c_link_system(renderer_switch_contract, "c++");
+#else
+    c_link_system(renderer_switch_contract, "stdc++");
+#endif
+
     c_default_target(b, sponza);
 }
