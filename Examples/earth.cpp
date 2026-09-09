@@ -256,8 +256,8 @@ public:
         );
 
         Font::world(
-            *e->world_, 
-            "Felix Felix Felix Felix", 
+            *e->world_,
+            "Felix Felix Felix Felix",
             Renderer::Transform{
                 .position = {0.0f, 2.0f, 40.0f},
                 .rotation = {0.0f, 0.0f, 0.0f},
@@ -302,9 +302,6 @@ public:
             }
 
             e->renderer_->render(*e->world_);
-#ifndef __APPLE__
-            Display.updateNoMessages();
-#endif
         }
 
         delete e;
