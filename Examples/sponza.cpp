@@ -63,19 +63,14 @@ private:
 
     bool usePathTracer(bool camera_moving) const
     {
-        if (technique_ == RenderTechnique::PathTracer && path_tracer_ready_)
-        {
-            if (!camera_moving || !rasterizer_ready_) return true;
-        }
-        return !rasterizer_ready_ && path_tracer_ready_;
+        (void)camera_moving;
+        return technique_ == RenderTechnique::PathTracer && path_tracer_ready_;
     }
 
     const char *techniqueLabel(bool camera_moving) const
     {
-        if (usePathTracer(camera_moving)) return "PathTracer";
-        if (technique_ == RenderTechnique::PathTracer && camera_moving)
-            return "Rasterizer (moving)";
-        return "Rasterizer";
+        (void)camera_moving;
+        return usePathTracer(false) ? "PathTracer" : "Rasterizer";
     }
 
     bool setPathTracerSurface(bool active)
