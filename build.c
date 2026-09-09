@@ -74,5 +74,15 @@ void build(C_Build *b)
     c_link_system(earth_sun_orbit_contract, "stdc++");
 #endif
 
+    C_Target *global_illumination_contract = c_test(b, "global-illumination-contract");
+    c_sources(global_illumination_contract, "tests/global_illumination_contract.cpp");
+    c_flag(global_illumination_contract, "-std=c++20");
+    c_warnings_strict(global_illumination_contract);
+#ifdef __APPLE__
+    c_link_system(global_illumination_contract, "c++");
+#else
+    c_link_system(global_illumination_contract, "stdc++");
+#endif
+
     c_default_target(b, sponza);
 }
