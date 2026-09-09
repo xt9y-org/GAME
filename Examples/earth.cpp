@@ -1,5 +1,7 @@
 #include "earth.hpp"
 
+#include "Font.hpp"
+#include "Renderer/Components.hpp"
 #include "Sources/Animation/Animation.hpp"
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
@@ -251,6 +253,16 @@ public:
             "",
             {12.0f, 12.0f},
             2.0f
+        );
+
+        Font::world(
+            *e->world_, 
+            "Felix Felix Felix Felix", 
+            Renderer::Transform{
+                .position = {0.0f, 2.0f, 40.0f},
+                .rotation = {0.0f, 0.0f, 0.0f},
+                .scale    = {1.0f, 1.0f, 1.0f},
+            }
         );
 
         using Clock = std::chrono::steady_clock;
