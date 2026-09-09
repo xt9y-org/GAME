@@ -5,6 +5,7 @@ static void configurePlatform(C_Target *target)
 #ifdef __APPLE__
     c_define(target, "GL_SILENCE_DEPRECATION");
     c_include(target, "/opt/homebrew/include");
+    c_include(target, "/usr/local/include/lwmgl-1.0.0");
     c_link_flag(target, "-L/opt/homebrew/lib");
     c_framework(target, "OpenGL");
     c_framework(target, "Cocoa");
@@ -34,6 +35,9 @@ static void configureViewer(C_Target *target, C_Dependency *horse, const char *s
     configurePlatform(target);
     c_link_flag(target, "-L/usr/local/lib");
     c_link_flag(target, "-llwcgl");
+#ifdef __APPLE__
+    c_link_flag(target, "-llwmgl");
+#endif
     c_link_flag(target, "-Wl,-rpath,/usr/local/lib");
 }
 
