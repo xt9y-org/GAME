@@ -64,7 +64,6 @@ public:
         Renderer::PathTracerSettings& settings = renderer_->settings();
         settings.resolution_divisor = 2;
         settings.samples_per_frame = 2;
-        settings.max_bounces = 1;
         settings.exposure = 1.05f;
 #endif
     }
@@ -241,6 +240,16 @@ public:
             .color = {.x = 1.0f, .y = 0.96f, .z = 0.90f},
             .intensity = _sun_orbit_radius * _sun_orbit_radius * 1.8f,
         });
+
+        const Ecs::Entity _gi = e->world_->createEntity();
+        e->world_->add<Renderer::GlobalIlluminationComponent>(
+            _gi,
+            Renderer::GlobalIlluminationComponent{
+                .enabled = true,
+                .intensity = 1.0f,
+                .bounces = 1,
+            }
+        );
 
         const Ecs::Entity _earth = e->world_->createEntity();
         e->world_->add<Renderer::Transform>(_earth, Renderer::Transform{
