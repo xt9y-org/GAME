@@ -226,9 +226,6 @@ public:
             }
 
             e->renderer_->render(*e->world_);
-#ifndef __APPLE__
-            Display.updateNoMessages();
-#endif
         }
 
         delete e;
