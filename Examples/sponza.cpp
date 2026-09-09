@@ -67,6 +67,9 @@ public:
 
     static inline int run(int argc, char **argv)
     {
+        (void)argc;
+        (void)argv;
+
         Example *e = new Example("Sponza", {1280, 720});
 
         int _framebuffer_width  = std::max(Display.getWidth(),  1),
@@ -152,15 +155,19 @@ public:
             .intensity = _scene_radius * _scene_radius * 3.0f,
         });
 
+        std::size_t _triangle_count = 0u;
         for (std::size_t i = 0; i < Models::partCount(_model); ++i)
         {
             const Models::ModelPart *part = Models::part(_model, i);
             if (!part) continue;
 
+            const Models::MeshData *mesh = Models::mesh(part->mesh);
+            if (mesh) _triangle_count += mesh->indices.size() / 3u;
+
             const Ecs::Entity _entity = e->world_->createEntity();
 
             e->world_->add<Renderer::Transform>(
-                _entity, 
+                _entity,
                 Renderer::Transform{}
             );
 
@@ -174,6 +181,13 @@ public:
                 Renderer::RenderableComponent{true}
             );
         }
+
+        const Ecs::Entity _stats = Font::screen(
+            *e->world_,
+            "",
+            {12.0f, 12.0f},
+            2.0f
+        );
 
         using Clock = std::chrono::steady_clock;
         auto _previous = Clock::now();
@@ -190,6 +204,16 @@ public:
 
             e->animation_system_->update(*e->world_, frame_delta);
             e->camera_controller_->update(*e->world_, frame_delta);
+
+            if (Font::TextComponent *stats = e->world_->get<Font::TextComponent>(_stats))
+            {
+                const long fps = delta_seconds > 1.0e-6f
+                    ? std::lround(1.0 / static_cast<double>(delta_seconds))
+                    : 0L;
+                stats->text =
+                    "FPS: " + std::to_string(fps) +
+                    "\nTriangles: " + std::to_string(_triangle_count);
+            }
 
             const int width  = std::max(Display.getWidth(), 1);
             const int height = std::max(Display.getHeight(), 1);
