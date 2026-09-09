@@ -1,4 +1,4 @@
-#include "EarthSphere.hpp"
+#include "earth.hpp"
 
 #include "Sources/Animation/Animation.hpp"
 #include "Sources/Camera.hpp"
