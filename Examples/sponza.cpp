@@ -17,10 +17,16 @@
 #include <utility>
 #include <vector>
 
+#define RAST
+
 class Example
 {
 private:
+#ifdef RAST
+    Renderer::Rasterizer *renderer_ = new Renderer::Rasterizer();
+#else
     Renderer::PathTracer *renderer_ = new Renderer::PathTracer();
+#endif
     Camera::Controller *camera_controller_ = new Camera::Controller();
     Animation::System *animation_system_ = new Animation::System();
     Ecs::World *world_ = new Ecs::World();

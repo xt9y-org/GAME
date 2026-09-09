@@ -2,6 +2,7 @@
 
 #include "Font.hpp"
 #include "Renderer/Components.hpp"
+#include "Renderer/Rasterizer/Rasterizer.hpp"
 #include "Sources/Animation/Animation.hpp"
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
@@ -22,10 +23,16 @@
 #include <utility>
 #include <vector>
 
+#define RAST
+
 class Example
 {
 private:
+#ifdef RAST
+    Renderer::Rasterizer *renderer_ = new Renderer::Rasterizer();
+#else
     Renderer::PathTracer *renderer_ = new Renderer::PathTracer();
+#endif
     Camera::Controller *camera_controller_ = new Camera::Controller();
     Animation::System *animation_system_ = new Animation::System();
     Ecs::World *world_ = new Ecs::World();
@@ -53,11 +60,13 @@ public:
 
         renderer_->init();
 
+#ifndef RAST
         Renderer::PathTracerSettings& settings = renderer_->settings();
         settings.resolution_divisor = 2;
         settings.samples_per_frame = 2;
         settings.max_bounces = 1;
         settings.exposure = 1.05f;
+#endif
     }
 
     ~Example()
