@@ -57,6 +57,9 @@ public:
 
         Keyboard.create();
         Mouse.create();
+        Mouse.setGrabbed(LWCGL_TRUE);
+        Mouse.getDX();
+        Mouse.getDY();
 
         renderer_->init();
 
@@ -285,11 +288,22 @@ public:
 
         using Clock = std::chrono::steady_clock;
         auto _previous = Clock::now();
+        bool _tab_down = false;
 
         while (!Display.isCloseRequested())
         {
             Display.processMessages();
             if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE)) break;
+
+            const bool tab_down = Keyboard.isKeyDown(Keyboard.KEY_TAB);
+            if (tab_down && !_tab_down)
+            {
+                const bool grabbed = Mouse.isGrabbed() != LWCGL_FALSE;
+                Mouse.setGrabbed(grabbed ? LWCGL_FALSE : LWCGL_TRUE);
+                Mouse.getDX();
+                Mouse.getDY();
+            }
+            _tab_down = tab_down;
 
             const auto now = Clock::now();
             const float delta_seconds = std::chrono::duration<float>(now - _previous).count();
