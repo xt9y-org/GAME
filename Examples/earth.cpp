@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -92,10 +93,6 @@ public:
             45.0f, 0.1f, true
         });
 
-        // Keep loading the source FBX so the real asset remains an importer
-        // regression and supplies the canonical scene scale/center. Its
-        // original presentation shell is intentionally very coarse, so the
-        // final display globe is a dense generic runtime mesh below.
         std::string _error;
         const Models::ModelHandle _model = Models::load("Assets/Earth/Earth.fbx", &_error);
 
@@ -196,6 +193,11 @@ public:
             return 3;
         }
 
+        const Models::MeshData *_display_mesh = Models::mesh(_earth_mesh);
+        const std::size_t _triangle_count = _display_mesh
+            ? _display_mesh->indices.size() / 3u
+            : 0u;
+
         if (Renderer::Transform *camera = e->world_->get<Renderer::Transform>(e->camera_))
         {
             camera->position = {
@@ -244,6 +246,13 @@ public:
             Renderer::RenderableComponent{true}
         );
 
+        const Ecs::Entity _stats = Font::screen(
+            *e->world_,
+            "",
+            {12.0f, 12.0f},
+            2.0f
+        );
+
         using Clock = std::chrono::steady_clock;
         auto _previous = Clock::now();
 
@@ -259,6 +268,16 @@ public:
 
             e->animation_system_->update(*e->world_, frame_delta);
             e->camera_controller_->update(*e->world_, frame_delta);
+
+            if (Font::TextComponent *stats = e->world_->get<Font::TextComponent>(_stats))
+            {
+                const long fps = delta_seconds > 1.0e-6f
+                    ? std::lround(1.0 / static_cast<double>(delta_seconds))
+                    : 0L;
+                stats->text =
+                    "FPS: " + std::to_string(fps) +
+                    "\nTriangles: " + std::to_string(_triangle_count);
+            }
 
             const int width  = std::max(Display.getWidth(), 1);
             const int height = std::max(Display.getHeight(), 1);
