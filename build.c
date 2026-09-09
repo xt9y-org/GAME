@@ -45,7 +45,7 @@ void build(C_Build *b)
         "https://github.com/xt9y/Horse.git",
         "main"
     );
-    c_dep_cbuild(horse, "ecs-model-rasterizer", C_TARGET_SHARED_LIBRARY);
+    c_dep_cbuild(horse, "Horse", C_TARGET_SHARED_LIBRARY);
     c_dep_include(horse, ".");
     c_dep_include(horse, "Sources");
 

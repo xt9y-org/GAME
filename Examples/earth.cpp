@@ -156,7 +156,7 @@ public:
         const float _extent_x = std::max(_max_x - _min_x, 1.0e-4f);
         const float _extent_y = std::max(_max_y - _min_y, 1.0e-4f);
         const float _extent_z = std::max(_max_z - _min_z, 1.0e-4f);
-        const float _globe_radius = std::max({_extent_x, _extent_y, _extent_z}) * 0.5f;
+        const float _globe_radius = std::max({_extent_x, _extent_y, _extent_z}) * 4.5f;
         const float _display_radius = std::max(_globe_radius * 1.5f, 1.5f);
         const float _center_x = (_min_x + _max_x) * 0.5f;
         const float _center_y = (_min_y + _max_y) * 0.5f;
