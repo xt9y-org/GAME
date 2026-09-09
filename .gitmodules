@@ -3,7 +3,7 @@
 	url = https://github.com/jimmiebergmann/Sponza.git
 [submodule "Assets/Glock17"]
 	path = Assets/Glock17
-	url = https://github.com/xt9y/Glock17.git
+	url = https://github.com/xt9y-org/Glock17.git
 [submodule "Assets/Earth"]
 	path = Assets/Earth
-	url = https://github.com/xt9y/Earth.git
+	url = https://github.com/xt9y-org/Earth.git
