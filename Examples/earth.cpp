@@ -34,10 +34,12 @@ private:
     enum class RenderTechnique
     {
         Rasterizer,
+        RayTracer,
         PathTracer,
     };
 
     Renderer::Rasterizer *rasterizer_ = new Renderer::Rasterizer();
+    Renderer::RayTracer *ray_tracer_ = new Renderer::RayTracer();
     Renderer::PathTracer *path_tracer_ = new Renderer::PathTracer();
     Camera::Controller *camera_controller_ = new Camera::Controller();
     Animation::System *animation_system_ = new Animation::System();
@@ -45,9 +47,11 @@ private:
     Ecs::Entity camera_ = Ecs::INVALID_ENTITY;
 
     RenderTechnique technique_ = RenderTechnique::Rasterizer;
+    RenderTechnique active_trace_ = RenderTechnique::Rasterizer;
     bool rasterizer_ready_ = false;
+    bool ray_tracer_ready_ = false;
     bool path_tracer_ready_ = false;
-    bool metal_surface_active_ = false;
+    bool trace_surface_active_ = false;
 
     static bool cameraChanged(
         const Renderer::Transform& before,
@@ -67,6 +71,43 @@ private:
             changed(before.rotation.z, after.rotation.z);
     }
 
+    bool techniqueReady(RenderTechnique technique) const
+    {
+        switch (technique)
+        {
+            case RenderTechnique::Rasterizer: return rasterizer_ready_;
+            case RenderTechnique::RayTracer: return ray_tracer_ready_;
+            case RenderTechnique::PathTracer: return path_tracer_ready_;
+        }
+        return false;
+    }
+
+    void cycleTechnique()
+    {
+        RenderTechnique next = technique_;
+        for (int i = 0; i < 3; ++i)
+        {
+            switch (next)
+            {
+                case RenderTechnique::Rasterizer: next = RenderTechnique::RayTracer; break;
+                case RenderTechnique::RayTracer: next = RenderTechnique::PathTracer; break;
+                case RenderTechnique::PathTracer: next = RenderTechnique::Rasterizer; break;
+            }
+
+            if (techniqueReady(next))
+            {
+                technique_ = next;
+                return;
+            }
+        }
+    }
+
+    bool useRayTracer(bool camera_moving) const
+    {
+        (void)camera_moving;
+        return technique_ == RenderTechnique::RayTracer && ray_tracer_ready_;
+    }
+
     bool usePathTracer(bool camera_moving) const
     {
         (void)camera_moving;
@@ -76,45 +117,104 @@ private:
     const char *techniqueLabel(bool camera_moving) const
     {
         (void)camera_moving;
-        return usePathTracer(false) ? "PathTracer" : "Rasterizer";
+        switch (technique_)
+        {
+            case RenderTechnique::Rasterizer: return "Rasterizer";
+            case RenderTechnique::RayTracer: return "RayTracer";
+            case RenderTechnique::PathTracer: return "PathTracer";
+        }
+        return "Rasterizer";
     }
 
-    bool setPathTracerSurface(bool active)
+    bool setTraceSurface(bool active)
     {
-        if (!path_tracer_ready_) return false;
-        if (metal_surface_active_ == active) return true;
+        if (!active)
+        {
+            if (!trace_surface_active_)
+            {
+                active_trace_ = RenderTechnique::Rasterizer;
+                return true;
+            }
 
 #ifdef __APPLE__
-        if (active)
+            if (Metal.isCreated()) Metal.waitIdle();
+            lwmglSurfaceDetach();
+#endif
+            trace_surface_active_ = false;
+            active_trace_ = RenderTechnique::Rasterizer;
+            return true;
+        }
+
+        if (technique_ == RenderTechnique::Rasterizer || !techniqueReady(technique_))
+            return false;
+
+#ifdef __APPLE__
+        if (!trace_surface_active_)
         {
             if (lwmglSurfaceAttach(Display.getNativeWindow()) != 0)
             {
                 std::fprintf(stderr, "[LOG]: failed to attach Metal surface: %s\n", lwmglGetLastError());
                 return false;
             }
+            trace_surface_active_ = true;
+        }
+#else
+        trace_surface_active_ = true;
+#endif
 
-            metal_surface_active_ = true;
-            const int width = std::max(Display.getWidth(), 1);
-            const int height = std::max(Display.getHeight(), 1);
+        if (active_trace_ == technique_)
+            return true;
+
+        const int width = std::max(Display.getWidth(), 1);
+        const int height = std::max(Display.getHeight(), 1);
+
+        if (technique_ == RenderTechnique::RayTracer)
+        {
+            ray_tracer_->resize(width, height);
+            ray_tracer_ready_ = ray_tracer_->initialized();
+        }
+        else
+        {
             path_tracer_->resize(width, height);
             path_tracer_ready_ = path_tracer_->initialized();
-            if (!path_tracer_ready_)
-            {
-                lwmglSurfaceDetach();
-                metal_surface_active_ = false;
-                return false;
-            }
-            return true;
         }
 
-        if (Metal.isCreated()) Metal.waitIdle();
-        lwmglSurfaceDetach();
-        metal_surface_active_ = false;
-        return true;
-#else
-        metal_surface_active_ = active;
-        return true;
+        if (!techniqueReady(technique_))
+        {
+#ifdef __APPLE__
+            if (Metal.isCreated()) Metal.waitIdle();
+            lwmglSurfaceDetach();
 #endif
+            trace_surface_active_ = false;
+            active_trace_ = RenderTechnique::Rasterizer;
+            return false;
+        }
+
+        active_trace_ = technique_;
+        return true;
+    }
+
+    bool prepareTechnique()
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            if (!techniqueReady(technique_))
+            {
+                cycleTechnique();
+                continue;
+            }
+
+            if (technique_ == RenderTechnique::Rasterizer)
+                return setTraceSurface(false);
+
+            if (setTraceSurface(true))
+                return true;
+
+            cycleTechnique();
+        }
+
+        setTraceSurface(false);
+        return false;
     }
 
 public:
@@ -141,8 +241,16 @@ public:
         Mouse.getDY();
 
         rasterizer_ready_ = rasterizer_->init();
+        ray_tracer_ready_ = ray_tracer_->init();
         path_tracer_ready_ = path_tracer_->init();
-        metal_surface_active_ = path_tracer_ready_;
+        trace_surface_active_ = ray_tracer_ready_ || path_tracer_ready_;
+
+        if (ray_tracer_ready_)
+        {
+            Renderer::RayTracerSettings& settings = ray_tracer_->settings();
+            settings.resolution_divisor = 1;
+            settings.exposure = 1.05f;
+        }
 
         if (path_tracer_ready_)
         {
@@ -152,22 +260,35 @@ public:
             settings.exposure = 1.05f;
         }
 
-        if (rasterizer_ready_ && path_tracer_ready_)
-            setPathTracerSurface(false);
-        else if (!rasterizer_ready_ && path_tracer_ready_)
+        if (rasterizer_ready_)
+        {
+            technique_ = RenderTechnique::Rasterizer;
+            setTraceSurface(false);
+        }
+        else if (ray_tracer_ready_)
+        {
+            technique_ = RenderTechnique::RayTracer;
+        }
+        else if (path_tracer_ready_)
+        {
             technique_ = RenderTechnique::PathTracer;
+        }
 
-        if (!rasterizer_ready_ && !path_tracer_ready_)
+        if (!rasterizer_ready_ && !ray_tracer_ready_ && !path_tracer_ready_)
             std::fprintf(stderr, "[LOG]: no renderer could be initialized\n");
     }
 
     ~Example()
     {
+        setTraceSurface(false);
         path_tracer_->shutdown();
+        ray_tracer_->shutdown();
         rasterizer_->shutdown();
         delete path_tracer_;
+        delete ray_tracer_;
         delete rasterizer_;
         path_tracer_ = nullptr;
+        ray_tracer_ = nullptr;
         rasterizer_ = nullptr;
 
         Models::clearCache();
@@ -186,7 +307,7 @@ public:
         (void)argv;
 
         Example *e = new Example("Earth", {1280, 720});
-        if (!e->rasterizer_ready_ && !e->path_tracer_ready_)
+        if (!e->rasterizer_ready_ && !e->ray_tracer_ready_ && !e->path_tracer_ready_)
         {
             delete e;
             return 2;
@@ -197,8 +318,6 @@ public:
 
         if (e->rasterizer_ready_)
             e->rasterizer_->resize(_framebuffer_width, _framebuffer_height);
-        if (e->path_tracer_ready_ && e->metal_surface_active_)
-            e->path_tracer_->resize(_framebuffer_width, _framebuffer_height);
 
         e->camera_ = e->world_->createEntity();
 
@@ -387,11 +506,22 @@ public:
             }
         );
 
-        if (e->rasterizer_ready_ && e->path_tracer_ready_)
+        if (e->rasterizer_ready_)
         {
-            if (e->setPathTracerSurface(true))
-                e->path_tracer_->render(*e->world_);
-            e->setPathTracerSurface(false);
+            if (e->ray_tracer_ready_)
+            {
+                e->technique_ = RenderTechnique::RayTracer;
+                if (e->setTraceSurface(true))
+                    e->ray_tracer_->render(*e->world_);
+            }
+            if (e->path_tracer_ready_)
+            {
+                e->technique_ = RenderTechnique::PathTracer;
+                if (e->setTraceSurface(true))
+                    e->path_tracer_->render(*e->world_);
+            }
+            e->technique_ = RenderTechnique::Rasterizer;
+            e->setTraceSurface(false);
             e->rasterizer_->render(*e->world_);
         }
 
@@ -417,12 +547,7 @@ public:
 
             const bool enter_down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
             if (enter_down && !_enter_down)
-            {
-                if (e->technique_ == RenderTechnique::Rasterizer && e->path_tracer_ready_)
-                    e->technique_ = RenderTechnique::PathTracer;
-                else if (e->technique_ == RenderTechnique::PathTracer && e->rasterizer_ready_)
-                    e->technique_ = RenderTechnique::Rasterizer;
-            }
+                e->cycleTechnique();
             _enter_down = enter_down;
 
             const auto now = Clock::now();
@@ -448,16 +573,7 @@ public:
                     camera_moving = cameraChanged(camera_before, *camera);
             }
 
-            const bool wants_path_tracer = e->usePathTracer(camera_moving);
-            if (wants_path_tracer)
-            {
-                if (!e->setPathTracerSurface(true))
-                    e->technique_ = RenderTechnique::Rasterizer;
-            }
-            else
-            {
-                e->setPathTracerSurface(false);
-            }
+            e->prepareTechnique();
 
             if (Font::TextComponent *stats = e->world_->get<Font::TextComponent>(_stats))
             {
@@ -478,13 +594,18 @@ public:
                 _framebuffer_height = height;
                 _framebuffer_width  = width;
                 if (e->rasterizer_ready_) e->rasterizer_->resize(width, height);
-                if (e->path_tracer_ready_ && e->metal_surface_active_)
-                    e->path_tracer_->resize(width, height);
+                if (e->trace_surface_active_)
+                {
+                    if (e->useRayTracer(camera_moving)) e->ray_tracer_->resize(width, height);
+                    if (e->usePathTracer(camera_moving)) e->path_tracer_->resize(width, height);
+                }
             }
 
-            if (e->usePathTracer(camera_moving) && e->metal_surface_active_)
+            if (e->useRayTracer(camera_moving) && e->trace_surface_active_)
+                e->ray_tracer_->render(*e->world_);
+            else if (e->usePathTracer(camera_moving) && e->trace_surface_active_)
                 e->path_tracer_->render(*e->world_);
-            else
+            else if (e->rasterizer_ready_)
                 e->rasterizer_->render(*e->world_);
         }
 
