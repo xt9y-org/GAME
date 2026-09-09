@@ -6,6 +6,11 @@
 
 #include <lwcgl/context.h>
 #include <lwcgl/lwcgl.h>
+#ifdef __APPLE__
+#include <lwmgl/lwmgl.h>
+extern "C" int lwmglSurfaceAttach(void *nativeWindow);
+extern "C" void lwmglSurfaceDetach(void);
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -36,6 +41,7 @@ private:
     RenderTechnique technique_ = RenderTechnique::Rasterizer;
     bool rasterizer_ready_ = false;
     bool path_tracer_ready_ = false;
+    bool metal_surface_active_ = false;
 
     static bool cameraChanged(
         const Renderer::Transform& before,
@@ -72,6 +78,44 @@ private:
         return "Rasterizer";
     }
 
+    bool setPathTracerSurface(bool active)
+    {
+        if (!path_tracer_ready_) return false;
+        if (metal_surface_active_ == active) return true;
+
+#ifdef __APPLE__
+        if (active)
+        {
+            if (lwmglSurfaceAttach(Display.getNativeWindow()) != 0)
+            {
+                std::fprintf(stderr, "[LOG]: failed to attach Metal surface: %s\n", lwmglGetLastError());
+                return false;
+            }
+
+            metal_surface_active_ = true;
+            const int width = std::max(Display.getWidth(), 1);
+            const int height = std::max(Display.getHeight(), 1);
+            path_tracer_->resize(width, height);
+            path_tracer_ready_ = path_tracer_->initialized();
+            if (!path_tracer_ready_)
+            {
+                lwmglSurfaceDetach();
+                metal_surface_active_ = false;
+                return false;
+            }
+            return true;
+        }
+
+        if (Metal.isCreated()) Metal.waitIdle();
+        lwmglSurfaceDetach();
+        metal_surface_active_ = false;
+        return true;
+#else
+        metal_surface_active_ = active;
+        return true;
+#endif
+    }
+
 public:
     Example(const char* _title, const std::vector<int> _dim)
     {
@@ -97,8 +141,11 @@ public:
 
         rasterizer_ready_ = rasterizer_->init();
         path_tracer_ready_ = path_tracer_->init();
+        metal_surface_active_ = path_tracer_ready_;
 
-        if (!rasterizer_ready_ && path_tracer_ready_)
+        if (rasterizer_ready_ && path_tracer_ready_)
+            setPathTracerSurface(false);
+        else if (!rasterizer_ready_ && path_tracer_ready_)
             technique_ = RenderTechnique::PathTracer;
 
         if (!rasterizer_ready_ && !path_tracer_ready_)
@@ -141,7 +188,7 @@ public:
 
         if (e->rasterizer_ready_)
             e->rasterizer_->resize(_framebuffer_width, _framebuffer_height);
-        if (e->path_tracer_ready_)
+        if (e->path_tracer_ready_ && e->metal_surface_active_)
             e->path_tracer_->resize(_framebuffer_width, _framebuffer_height);
 
         e->camera_ = e->world_->createEntity();
@@ -266,6 +313,14 @@ public:
             2.0f
         );
 
+        if (e->rasterizer_ready_ && e->path_tracer_ready_)
+        {
+            if (e->setPathTracerSurface(true))
+                e->path_tracer_->render(*e->world_);
+            e->setPathTracerSurface(false);
+            e->rasterizer_->render(*e->world_);
+        }
+
         using Clock = std::chrono::steady_clock;
         auto _previous = Clock::now();
         bool _tab_down = false;
@@ -319,6 +374,17 @@ public:
                     camera_moving = cameraChanged(camera_before, *camera);
             }
 
+            const bool wants_path_tracer = e->usePathTracer(camera_moving);
+            if (wants_path_tracer)
+            {
+                if (!e->setPathTracerSurface(true))
+                    e->technique_ = RenderTechnique::Rasterizer;
+            }
+            else
+            {
+                e->setPathTracerSurface(false);
+            }
+
             if (Font::TextComponent *stats = e->world_->get<Font::TextComponent>(_stats))
             {
                 const long fps = delta_seconds > 1.0e-6f
@@ -338,10 +404,11 @@ public:
                 _framebuffer_height = height;
                 _framebuffer_width  = width;
                 if (e->rasterizer_ready_) e->rasterizer_->resize(width, height);
-                if (e->path_tracer_ready_) e->path_tracer_->resize(width, height);
+                if (e->path_tracer_ready_ && e->metal_surface_active_)
+                    e->path_tracer_->resize(width, height);
             }
 
-            if (e->usePathTracer(camera_moving))
+            if (e->usePathTracer(camera_moving) && e->metal_surface_active_)
                 e->path_tracer_->render(*e->world_);
             else
                 e->rasterizer_->render(*e->world_);
