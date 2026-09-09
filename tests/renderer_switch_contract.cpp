@@ -21,8 +21,6 @@ static void checkExample(const char *path)
     assert(source.find("#define RAST") == std::string::npos);
     assert(source.find("Keyboard.KEY_RETURN") != std::string::npos);
     assert(source.find("RenderTechnique::PathTracer") != std::string::npos);
-    assert(source.find("camera_moving") != std::string::npos);
-    assert(source.find("Rasterizer (moving)") != std::string::npos);
     assert(source.find("Technique: ") != std::string::npos);
 
     assert(source.find("metal_surface_active_") != std::string::npos);
@@ -30,7 +28,10 @@ static void checkExample(const char *path)
     assert(source.find("lwmglSurfaceAttach") != std::string::npos);
     assert(source.find("Metal.waitIdle") != std::string::npos);
     assert(source.find("setPathTracerSurface") != std::string::npos);
-    assert(source.find("e->path_tracer_ready_ && e->metal_surface_active_") != std::string::npos);
+
+    assert(source.find("if (!camera_moving || !rasterizer_ready_) return true;") == std::string::npos);
+    assert(source.find("Rasterizer (moving)") == std::string::npos);
+    assert(source.find("return technique_ == RenderTechnique::PathTracer && path_tracer_ready_;") != std::string::npos);
 }
 
 int main()
