@@ -24,8 +24,13 @@ static void checkExample(const char *path)
     assert(source.find("camera_moving") != std::string::npos);
     assert(source.find("Rasterizer (moving)") != std::string::npos);
     assert(source.find("Technique: ") != std::string::npos);
-    assert(source.find("rasterizer_->resize") != std::string::npos);
-    assert(source.find("path_tracer_->resize") != std::string::npos);
+
+    assert(source.find("metal_surface_active_") != std::string::npos);
+    assert(source.find("lwmglSurfaceDetach") != std::string::npos);
+    assert(source.find("lwmglSurfaceAttach") != std::string::npos);
+    assert(source.find("Metal.waitIdle") != std::string::npos);
+    assert(source.find("setPathTracerSurface") != std::string::npos);
+    assert(source.find("if (e->metal_surface_active_)") != std::string::npos);
 }
 
 int main()
