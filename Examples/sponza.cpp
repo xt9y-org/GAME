@@ -161,6 +161,16 @@ public:
             .intensity = _scene_radius * _scene_radius * 3.0f,
         });
 
+        const Ecs::Entity _gi = e->world_->createEntity();
+        e->world_->add<Renderer::GlobalIlluminationComponent>(
+            _gi,
+            Renderer::GlobalIlluminationComponent{
+                .enabled = true,
+                .intensity = 1.0f,
+                .bounces = 2,
+            }
+        );
+
         std::size_t _triangle_count = 0u;
         for (std::size_t i = 0; i < Models::partCount(_model); ++i)
         {
