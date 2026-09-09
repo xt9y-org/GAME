@@ -37,17 +37,6 @@ static void configureViewer(C_Target *target, C_Dependency *horse, const char *s
     c_link_flag(target, "-Wl,-rpath,/usr/local/lib");
 }
 
-static void configureContract(C_Target *target)
-{
-    c_flag(target, "-std=c++20");
-    c_warnings_strict(target);
-#ifdef __APPLE__
-    c_link_system(target, "c++");
-#else
-    c_link_system(target, "stdc++");
-#endif
-}
-
 void build(C_Build *b)
 {
     C_Dependency *horse = c_git(
@@ -77,15 +66,33 @@ void build(C_Build *b)
 
     C_Target *earth_sun_orbit_contract = c_test(b, "earth-sun-orbit-contract");
     c_sources(earth_sun_orbit_contract, "tests/earth_sun_orbit_contract.cpp");
-    configureContract(earth_sun_orbit_contract);
+    c_flag(earth_sun_orbit_contract, "-std=c++20");
+    c_warnings_strict(earth_sun_orbit_contract);
+#ifdef __APPLE__
+    c_link_system(earth_sun_orbit_contract, "c++");
+#else
+    c_link_system(earth_sun_orbit_contract, "stdc++");
+#endif
 
     C_Target *global_illumination_contract = c_test(b, "global-illumination-contract");
     c_sources(global_illumination_contract, "tests/global_illumination_contract.cpp");
-    configureContract(global_illumination_contract);
+    c_flag(global_illumination_contract, "-std=c++20");
+    c_warnings_strict(global_illumination_contract);
+#ifdef __APPLE__
+    c_link_system(global_illumination_contract, "c++");
+#else
+    c_link_system(global_illumination_contract, "stdc++");
+#endif
 
     C_Target *cursor_toggle_contract = c_test(b, "cursor-toggle-contract");
     c_sources(cursor_toggle_contract, "tests/cursor_toggle_contract.cpp");
-    configureContract(cursor_toggle_contract);
+    c_flag(cursor_toggle_contract, "-std=c++20");
+    c_warnings_strict(cursor_toggle_contract);
+#ifdef __APPLE__
+    c_link_system(cursor_toggle_contract, "c++");
+#else
+    c_link_system(cursor_toggle_contract, "stdc++");
+#endif
 
     c_default_target(b, sponza);
 }
