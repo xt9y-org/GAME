@@ -17,20 +17,60 @@
 #include <utility>
 #include <vector>
 
-#define RAST
-
 class Example
 {
 private:
-#ifdef RAST
-    Renderer::Rasterizer *renderer_ = new Renderer::Rasterizer();
-#else
-    Renderer::PathTracer *renderer_ = new Renderer::PathTracer();
-#endif
+    enum class RenderTechnique
+    {
+        Rasterizer,
+        PathTracer,
+    };
+
+    Renderer::Rasterizer *rasterizer_ = new Renderer::Rasterizer();
+    Renderer::PathTracer *path_tracer_ = new Renderer::PathTracer();
     Camera::Controller *camera_controller_ = new Camera::Controller();
     Animation::System *animation_system_ = new Animation::System();
     Ecs::World *world_ = new Ecs::World();
     Ecs::Entity camera_ = Ecs::INVALID_ENTITY;
+
+    RenderTechnique technique_ = RenderTechnique::Rasterizer;
+    bool rasterizer_ready_ = false;
+    bool path_tracer_ready_ = false;
+
+    static bool cameraChanged(
+        const Renderer::Transform& before,
+        const Renderer::Transform& after)
+    {
+        constexpr float epsilon = 1.0e-6f;
+        const auto changed = [](float a, float b) {
+            return std::fabs(a - b) > epsilon;
+        };
+
+        return
+            changed(before.position.x, after.position.x) ||
+            changed(before.position.y, after.position.y) ||
+            changed(before.position.z, after.position.z) ||
+            changed(before.rotation.x, after.rotation.x) ||
+            changed(before.rotation.y, after.rotation.y) ||
+            changed(before.rotation.z, after.rotation.z);
+    }
+
+    bool usePathTracer(bool camera_moving) const
+    {
+        if (technique_ == RenderTechnique::PathTracer && path_tracer_ready_)
+        {
+            if (!camera_moving || !rasterizer_ready_) return true;
+        }
+        return !rasterizer_ready_ && path_tracer_ready_;
+    }
+
+    const char *techniqueLabel(bool camera_moving) const
+    {
+        if (usePathTracer(camera_moving)) return "PathTracer";
+        if (technique_ == RenderTechnique::PathTracer && camera_moving)
+            return "Rasterizer (moving)";
+        return "Rasterizer";
+    }
 
 public:
     Example(const char* _title, const std::vector<int> _dim)
@@ -55,14 +95,24 @@ public:
         Mouse.getDX();
         Mouse.getDY();
 
-        renderer_->init();
+        rasterizer_ready_ = rasterizer_->init();
+        path_tracer_ready_ = path_tracer_->init();
+
+        if (!rasterizer_ready_ && path_tracer_ready_)
+            technique_ = RenderTechnique::PathTracer;
+
+        if (!rasterizer_ready_ && !path_tracer_ready_)
+            std::fprintf(stderr, "[LOG]: no renderer could be initialized\n");
     }
 
     ~Example()
     {
-        renderer_->shutdown();
-        delete renderer_;
-        renderer_ = nullptr;
+        path_tracer_->shutdown();
+        rasterizer_->shutdown();
+        delete path_tracer_;
+        delete rasterizer_;
+        path_tracer_ = nullptr;
+        rasterizer_ = nullptr;
 
         Models::clearCache();
         Mouse.destroy();
@@ -80,11 +130,19 @@ public:
         (void)argv;
 
         Example *e = new Example("Sponza", {1280, 720});
+        if (!e->rasterizer_ready_ && !e->path_tracer_ready_)
+        {
+            delete e;
+            return 2;
+        }
 
         int _framebuffer_width  = std::max(Display.getWidth(),  1),
             _framebuffer_height = std::max(Display.getHeight(), 1);
 
-        e->renderer_->resize(_framebuffer_width, _framebuffer_height);
+        if (e->rasterizer_ready_)
+            e->rasterizer_->resize(_framebuffer_width, _framebuffer_height);
+        if (e->path_tracer_ready_)
+            e->path_tracer_->resize(_framebuffer_width, _framebuffer_height);
 
         e->camera_ = e->world_->createEntity();
 
@@ -211,6 +269,7 @@ public:
         using Clock = std::chrono::steady_clock;
         auto _previous = Clock::now();
         bool _tab_down = false;
+        bool _enter_down = false;
 
         while (!Display.isCloseRequested())
         {
@@ -227,13 +286,38 @@ public:
             }
             _tab_down = tab_down;
 
+            const bool enter_down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
+            if (enter_down && !_enter_down)
+            {
+                if (e->technique_ == RenderTechnique::Rasterizer && e->path_tracer_ready_)
+                    e->technique_ = RenderTechnique::PathTracer;
+                else if (e->technique_ == RenderTechnique::PathTracer && e->rasterizer_ready_)
+                    e->technique_ = RenderTechnique::Rasterizer;
+            }
+            _enter_down = enter_down;
+
             const auto now = Clock::now();
             const float delta_seconds = std::chrono::duration<float>(now - _previous).count();
             _previous = now;
             const float frame_delta = std::min(delta_seconds, 0.1f);
 
+            Renderer::Transform camera_before{};
+            bool had_camera_before = false;
+            if (const Renderer::Transform *camera = e->world_->get<Renderer::Transform>(e->camera_))
+            {
+                camera_before = *camera;
+                had_camera_before = true;
+            }
+
             e->animation_system_->update(*e->world_, frame_delta);
             e->camera_controller_->update(*e->world_, frame_delta);
+
+            bool camera_moving = false;
+            if (had_camera_before)
+            {
+                if (const Renderer::Transform *camera = e->world_->get<Renderer::Transform>(e->camera_))
+                    camera_moving = cameraChanged(camera_before, *camera);
+            }
 
             if (Font::TextComponent *stats = e->world_->get<Font::TextComponent>(_stats))
             {
@@ -241,7 +325,8 @@ public:
                     ? std::lround(1.0 / static_cast<double>(delta_seconds))
                     : 0L;
                 stats->text =
-                    "FPS: " + std::to_string(fps) +
+                    "Technique: " + std::string(e->techniqueLabel(camera_moving)) +
+                    "\nFPS: " + std::to_string(fps) +
                     "\nTriangles: " + std::to_string(_triangle_count);
             }
 
@@ -252,10 +337,14 @@ public:
             {
                 _framebuffer_height = height;
                 _framebuffer_width  = width;
-                e->renderer_->resize(width, height);
+                if (e->rasterizer_ready_) e->rasterizer_->resize(width, height);
+                if (e->path_tracer_ready_) e->path_tracer_->resize(width, height);
             }
 
-            e->renderer_->render(*e->world_);
+            if (e->usePathTracer(camera_moving))
+                e->path_tracer_->render(*e->world_);
+            else
+                e->rasterizer_->render(*e->world_);
         }
 
         delete e;
