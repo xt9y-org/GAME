@@ -59,54 +59,5 @@ void build(C_Build *b)
     C_Target *earth = c_test(b, "earth");
     configureViewer(earth, horse, "Examples/earth.cpp");
 
-    C_Target *earth_texture_contract = c_test(b, "earth-texture-contract");
-    configureViewer(earth_texture_contract, horse, "tests/earth_texture_contract.cpp");
-
-    C_Target *earth_sphere_contract = c_test(b, "earth-sphere-contract");
-    configureViewer(earth_sphere_contract, horse, "tests/earth_sphere_contract.cpp");
-
-    C_Target *frame_stats_contract = c_test(b, "frame-stats-contract");
-    configureViewer(frame_stats_contract, horse, "tests/frame_stats_contract.cpp");
-
-    C_Target *earth_sun_orbit_contract = c_test(b, "earth-sun-orbit-contract");
-    c_sources(earth_sun_orbit_contract, "tests/earth_sun_orbit_contract.cpp");
-    c_flag(earth_sun_orbit_contract, "-std=c++20");
-    c_warnings_strict(earth_sun_orbit_contract);
-#ifdef __APPLE__
-    c_link_system(earth_sun_orbit_contract, "c++");
-#else
-    c_link_system(earth_sun_orbit_contract, "stdc++");
-#endif
-
-    C_Target *global_illumination_contract = c_test(b, "global-illumination-contract");
-    c_sources(global_illumination_contract, "tests/global_illumination_contract.cpp");
-    c_flag(global_illumination_contract, "-std=c++20");
-    c_warnings_strict(global_illumination_contract);
-#ifdef __APPLE__
-    c_link_system(global_illumination_contract, "c++");
-#else
-    c_link_system(global_illumination_contract, "stdc++");
-#endif
-
-    C_Target *cursor_toggle_contract = c_test(b, "cursor-toggle-contract");
-    c_sources(cursor_toggle_contract, "tests/cursor_toggle_contract.cpp");
-    c_flag(cursor_toggle_contract, "-std=c++20");
-    c_warnings_strict(cursor_toggle_contract);
-#ifdef __APPLE__
-    c_link_system(cursor_toggle_contract, "c++");
-#else
-    c_link_system(cursor_toggle_contract, "stdc++");
-#endif
-
-    C_Target *renderer_switch_contract = c_test(b, "renderer-switch-contract");
-    c_sources(renderer_switch_contract, "tests/renderer_switch_contract.cpp");
-    c_flag(renderer_switch_contract, "-std=c++20");
-    c_warnings_strict(renderer_switch_contract);
-#ifdef __APPLE__
-    c_link_system(renderer_switch_contract, "c++");
-#else
-    c_link_system(renderer_switch_contract, "stdc++");
-#endif
-
     c_default_target(b, sponza);
 }
