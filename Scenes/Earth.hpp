@@ -161,6 +161,9 @@ public:
                 .enabled = true,
                 .intensity = 1.0f,
                 .bounces = 1,
+                .photon_mapping = true,
+                .photon_count = 4096u,
+                .photon_radius = 0.0f,
             }
         );
 
