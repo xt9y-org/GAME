@@ -23,6 +23,48 @@ static void configurePlatform(C_Target *target)
     c_link_system(target, "glfw");
 }
 
+static void configureDrivingAssets(C_Target *target)
+{
+    c_generate(
+        target,
+        "build/generated/driving_assets.cpp",
+        "build.c",
+        "mkdir -p build/generated Assets/Driving/Cars Assets/Driving/Street "
+        "Assets/Driving/Foliage Assets/Driving/City; "
+        "fetch() { "
+            "url=\"$1\"; dst=\"$2\"; "
+            "[ -s \"$dst\" ] && return 0; "
+            "if ! command -v curl >/dev/null 2>&1; then "
+                "echo '[assets] curl unavailable; using procedural fallback' >&2; return 0; "
+            "fi; "
+            "echo \"[assets] $dst\"; "
+            "if curl -fL --retry 2 --connect-timeout 10 -o \"$dst.part\" \"$url\"; then "
+                "mv \"$dst.part\" \"$dst\"; "
+            "else "
+                "rm -f \"$dst.part\"; "
+                "echo \"[assets] failed: $dst; using fallback\" >&2; "
+            "fi; "
+        "}; "
+        "fetch 'https://github.com/xt9y-org/Cars/releases/download/v1.0.0/1967_chevy_camaro_ss_hidden_jewel.glb' "
+            "'Assets/Driving/Cars/1967_chevy_camaro_ss_hidden_jewel.glb'; "
+        "fetch 'https://github.com/xt9y-org/Cars/releases/download/v1.0.0/2010_mercedes-benz_sls_amg.glb' "
+            "'Assets/Driving/Cars/2010_mercedes-benz_sls_amg.glb'; "
+        "fetch 'https://github.com/xt9y-org/Cars/releases/download/v1.0.0/2015_mercedes-benz_s65_amg_coupe.glb' "
+            "'Assets/Driving/Cars/2015_mercedes-benz_s65_amg_coupe.glb'; "
+        "fetch 'https://github.com/xt9y-org/Street/releases/download/v1.0.0/low_poly_street_gameready_6.glb' "
+            "'Assets/Driving/Street/low_poly_street_gameready_6.glb'; "
+        "fetch 'https://github.com/xt9y-org/Street/releases/download/v1.0.0/road_signs_asset_pack__australian_american.glb' "
+            "'Assets/Driving/Street/road_signs_asset_pack__australian_american.glb'; "
+        "fetch 'https://github.com/xt9y-org/Foliage/releases/download/v1.0.0/low_poly_stylized_plants_pack_free.glb' "
+            "'Assets/Driving/Foliage/low_poly_stylized_plants_pack_free.glb'; "
+        "fetch 'https://github.com/xt9y-org/City/releases/download/v1.0.0/street_city_7_for_games_free.glb' "
+            "'Assets/Driving/City/street_city_7_for_games_free.glb'; "
+        "fetch 'https://github.com/xt9y-org/City/releases/download/v1.0.0/street_city_buildings_8.glb' "
+            "'Assets/Driving/City/street_city_buildings_8.glb'; "
+        "printf '%s\\n' 'int game_driving_assets_stamp = 0;' > build/generated/driving_assets.cpp"
+    );
+}
+
 static void configureGame(
     C_Target *target,
     C_Dependency *horse,
@@ -39,6 +81,7 @@ static void configureGame(
 
     c_use(target, horse);
     c_use(target, imgui);
+    configureDrivingAssets(target);
 
     configurePlatform(target);
     c_link_flag(target, "-L/usr/local/lib");
@@ -55,7 +98,7 @@ void build(C_Build *b)
         b,
         "Horse",
         "https://github.com/xt9y/Horse.git",
-        "main"
+        "systems"
     );
     c_dep_cbuild(horse, "Horse", C_TARGET_SHARED_LIBRARY);
     c_dep_include(horse, ".");
