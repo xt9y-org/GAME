@@ -39,8 +39,13 @@ struct DrivingCamera {
 
 struct Traffic {
     int lane = 0;
+    int target_lane = 0;
     float speed = 30.0f;
+    float desired_speed = 30.0f;
     float length = 4.4f;
+    float lane_change_speed = 1.8f;
+    float follow_distance = 34.0f;
+    float lane_change_cooldown = 0.0f;
     bool heavy = false;
 };
 
