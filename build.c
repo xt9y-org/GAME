@@ -29,6 +29,8 @@ static void configureGame(
     C_Dependency *imgui)
 {
     c_sources(target, "main.cpp");
+    c_sources(target, "Driving/*.cpp");
+    c_sources(target, "Scenes/*.cpp");
     c_sources(target, "Tests/*.cpp");
     c_sources(target, "UI/*.cpp");
     c_include(target, ".");
