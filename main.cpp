@@ -218,6 +218,10 @@ private:
         path_tracer.setResolutionDivisor(2);
         path_tracer.setSamplesPerFrame(2);
         path_tracer.setExposure(1.05f);
+        path_tracer.setStationaryPhaseGrid(2);
+        path_tracer.setResetPhaseGrid(1);
+        path_tracer.setMovingPhaseGrid(4);
+        path_tracer.setMovingDepthBlock(2);
 
         interface_.addIntControl(
             ray_tracer,
