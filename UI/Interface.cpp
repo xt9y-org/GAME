@@ -293,6 +293,56 @@ void Interface::information(
     ImGui::Text("Resolution: %d x %d", std::max(Display.getWidth(), 1), std::max(Display.getHeight(), 1));
     ImGui::Text("Frame: %.1f FPS / %.2f ms", fps, frame_ms);
 
+    auto *active_rasterizer = dynamic_cast<Renderer::Rasterizer *>(renderers.active());
+    if (active_rasterizer) {
+        ImGui::SeparatorText("Rasterizer Pipeline");
+        const Renderer::RasterizerStatistics raster_stats = active_rasterizer->statistics();
+        const Renderer::HorizonGI::Statistics horizon_stats = active_rasterizer->horizonGiStatistics();
+        const Renderer::Upscale::Statistics upscale_stats = active_rasterizer->upscaleStatistics();
+        const Renderer::HorizonGI::Settings& horizon_settings = active_rasterizer->horizonGiSettings();
+
+        ImGui::Text("Scaled pipeline: %s", raster_stats.scaled_pipeline_active ? "ACTIVE" : "DIRECT");
+        ImGui::Text("Output: %d x %d", raster_stats.output_width, raster_stats.output_height);
+        ImGui::Text("Lighting: %d x %d (1/%d)",
+            raster_stats.lighting_width,
+            raster_stats.lighting_height,
+            active_rasterizer->lightingResolutionDivisor());
+        ImGui::Text("Depth prepass: %zu draw items", raster_stats.depth_prepass_items);
+        ImGui::Text("Shadows: %s / %d px / divisor %d",
+            raster_stats.shadow_active ? "ACTIVE" : "INACTIVE",
+            raster_stats.shadow_resolution,
+            active_rasterizer->shadowResolutionDivisor());
+
+        ImGui::Text("Horizon GI/AO: %s", horizon_stats.active ? "ACTIVE" : "INACTIVE");
+        if (horizon_stats.active) {
+            ImGui::Text("Horizon resolution: %d x %d (1/%d)",
+                horizon_stats.width,
+                horizon_stats.height,
+                horizon_settings.pass.resolution_divisor);
+            ImGui::Text("Horizon samples: %d directions x %d steps",
+                horizon_stats.directions, horizon_stats.steps);
+            ImGui::Text("Horizon indirect: %s / AO: same pass",
+                horizon_stats.indirect ? "ON" : "OFF");
+            ImGui::Text("Horizon history: %s",
+                horizon_stats.temporal_history ? "VALID" : "RESET / UNUSED");
+        }
+
+        ImGui::Text("Upscale: %s", upscale_stats.active ? "ACTIVE" : "INACTIVE");
+        if (upscale_stats.active) {
+            ImGui::Text("Upscale: %d x %d -> %d x %d",
+                upscale_stats.source_width,
+                upscale_stats.source_height,
+                upscale_stats.output_width,
+                upscale_stats.output_height);
+            ImGui::Text("Upscale depth-aware: %s",
+                upscale_stats.depth_aware ? "ON" : "OFF");
+            ImGui::Text("Upscale effect compose: %s",
+                upscale_stats.effect ? "ON" : "OFF");
+            ImGui::Text("Upscale history: %s",
+                upscale_stats.temporal_history ? "VALID" : "RESET / UNUSED");
+        }
+    }
+
     ImGui::SeparatorText("Viewport");
     const Renderer::Visibility::Result visibility = Renderer::Visibility::system().evaluate(
         world,
@@ -345,11 +395,15 @@ void Interface::information(
     const Renderer::GlobalIlluminationComponent *gi = globalIllumination(world);
     const bool gi_enabled = gi && gi->enabled;
     const bool photon_requested = gi_enabled && gi->photon_mapping && gi->photon_count > 0u;
+    const bool horizon_replaces_field = active_rasterizer && active_rasterizer->horizonGiSettings().enabled;
     const bool photon_active = photon_requested &&
         Renderer::GlobalIllumination::Debug::photonMap().valid();
-    ImGui::Text("GI: %s", gi_enabled
-        ? (gi_stats.calculating ? "Calculating" : "Ready")
-        : "Disabled");
+    ImGui::Text("Renderer GI source: %s", horizon_replaces_field
+        ? "Horizon screen-space GI + AO"
+        : "Probe / SH field");
+    ImGui::Text("Probe GI: %s", horizon_replaces_field
+        ? "BYPASSED"
+        : (gi_enabled ? (gi_stats.calculating ? "Calculating" : "Ready") : "Disabled"));
     ImGui::Text("GI progress: %.1f%%", std::clamp(gi_stats.progress, 0.0f, 1.0f) * 100.0f);
     ImGui::Text("GI probes: %zu", gi_stats.probes);
     ImGui::Text("GI bounce: %u / %u",
@@ -358,9 +412,9 @@ void Interface::information(
         gi_stats.triangles, gi_stats.materials);
     ImGui::Text("GI BVH: %zu nodes / depth %u", gi_stats.bvh_nodes, gi_stats.bvh_depth);
     ImGui::Text("GI scene build: %.2f ms", gi_stats.scene_build_ms);
-    ImGui::Text("Photon Mapping: %s", photon_active
-        ? "ACTIVE"
-        : (photon_requested ? "BUILDING / EMPTY" : "INACTIVE"));
+    ImGui::Text("Photon Mapping: %s", horizon_replaces_field
+        ? "BYPASSED"
+        : (photon_active ? "ACTIVE" : (photon_requested ? "BUILDING / EMPTY" : "INACTIVE")));
     ImGui::Text("Photons: %zu stored / %u requested",
         gi_stats.photons, gi_stats.requested_photons);
     ImGui::Text("Photon radius: %.4f", gi_stats.photon_radius);
