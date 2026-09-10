@@ -89,6 +89,11 @@ public:
             resizeIfNeeded();
             renderers_.render(*world_);
 
+            if (renderer_check_.active()) {
+                if (auto *rasterizer = dynamic_cast<Renderer::Rasterizer *>(renderers_.active()))
+                    renderer_check_.record(*rasterizer);
+            }
+
             const auto frame_finished = Clock::now();
             renderer_check_.metric(
                 "frame_ms",
@@ -244,6 +249,7 @@ private:
         rasterizer.setHorizonGiTemporalFilter(true);
         rasterizer.setHorizonGiTemporalWeight(0.85f);
         rasterizer.setClearColor({0.035f, 0.035f, 0.045f, 1.0f});
+        renderer_check_.configure(rasterizer);
 
         auto& ray_tracer = renderers_.add<Renderer::RayTracer>("Ray Tracer");
         ray_tracer.setEnabled(true);

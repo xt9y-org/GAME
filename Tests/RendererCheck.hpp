@@ -5,6 +5,10 @@
 #include <cstdint>
 #include <string_view>
 
+namespace Renderer {
+class Rasterizer;
+}
+
 namespace Game::Tests {
 
 class RendererCheck {
@@ -20,6 +24,8 @@ public:
     bool captureDue(std::uint64_t frame) const;
     bool lastFrame(std::uint64_t frame) const;
     bool captureOpenGL(int width, int height) const;
+    void configure(Renderer::Rasterizer& rasterizer) const;
+    void record(const Renderer::Rasterizer& rasterizer) const;
     void metric(std::string_view name, double value) const;
 
 private:
