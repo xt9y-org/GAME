@@ -223,10 +223,26 @@ private:
         rasterizer.setEnabled(true);
         rasterizer.setViewportCulling(true);
         rasterizer.setShadowResolution(2048);
+        rasterizer.setShadowResolutionDivisor(1);
         rasterizer.setFallbackShadowResolution(512);
         rasterizer.setMinimumShadowResolution(64);
         rasterizer.setShadowNearPlane(0.05f);
         rasterizer.setShadowFarScale(1.05f);
+        rasterizer.setLightingResolutionDivisor(1);
+        rasterizer.setDepthAwareUpscaling(true);
+        rasterizer.setTemporalUpscaling(false);
+        rasterizer.setTemporalUpscalingWeight(0.85f);
+        rasterizer.setUpscalingDepthThreshold(0.02f);
+        rasterizer.setHorizonGiEnabled(false);
+        rasterizer.setHorizonGiResolutionDivisor(2);
+        rasterizer.setHorizonGiDirections(4);
+        rasterizer.setHorizonGiSteps(6);
+        rasterizer.setHorizonGiRadius(1.5f);
+        rasterizer.setHorizonGiThickness(0.15f);
+        rasterizer.setHorizonGiAoStrength(1.0f);
+        rasterizer.setHorizonGiIndirectStrength(0.35f);
+        rasterizer.setHorizonGiTemporalFilter(true);
+        rasterizer.setHorizonGiTemporalWeight(0.85f);
         rasterizer.setClearColor({0.035f, 0.035f, 0.045f, 1.0f});
 
         auto& ray_tracer = renderers_.add<Renderer::RayTracer>("Ray Tracer");

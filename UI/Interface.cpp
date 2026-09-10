@@ -2,6 +2,7 @@
 
 #include "Sources/Renderer/GlobalIllumination/Debug.hpp"
 #include "Sources/Renderer/GlobalIllumination/GlobalIllumination.hpp"
+#include "Sources/Renderer/Rasterizer/Rasterizer.hpp"
 #include "Sources/Renderer/Visibility/Visibility.hpp"
 
 #include <imgui.h>
@@ -370,6 +371,7 @@ void Interface::information(
 
 void Interface::debug(
     Ecs::World& world,
+    Renderer::Manager& renderers,
     Renderer::Debug::Inspector& inspector)
 {
     place(debug_layout_);
@@ -377,6 +379,117 @@ void Interface::debug(
         ImGui::End();
         return;
     }
+
+    if (auto *rasterizer = dynamic_cast<Renderer::Rasterizer *>(renderers.active())) {
+        ImGui::SeparatorText("Rasterizer Quality");
+
+        bool viewport_culling = rasterizer->viewportCulling();
+        if (ImGui::Checkbox("Viewport Culling", &viewport_culling))
+            rasterizer->setViewportCulling(viewport_culling);
+        help("Cull rasterized camera geometry outside the current viewport. Shadow casters stay available to lighting.");
+
+        if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+        int lighting_divisor = rasterizer->lightingResolutionDivisor();
+        if (ImGui::SliderInt("Lighting Resolution Divisor", &lighting_divisor, 1, 8))
+            rasterizer->setLightingResolutionDivisor(lighting_divisor);
+        help("Render direct lighting at 1/N of output resolution before reconstruction.");
+
+        bool depth_aware = rasterizer->depthAwareUpscaling();
+        if (ImGui::Checkbox("Depth-aware Upscaling", &depth_aware))
+            rasterizer->setDepthAwareUpscaling(depth_aware);
+        help("Use full-resolution depth to keep reduced-resolution lighting edges aligned with geometry.");
+
+        bool temporal_upscale = rasterizer->temporalUpscaling();
+        if (ImGui::Checkbox("Temporal Upscaling", &temporal_upscale))
+            rasterizer->setTemporalUpscaling(temporal_upscale);
+        help("Blend stable reconstructed lighting with valid previous-frame history.");
+
+        if (temporal_upscale) {
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            float temporal_weight = rasterizer->temporalUpscalingWeight();
+            if (ImGui::SliderFloat("Upscale History Weight", &temporal_weight, 0.0f, 0.98f))
+                rasterizer->setTemporalUpscalingWeight(temporal_weight);
+            help("Amount of valid previous-frame color kept by temporal reconstruction.");
+        }
+
+        if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+        float depth_threshold = rasterizer->upscalingDepthThreshold();
+        if (ImGui::DragFloat("Upscale Depth Threshold", &depth_threshold, 0.001f, 0.0f, 1.0f))
+            rasterizer->setUpscalingDepthThreshold(depth_threshold);
+        help("Maximum relative depth difference accepted when reconstructing low-resolution samples.");
+
+        if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+        int shadow_divisor = rasterizer->shadowResolutionDivisor();
+        if (ImGui::SliderInt("Shadow Resolution Divisor", &shadow_divisor, 1, 16))
+            rasterizer->setShadowResolutionDivisor(shadow_divisor);
+        help("Render point-light shadow faces at a fraction of output resolution, capped by the configured maximum.");
+
+        ImGui::SeparatorText("Horizon GI + AO");
+        Renderer::HorizonGI::Settings& horizon = rasterizer->horizonGiSettings();
+        bool horizon_enabled = horizon.enabled;
+        if (ImGui::Checkbox("Horizon GI", &horizon_enabled))
+            rasterizer->setHorizonGiEnabled(horizon_enabled);
+        help("Low-end screen-space GI. AO is produced by the same horizon traversal with no separate AO pass.");
+
+        if (horizon_enabled) {
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            int horizon_divisor = horizon.pass.resolution_divisor;
+            if (ImGui::SliderInt("Horizon Resolution Divisor", &horizon_divisor, 1, 8))
+                rasterizer->setHorizonGiResolutionDivisor(horizon_divisor);
+            help("Run Horizon GI/AO at 1/N of the output resolution.");
+
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            int directions = horizon.directions;
+            if (ImGui::SliderInt("Horizon Directions", &directions, 1, Renderer::HorizonGI::MaximumDirections))
+                rasterizer->setHorizonGiDirections(directions);
+            help("Angular directions sampled around each pixel.");
+
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            int steps = horizon.steps;
+            if (ImGui::SliderInt("Horizon Steps", &steps, 1, Renderer::HorizonGI::MaximumSteps))
+                rasterizer->setHorizonGiSteps(steps);
+            help("Depth samples taken per horizon direction.");
+
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            float radius = horizon.radius;
+            if (ImGui::DragFloat("Horizon Radius", &radius, 0.05f, 0.05f, 20.0f))
+                rasterizer->setHorizonGiRadius(radius);
+            help("World-space search radius reconstructed from depth.");
+
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            float thickness = horizon.thickness;
+            if (ImGui::DragFloat("Horizon Thickness", &thickness, 0.01f, 0.0f, 5.0f))
+                rasterizer->setHorizonGiThickness(thickness);
+            help("Depth thickness tolerance used to reduce false occlusion.");
+
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            float ao_strength = horizon.ao_strength;
+            if (ImGui::DragFloat("Horizon AO Strength", &ao_strength, 0.02f, 0.0f, 4.0f))
+                rasterizer->setHorizonGiAoStrength(ao_strength);
+            help("Ambient-occlusion strength from the same traversal used for indirect light.");
+
+            if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+            float indirect_strength = horizon.indirect_strength;
+            if (ImGui::DragFloat("Horizon Indirect Strength", &indirect_strength, 0.02f, 0.0f, 4.0f))
+                rasterizer->setHorizonGiIndirectStrength(indirect_strength);
+            help("Diffuse screen-space bounce-light contribution.");
+
+            bool horizon_temporal = horizon.pass.temporal_filter;
+            if (ImGui::Checkbox("Horizon Temporal Filter", &horizon_temporal))
+                rasterizer->setHorizonGiTemporalFilter(horizon_temporal);
+            help("Reuse valid Horizon GI/AO history while camera and scene signatures remain stable.");
+
+            if (horizon_temporal) {
+                if (control_width_ > 0.0f) ImGui::SetNextItemWidth(control_width_);
+                float horizon_weight = horizon.pass.temporal_weight;
+                if (ImGui::SliderFloat("Horizon History Weight", &horizon_weight, 0.0f, 0.98f))
+                    rasterizer->setHorizonGiTemporalWeight(horizon_weight);
+                help("Amount of valid Horizon GI/AO history kept each frame.");
+            }
+        }
+    }
+
+    ImGui::SeparatorText("Inspector");
 
     bool bvh = inspector.showBvh();
     if (ImGui::Checkbox("BVH", &bvh)) inspector.setShowBvh(bvh);
@@ -425,7 +538,7 @@ std::size_t Interface::draw(
     approximation(world, renderers);
     const std::size_t requested_scene = sceneManager(scenes, renderers);
     information(world, renderers, inspector);
-    debug(world, inspector);
+    debug(world, renderers, inspector);
     return requested_scene;
 }
 
