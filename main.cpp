@@ -145,6 +145,8 @@ private:
         camera_controller_.setMouseSensitivity(0.12f);
         camera_controller_.setPitchRange(-89.0f, 89.0f);
 
+        Font::configureAtlas("Assets/Font/font.png", 16u, 16u, 8.0f);
+
         Renderer::Scenes::SceneCache::setLeafSize(8u);
         Renderer::Scenes::SceneCache::setMaximumTriangles(1000000u);
         Renderer::Scenes::SceneCache::setOpacityCutoff(0.5f);
@@ -198,6 +200,13 @@ private:
     {
         auto& rasterizer = renderers_.add<Renderer::Rasterizer>("Rasterizer");
         rasterizer.setEnabled(true);
+        rasterizer.setViewportCulling(true);
+        rasterizer.setShadowResolution(2048);
+        rasterizer.setFallbackShadowResolution(512);
+        rasterizer.setMinimumShadowResolution(64);
+        rasterizer.setShadowNearPlane(0.05f);
+        rasterizer.setShadowFarScale(1.05f);
+        rasterizer.setClearColor({0.035f, 0.035f, 0.045f, 1.0f});
 
         auto& ray_tracer = renderers_.add<Renderer::RayTracer>("Ray Tracer");
         ray_tracer.setEnabled(true);
