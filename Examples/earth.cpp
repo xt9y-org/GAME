@@ -11,7 +11,6 @@
 #include "Sources/Renderer/Render.hpp"
 #include "Sources/UI/UI.hpp"
 
-#include <imgui.h>
 #include <lwcgl/context.h>
 #include <lwcgl/lwcgl.h>
 #ifdef __APPLE__
