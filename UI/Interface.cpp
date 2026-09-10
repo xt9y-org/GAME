@@ -2,6 +2,7 @@
 
 #include "Sources/Renderer/GlobalIllumination/Debug.hpp"
 #include "Sources/Renderer/GlobalIllumination/GlobalIllumination.hpp"
+#include "Sources/Renderer/PathTracer/PathTracer.hpp"
 #include "Sources/Renderer/Rasterizer/Rasterizer.hpp"
 #include "Sources/Renderer/Visibility/Visibility.hpp"
 
@@ -341,6 +342,28 @@ void Interface::information(
             ImGui::Text("Upscale history: %s",
                 upscale_stats.temporal_history ? "VALID" : "RESET / UNUSED");
         }
+    }
+
+    if (auto *active_path_tracer = dynamic_cast<Renderer::PathTracer *>(renderers.active())) {
+        const Renderer::PathTracerStatistics path = active_path_tracer->statistics();
+        ImGui::SeparatorText("Path Tracer Scheduling");
+        ImGui::Text("Output: %d x %d", path.output_width, path.output_height);
+        ImGui::Text("Trace: %d x %d (1/%d)",
+            path.trace_width,
+            path.trace_height,
+            active_path_tracer->resolutionDivisor());
+        ImGui::Text("Samples / frame: %d", path.samples_per_frame);
+        ImGui::Text("Phase grids: stationary %d / reset %d / moving %d",
+            path.stationary_phase_grid,
+            path.reset_phase_grid,
+            path.moving_phase_grid);
+        ImGui::Text("Moving depth block: %d", path.moving_depth_block);
+        ImGui::Text("Path pixels: stationary %llu / reset %llu / moving %llu",
+            static_cast<unsigned long long>(path.stationary_path_pixel_budget),
+            static_cast<unsigned long long>(path.reset_path_pixel_budget),
+            static_cast<unsigned long long>(path.moving_path_pixel_budget));
+        ImGui::Text("Moving depth rays: %llu",
+            static_cast<unsigned long long>(path.moving_depth_ray_budget));
     }
 
     ImGui::SeparatorText("Viewport");
