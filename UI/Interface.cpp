@@ -321,6 +321,23 @@ void Interface::information(
             snapshot.visible_triangles, snapshot.culled_triangles);
     }
 
+    ImGui::SeparatorText("Debug");
+    ImGui::Text("BVH overlay: %s", inspector.showBvh() ? "ON" : "OFF");
+    ImGui::Text("Viewport overlay: %s", inspector.showViewport() ? "ON" : "OFF");
+    const Renderer::Debug::BvhInfo bvh = inspector.bvhInfo();
+    if (bvh.available) {
+        ImGui::Text("BVH level: %d / %d", bvh.level, bvh.maximum_level);
+        ImGui::Text("BVH nodes: %zu total / %zu on level", bvh.total_nodes, bvh.level_nodes);
+        if (bvh.selected) {
+            ImGui::Text("Containing nodes: %zu / selected #%zu",
+                bvh.containing_nodes, bvh.selected_node);
+        } else {
+            ImGui::Text("Containing nodes: 0 / selected none");
+        }
+    } else {
+        ImGui::Text("BVH selection: unavailable");
+    }
+
     ImGui::SeparatorText("GI / Photon Mapping");
     const Renderer::GlobalIllumination::Debug::Statistics gi_stats =
         Renderer::GlobalIllumination::Debug::statistics();
