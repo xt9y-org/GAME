@@ -3,6 +3,7 @@ Driving game using Horse.
 Build: c build
 Run: c run
 Check: renderercheck run
+Assets: pinned xt9y-org release packs, cached in Assets/Driving
 
 WASD: drive
 Tab: driving debug
