@@ -322,8 +322,8 @@ public:
         }
 
         float _min_x =  std::numeric_limits<float>::infinity();
-        float _min_y =  std::numeric_limits<float>::infinity();
-        float _min_z =  std::numeric_limits<float>::infinity();
+        float _min_y = std::numeric_limits<float>::infinity();
+        float _min_z = std::numeric_limits<float>::infinity();
         float _max_x = -std::numeric_limits<float>::infinity();
         float _max_y = -std::numeric_limits<float>::infinity();
         float _max_z = -std::numeric_limits<float>::infinity();
@@ -410,7 +410,7 @@ public:
         const Ecs::Entity _stats = Font::screen(
             *e->world_,
             "",
-            {12.0f, 140.0f},
+            {12.0f, 12.0f},
             2.0f
         );
 
