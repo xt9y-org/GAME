@@ -264,7 +264,7 @@ private:
         path_tracer.setStationaryPhaseGrid(2);
         path_tracer.setResetPhaseGrid(1);
         path_tracer.setMovingPhaseGrid(4);
-        path_tracer.setMovingDepthBlock(2);
+        path_tracer.setMovingDepthBlock(4);
 
         interface_.addIntControl(
             ray_tracer,
@@ -313,6 +313,42 @@ private:
             4.0f,
             0.01f,
             "Brightness applied when the path traced image is presented."
+        );
+        interface_.addIntControl(
+            path_tracer,
+            "Stationary Phase Grid",
+            [&path_tracer] { return path_tracer.stationaryPhaseGrid(); },
+            [&path_tracer](int value) { path_tracer.setStationaryPhaseGrid(value); },
+            1,
+            8,
+            "Trace one phase of an N x N pixel grid while stationary. Larger values reduce per-frame path work."
+        );
+        interface_.addIntControl(
+            path_tracer,
+            "Reset Phase Grid",
+            [&path_tracer] { return path_tracer.resetPhaseGrid(); },
+            [&path_tracer](int value) { path_tracer.setResetPhaseGrid(value); },
+            1,
+            8,
+            "Phase grid used for the first frame after accumulation resets."
+        );
+        interface_.addIntControl(
+            path_tracer,
+            "Moving Phase Grid",
+            [&path_tracer] { return path_tracer.movingPhaseGrid(); },
+            [&path_tracer](int value) { path_tracer.setMovingPhaseGrid(value); },
+            1,
+            8,
+            "Trace one phase of an N x N pixel grid while the camera moves."
+        );
+        interface_.addIntControl(
+            path_tracer,
+            "Moving Depth Block",
+            [&path_tracer] { return path_tracer.movingDepthBlock(); },
+            [&path_tracer](int value) { path_tracer.setMovingDepthBlock(value); },
+            1,
+            16,
+            "Trace one deterministic depth ray per N x N block while moving, then fill that block for reconstruction."
         );
     }
 
