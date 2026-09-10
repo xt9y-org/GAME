@@ -1,10 +1,13 @@
 #include "Scenes/Earth.hpp"
 #include "Scenes/Manager.hpp"
 #include "Scenes/Sponza.hpp"
+#include "UI/Interface.hpp"
 
 #include "Font.hpp"
 #include "Renderer/Debug/Debug.hpp"
 #include "Renderer/GlobalIllumination/GlobalIllumination.hpp"
+#include "Renderer/Scenes/SceneCache.hpp"
+#include "Renderer/Visibility/Visibility.hpp"
 #include "Sources/Animation/Animation.hpp"
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
@@ -12,15 +15,12 @@
 #include "Sources/Renderer/Render.hpp"
 #include "Sources/UI/UI.hpp"
 
+#include <imgui.h>
 #include <lwcgl/context.h>
 #include <lwcgl/lwcgl.h>
-#ifdef __APPLE__
-#include <lwmgl/lwmgl.h>
-#endif
 
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -29,6 +29,11 @@ namespace Game {
 
 class Application {
 public:
+    ~Application()
+    {
+        shutdown();
+    }
+
     int run()
     {
         if (!init()) return 2;
@@ -44,24 +49,17 @@ public:
             updateMouseMode();
 
             std::size_t requested_scene = scenes_.currentIndex();
-            if (UI::beginFrame()) {
-                UI::SceneSelection selection {
-                    .names = scenes_.names(),
-                    .count = scenes_.count(),
-                    .selected = requested_scene,
-                };
-                UI::enginePanels(
+            const bool ui_visible = ::UI::beginFrame();
+            if (ui_visible && world_) {
+                requested_scene = interface_.draw(
                     *world_,
-                    ray_tracer_,
-                    path_tracer_,
-                    technique_,
-                    availability(),
-                    selection
+                    scenes_,
+                    renderers_,
+                    inspector_
                 );
-                requested_scene = selection.selected;
             }
 
-            updateTechniqueKey();
+            updateRendererKey();
 
             if (requested_scene != scenes_.currentIndex() && !loadScene(requested_scene)) {
                 std::fprintf(stderr, "[GAME]: keeping scene %s\n", currentSceneName());
@@ -72,29 +70,27 @@ public:
             previous = now;
             const float frame_delta = std::min(delta_seconds, 0.1f);
 
-            if (Scenes::Scene *scene = scenes_.current())
-                scene->update(*world_, frame_delta);
-            animation_system_.update(*world_, frame_delta);
-            if (!UI::wantsMouse() && !UI::wantsKeyboard())
+            const bool frozen = inspector_.frozen();
+            Renderer::GlobalIllumination::setPaused(frozen);
+
+            if (!frozen) {
+                if (Scenes::Scene *scene = scenes_.current())
+                    scene->update(*world_, frame_delta);
+                animation_system_.update(*world_, frame_delta);
+            }
+
+            if (!::UI::wantsMouse() && !::UI::wantsKeyboard())
                 camera_controller_.update(*world_, frame_delta);
 
-            if (!prepareTechnique()) continue;
             updateStats(delta_seconds);
             resizeIfNeeded();
-            render();
+            renderers_.render(*world_);
         }
 
         return 0;
     }
 
-    ~Application()
-    {
-        shutdown();
-    }
-
 private:
-    using RenderTechnique = UI::RendererChoice;
-
     bool init()
     {
         if (started_) return true;
@@ -119,54 +115,161 @@ private:
         Mouse.getDX();
         Mouse.getDY();
 
-        if (!UI::init())
+        configureEngine();
+
+        if (!::UI::init()) {
             std::fprintf(stderr, "[UI]: initialization failed\n");
-
-        rasterizer_ready_ = rasterizer_.init();
-        ray_tracer_ready_ = ray_tracer_.init();
-        path_tracer_ready_ = path_tracer_.init();
-#ifdef __APPLE__
-        trace_surface_active_ = Metal.isSurfaceAttached && Metal.isSurfaceAttached() != 0;
-#else
-        trace_surface_active_ = ray_tracer_ready_ || path_tracer_ready_;
-#endif
-
-        if (rasterizer_ready_) {
-            technique_ = RenderTechnique::Rasterizer;
-            setTraceSurface(false);
-        } else if (ray_tracer_ready_) {
-            technique_ = RenderTechnique::RayTracer;
-            if (!setTraceSurface(true)) ray_tracer_ready_ = false;
-        } else if (path_tracer_ready_) {
-            technique_ = RenderTechnique::PathTracer;
-            if (!setTraceSurface(true)) path_tracer_ready_ = false;
+        } else {
+            configureUi();
         }
 
-        if (!rasterizer_ready_ && !ray_tracer_ready_ && !path_tracer_ready_) {
+        configureRenderers();
+        if (!renderers_.initialize()) {
             std::fprintf(stderr, "[GAME]: no renderer could be initialized\n");
             return false;
         }
 
         framebuffer_width_ = std::max(Display.getWidth(), 1);
         framebuffer_height_ = std::max(Display.getHeight(), 1);
-        if (rasterizer_ready_)
-            rasterizer_.resize(framebuffer_width_, framebuffer_height_);
+        renderers_.resize(framebuffer_width_, framebuffer_height_);
 
         scenes_.add<Scenes::Sponza>();
         scenes_.add<Scenes::Earth>();
         return true;
     }
 
+    void configureEngine()
+    {
+        camera_controller_.setSpeed(100.0f);
+        camera_controller_.setSprintMultiplier(10.0f);
+        camera_controller_.setMouseSensitivity(0.12f);
+        camera_controller_.setPitchRange(-89.0f, 89.0f);
+
+        Renderer::Scenes::SceneCache::setLeafSize(8u);
+        Renderer::Scenes::SceneCache::setMaximumTriangles(1000000u);
+        Renderer::Scenes::SceneCache::setOpacityCutoff(0.5f);
+        Renderer::Scenes::SceneCache::setAlphaThreshold(250u);
+
+        Renderer::GlobalIllumination::setRaysPerProbe(48u);
+        Renderer::GlobalIllumination::setProbeBudgetPerFrame(16u);
+        Renderer::GlobalIllumination::setProbeDimensionRange(3u, 8u);
+        Renderer::GlobalIllumination::setBoundsMargin(0.05f, 0.25f);
+        Renderer::GlobalIllumination::setRayEpsilon(0.0025f);
+        Renderer::GlobalIllumination::setMaximumBounces(4u);
+        Renderer::GlobalIllumination::setMaximumPhotonCount(262144u);
+        Renderer::GlobalIllumination::setPaused(false);
+
+        Renderer::Visibility::system().setFarDistance(10000.0f);
+
+        inspector_.setShowBvh(false);
+        inspector_.setShowViewport(false);
+        inspector_.setBvhLevel(2);
+        inspector_.setOverlayOpacity(0.80f);
+        inspector_.setBvhColor({0.20f, 0.52f, 1.00f, 1.00f});
+        inspector_.setHighlightColor({1.00f, 0.82f, 0.16f, 1.00f});
+        inspector_.setPlayerColor({1.00f, 0.12f, 0.12f, 1.00f});
+        inspector_.setPlayerHeight(1.80f);
+        inspector_.setCameraMarkerSize(0.08f);
+    }
+
+    void configureUi()
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+        io.IniFilename = "imgui.ini";
+        io.LogFilename = nullptr;
+
+        ImGui::StyleColorsDark();
+        ImGuiStyle& style = ImGui::GetStyle();
+        style.FontScaleMain = 0.82f;
+        style.ScaleAllSizes(0.82f);
+        style.FrameRounding = 0.0f;
+        style.WindowRounding = 4.0f;
+
+        interface_.setApproximationWindow(8.0f, 8.0f, 350.0f, 330.0f);
+        interface_.setSceneWindow(370.0f, 8.0f, 260.0f, 125.0f);
+        interface_.setInformationWindow(370.0f, 145.0f, 260.0f, 155.0f);
+        interface_.setDebugWindow(642.0f, 8.0f, 290.0f, 220.0f);
+        interface_.setTooltip(4.0f, 3.0f, 220.0f);
+        interface_.setControlWidth(150.0f);
+    }
+
+    void configureRenderers()
+    {
+        auto& rasterizer = renderers_.add<Renderer::Rasterizer>("Rasterizer");
+        rasterizer.setEnabled(true);
+
+        auto& ray_tracer = renderers_.add<Renderer::RayTracer>("Ray Tracer");
+        ray_tracer.setEnabled(true);
+        ray_tracer.setResolutionDivisor(4);
+        ray_tracer.setExposure(1.05f);
+
+        auto& path_tracer = renderers_.add<Renderer::PathTracer>("Path Tracer");
+        path_tracer.setEnabled(true);
+        path_tracer.setResolutionDivisor(2);
+        path_tracer.setSamplesPerFrame(2);
+        path_tracer.setExposure(1.05f);
+
+        interface_.addIntControl(
+            ray_tracer,
+            "Resolution Divisor",
+            [&ray_tracer] { return ray_tracer.resolutionDivisor(); },
+            [&ray_tracer](int value) { ray_tracer.setResolutionDivisor(value); },
+            1,
+            8,
+            "Render the ray tracer at 1/N of the display resolution."
+        );
+        interface_.addFloatControl(
+            ray_tracer,
+            "Exposure",
+            [&ray_tracer] { return ray_tracer.exposure(); },
+            [&ray_tracer](float value) { ray_tracer.setExposure(value); },
+            0.1f,
+            4.0f,
+            0.01f,
+            "Brightness applied when the ray traced image is presented."
+        );
+
+        interface_.addIntControl(
+            path_tracer,
+            "Resolution Divisor",
+            [&path_tracer] { return path_tracer.resolutionDivisor(); },
+            [&path_tracer](int value) { path_tracer.setResolutionDivisor(value); },
+            1,
+            8,
+            "Render the path tracer at 1/N of the display resolution."
+        );
+        interface_.addIntControl(
+            path_tracer,
+            "Samples / Frame",
+            [&path_tracer] { return path_tracer.samplesPerFrame(); },
+            [&path_tracer](int value) { path_tracer.setSamplesPerFrame(value); },
+            1,
+            16,
+            "Number of path tracing samples accumulated per frame."
+        );
+        interface_.addFloatControl(
+            path_tracer,
+            "Exposure",
+            [&path_tracer] { return path_tracer.exposure(); },
+            [&path_tracer](float value) { path_tracer.setExposure(value); },
+            0.1f,
+            4.0f,
+            0.01f,
+            "Brightness applied when the path traced image is presented."
+        );
+    }
+
     void shutdown()
     {
         if (!started_) return;
 
-        UI::shutdown();
+        if (world_ && inspector_.frozen()) inspector_.unfreeze(*world_);
+        Renderer::GlobalIllumination::setPaused(false);
+
+        ::UI::shutdown();
         Renderer::Debug::shutdown();
-        setTraceSurface(false);
-        path_tracer_.shutdown();
-        ray_tracer_.shutdown();
-        rasterizer_.shutdown();
+        renderers_.shutdown();
         Renderer::GlobalIllumination::reset();
 
         world_.reset();
@@ -176,30 +279,18 @@ private:
         Display.destroy();
 
         started_ = false;
-        rasterizer_ready_ = false;
-        ray_tracer_ready_ = false;
-        path_tracer_ready_ = false;
-        trace_surface_active_ = false;
-    }
-
-    UI::RendererAvailability availability() const
-    {
-        return {
-            .rasterizer = rasterizer_ready_,
-            .ray_tracer = ray_tracer_ready_,
-            .path_tracer = path_tracer_ready_,
-        };
-    }
-
-    Scenes::Renderers renderers()
-    {
-        return {rasterizer_, ray_tracer_, path_tracer_};
     }
 
     bool loadScene(std::size_t index)
     {
         Scenes::Scene *scene = scenes_.at(index);
         if (!scene) return false;
+
+        if (world_) {
+            if (inspector_.frozen()) inspector_.unfreeze(*world_);
+            inspector_.clear(world_.get());
+        }
+        Renderer::GlobalIllumination::setPaused(false);
 
         auto next_world = std::make_unique<Ecs::World>();
         std::string error;
@@ -218,19 +309,16 @@ private:
             return false;
         }
 
-        Scenes::Renderers scene_renderers = renderers();
-        scene->configure(scene_renderers);
-
         Renderer::GlobalIllumination::reset();
-        Renderer::Debug::clear();
         world_ = std::move(next_world);
         scenes_.activate(index);
 
         stats_ = Font::screen(
             *world_,
             "",
-            {12.0f, 140.0f},
-            2.0f
+            {12.0f, 12.0f},
+            2.0f,
+            {1.0f, 1.0f, 1.0f, 1.0f}
         );
 
         Display.setTitle(scene->name());
@@ -243,147 +331,49 @@ private:
         return scene ? scene->name() : "No Scene";
     }
 
-    bool techniqueReady(RenderTechnique technique) const
+    void updateRendererKey()
     {
-        switch (technique) {
-            case RenderTechnique::Rasterizer: return rasterizer_ready_;
-            case RenderTechnique::RayTracer: return ray_tracer_ready_;
-            case RenderTechnique::PathTracer: return path_tracer_ready_;
-        }
-        return false;
-    }
-
-    void cycleTechnique()
-    {
-        RenderTechnique next = technique_;
-        for (int attempt = 0; attempt < 3; ++attempt) {
-            switch (next) {
-                case RenderTechnique::Rasterizer: next = RenderTechnique::RayTracer; break;
-                case RenderTechnique::RayTracer: next = RenderTechnique::PathTracer; break;
-                case RenderTechnique::PathTracer: next = RenderTechnique::Rasterizer; break;
-            }
-            if (techniqueReady(next)) {
-                technique_ = next;
-                return;
-            }
-        }
-    }
-
-    bool setTraceSurface(bool active)
-    {
-        if (!active) {
-            if (!trace_surface_active_) {
-                active_trace_ = RenderTechnique::Rasterizer;
-                return true;
-            }
-#ifdef __APPLE__
-            if (Metal.isCreated()) Metal.waitIdle();
-            if (Metal.detachSurface) Metal.detachSurface();
-#endif
-            trace_surface_active_ = false;
-            active_trace_ = RenderTechnique::Rasterizer;
-            return true;
-        }
-
-        if (technique_ == RenderTechnique::Rasterizer || !techniqueReady(technique_))
-            return false;
-
-#ifdef __APPLE__
-        if (!Metal.attachSurface || !Metal.detachSurface || !Metal.isSurfaceAttached) {
-            std::fprintf(stderr, "[GAME]: installed lwmgl is missing surface switching support\n");
-            return false;
-        }
-        if (!trace_surface_active_) {
-            if (Metal.attachSurface(Display.getNativeWindow()) != 0) {
-                std::fprintf(stderr, "[GAME]: failed to attach Metal surface: %s\n", lwmglGetLastError());
-                return false;
-            }
-            trace_surface_active_ = true;
-        }
-#else
-        trace_surface_active_ = true;
-#endif
-
-        if (active_trace_ == technique_) return true;
-
-        const int width = std::max(Display.getWidth(), 1);
-        const int height = std::max(Display.getHeight(), 1);
-        if (technique_ == RenderTechnique::RayTracer) {
-            ray_tracer_.resize(width, height);
-            ray_tracer_ready_ = ray_tracer_.initialized();
-        } else {
-            path_tracer_.resize(width, height);
-            path_tracer_ready_ = path_tracer_.initialized();
-        }
-
-        if (!techniqueReady(technique_)) {
-#ifdef __APPLE__
-            if (Metal.isCreated()) Metal.waitIdle();
-            Metal.detachSurface();
-#endif
-            trace_surface_active_ = false;
-            active_trace_ = RenderTechnique::Rasterizer;
-            return false;
-        }
-
-        active_trace_ = technique_;
-        return true;
-    }
-
-    bool prepareTechnique()
-    {
-        for (int attempt = 0; attempt < 3; ++attempt) {
-            if (!techniqueReady(technique_)) {
-                cycleTechnique();
-                continue;
-            }
-            if (technique_ == RenderTechnique::Rasterizer)
-                return setTraceSurface(false);
-            if (setTraceSurface(true)) return true;
-            cycleTechnique();
-        }
-
-        setTraceSurface(false);
-        return false;
+        const bool down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
+        if (down && !renderer_key_down_ && !::UI::wantsKeyboard())
+            renderers_.next();
+        renderer_key_down_ = down;
     }
 
     void updateMouseMode()
     {
-        const bool tab_down = Keyboard.isKeyDown(Keyboard.KEY_TAB);
-        if (tab_down && !tab_down_) {
+        const bool down = Keyboard.isKeyDown(Keyboard.KEY_TAB);
+        if (down && !tab_down_) {
             const bool grabbed = Mouse.isGrabbed() != LWCGL_FALSE;
             Mouse.setGrabbed(grabbed ? LWCGL_FALSE : LWCGL_TRUE);
             Mouse.getDX();
             Mouse.getDY();
         }
-        tab_down_ = tab_down;
-    }
-
-    void updateTechniqueKey()
-    {
-        const bool enter_down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
-        if (enter_down && !enter_down_ && !UI::wantsKeyboard())
-            cycleTechnique();
-        enter_down_ = enter_down;
+        tab_down_ = down;
     }
 
     void updateStats(float delta_seconds)
     {
         if (!world_ || stats_ == Ecs::INVALID_ENTITY) return;
-        Font::TextComponent *stats = world_->get<Font::TextComponent>(stats_);
-        if (!stats) return;
+        Font::TextComponent *text = world_->get<Font::TextComponent>(stats_);
+        if (!text) return;
 
-        const long fps = delta_seconds > 1.0e-6f
-            ? std::lround(1.0 / static_cast<double>(delta_seconds))
-            : 0L;
-        const Scenes::Scene *scene = scenes_.current();
-        const std::size_t triangles = scene ? scene->triangleCount() : 0u;
+        const Renderer::Manager::Entry *active = renderers_.activeEntry();
+        const char *renderer_name = active ? active->name.c_str() : "None";
+        const std::size_t triangles = scenes_.current()
+            ? scenes_.current()->triangleCount()
+            : 0u;
+        const float fps = delta_seconds > 0.0f ? 1.0f / delta_seconds : 0.0f;
 
-        stats->text =
-            "Scene: " + std::string(currentSceneName()) +
-            "\nTechnique: " + std::string(UI::rendererName(technique_)) +
-            "\nFPS: " + std::to_string(fps) +
-            "\nTriangles: " + std::to_string(triangles);
+        char buffer[256]{};
+        std::snprintf(
+            buffer,
+            sizeof(buffer),
+            "Technique: %s\nFPS: %.1f\nTriangles: %zu",
+            renderer_name,
+            fps,
+            triangles
+        );
+        text->text = buffer;
     }
 
     void resizeIfNeeded()
@@ -394,51 +384,24 @@ private:
 
         framebuffer_width_ = width;
         framebuffer_height_ = height;
-        if (rasterizer_ready_) rasterizer_.resize(width, height);
-        if (trace_surface_active_) {
-            if (technique_ == RenderTechnique::RayTracer && ray_tracer_ready_)
-                ray_tracer_.resize(width, height);
-            if (technique_ == RenderTechnique::PathTracer && path_tracer_ready_)
-                path_tracer_.resize(width, height);
-        }
+        renderers_.resize(width, height);
     }
 
-    void render()
-    {
-        if (!world_) return;
-        if (technique_ == RenderTechnique::RayTracer && ray_tracer_ready_ && trace_surface_active_) {
-            ray_tracer_.render(*world_);
-            return;
-        }
-        if (technique_ == RenderTechnique::PathTracer && path_tracer_ready_ && trace_surface_active_) {
-            path_tracer_.render(*world_);
-            return;
-        }
-        if (rasterizer_ready_)
-            rasterizer_.render(*world_);
-    }
-
-    Renderer::Rasterizer rasterizer_;
-    Renderer::RayTracer ray_tracer_;
-    Renderer::PathTracer path_tracer_;
-    Camera::Controller camera_controller_;
-    Animation::System animation_system_;
-    std::unique_ptr<Ecs::World> world_;
-    Scenes::Manager scenes_;
-
-    Ecs::Entity stats_ = Ecs::INVALID_ENTITY;
-    RenderTechnique technique_ = RenderTechnique::Rasterizer;
-    RenderTechnique active_trace_ = RenderTechnique::Rasterizer;
-
+    bool started_ = false;
+    bool tab_down_ = false;
+    bool renderer_key_down_ = false;
     int framebuffer_width_ = 1;
     int framebuffer_height_ = 1;
-    bool started_ = false;
-    bool rasterizer_ready_ = false;
-    bool ray_tracer_ready_ = false;
-    bool path_tracer_ready_ = false;
-    bool trace_surface_active_ = false;
-    bool tab_down_ = false;
-    bool enter_down_ = false;
+
+    Renderer::Manager renderers_;
+    Camera::Controller camera_controller_;
+    Animation::System animation_system_;
+    Renderer::Debug::Inspector& inspector_ = Renderer::Debug::inspector();
+
+    Scenes::Manager scenes_;
+    UI::Interface interface_;
+    std::unique_ptr<Ecs::World> world_;
+    Ecs::Entity stats_ = Ecs::INVALID_ENTITY;
 };
 
 } // namespace Game
