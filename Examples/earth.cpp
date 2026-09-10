@@ -530,17 +530,6 @@ public:
             Display.processMessages();
             if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE)) break;
 
-            UI::beginFrame();
-            ImGui::SetNextWindowBgAlpha(0.92f);
-            UI::rendererSelector(
-                e->technique_,
-                UI::RendererAvailability{
-                    .rasterizer = e->rasterizer_ready_,
-                    .ray_tracer = e->ray_tracer_ready_,
-                    .path_tracer = e->path_tracer_ready_,
-                }
-            );
-
             const bool tab_down = Keyboard.isKeyDown(Keyboard.KEY_TAB);
             if (tab_down && !_tab_down)
             {
@@ -550,6 +539,22 @@ public:
                 Mouse.getDY();
             }
             _tab_down = tab_down;
+
+            if (UI::beginFrame())
+            {
+                UI::enginePanels(
+                    *e->world_,
+                    *e->ray_tracer_,
+                    *e->path_tracer_,
+                    e->technique_,
+                    UI::RendererAvailability{
+                        .rasterizer = e->rasterizer_ready_,
+                        .ray_tracer = e->ray_tracer_ready_,
+                        .path_tracer = e->path_tracer_ready_,
+                    },
+                    "Earth"
+                );
+            }
 
             const bool enter_down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
             if (enter_down && !_enter_down && !UI::wantsKeyboard())
