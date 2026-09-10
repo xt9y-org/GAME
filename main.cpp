@@ -16,8 +16,6 @@
 #include <lwcgl/lwcgl.h>
 #ifdef __APPLE__
 #include <lwmgl/lwmgl.h>
-extern "C" int lwmglSurfaceAttach(void *nativeWindow);
-extern "C" void lwmglSurfaceDetach(void);
 #endif
 
 #include <algorithm>
@@ -128,7 +126,7 @@ private:
         ray_tracer_ready_ = ray_tracer_.init();
         path_tracer_ready_ = path_tracer_.init();
 #ifdef __APPLE__
-        trace_surface_active_ = Metal.isCreated() != 0;
+        trace_surface_active_ = Metal.isSurfaceAttached && Metal.isSurfaceAttached() != 0;
 #else
         trace_surface_active_ = ray_tracer_ready_ || path_tracer_ready_;
 #endif
@@ -280,7 +278,7 @@ private:
             }
 #ifdef __APPLE__
             if (Metal.isCreated()) Metal.waitIdle();
-            lwmglSurfaceDetach();
+            if (Metal.detachSurface) Metal.detachSurface();
 #endif
             trace_surface_active_ = false;
             active_trace_ = RenderTechnique::Rasterizer;
@@ -291,8 +289,12 @@ private:
             return false;
 
 #ifdef __APPLE__
+        if (!Metal.attachSurface || !Metal.detachSurface || !Metal.isSurfaceAttached) {
+            std::fprintf(stderr, "[GAME]: installed lwmgl is missing surface switching support\n");
+            return false;
+        }
         if (!trace_surface_active_) {
-            if (lwmglSurfaceAttach(Display.getNativeWindow()) != 0) {
+            if (Metal.attachSurface(Display.getNativeWindow()) != 0) {
                 std::fprintf(stderr, "[GAME]: failed to attach Metal surface: %s\n", lwmglGetLastError());
                 return false;
             }
@@ -317,7 +319,7 @@ private:
         if (!techniqueReady(technique_)) {
 #ifdef __APPLE__
             if (Metal.isCreated()) Metal.waitIdle();
-            lwmglSurfaceDetach();
+            Metal.detachSurface();
 #endif
             trace_surface_active_ = false;
             active_trace_ = RenderTechnique::Rasterizer;
