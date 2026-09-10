@@ -35,6 +35,11 @@ struct DrivingCamera {
     float position_response = 28.0f;
     float rotation_response = 20.0f;
     float maximum_roll_degrees = 1.6f;
+    float steering_look_degrees = 1.25f;
+    float vibration_height = 0.012f;
+    float vibration_roll_degrees = 0.12f;
+    float vibration_frequency = 17.0f;
+    float vibration_phase = 0.0f;
 };
 
 struct Traffic {
