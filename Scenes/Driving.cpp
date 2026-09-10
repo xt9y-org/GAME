@@ -195,7 +195,18 @@ void Driving::createTraffic(Ecs::World& world)
             traffic_materials_[static_cast<std::size_t>(index) % traffic_materials_.size()]
         });
         world.add<Renderer::RenderableComponent>(entity, Renderer::RenderableComponent{true});
-        world.add<Game::Driving::Traffic>(entity, Game::Driving::Traffic{lane, speed, length, heavy});
+
+        Game::Driving::Traffic traffic;
+        traffic.lane = lane;
+        traffic.target_lane = lane;
+        traffic.speed = speed;
+        traffic.desired_speed = speed;
+        traffic.length = length;
+        traffic.lane_change_speed = heavy ? 1.15f : 1.80f;
+        traffic.follow_distance = heavy ? 48.0f : 34.0f;
+        traffic.lane_change_cooldown = random01() * 3.0f;
+        traffic.heavy = heavy;
+        world.add<Game::Driving::Traffic>(entity, traffic);
         triangle_count_ += triangles(box_mesh_);
     }
 }
@@ -252,10 +263,13 @@ void Driving::drawDebug(Ecs::World& world)
 {
     Game::Driving::Vehicle *vehicle = world.get<Game::Driving::Vehicle>(player_);
     Game::Driving::DrivingCamera *camera = world.get<Game::Driving::DrivingCamera>(camera_);
-    if (!vehicle || !camera) return;
+    const Renderer::Transform *player_transform = world.get<Renderer::Transform>(player_);
+    if (!vehicle || !camera || !player_transform) return;
+
+    const Game::Driving::TrafficSystem::Statistics& traffic = traffic_system_.statistics();
 
     ImGui::SetNextWindowPos(ImVec2(8.0f, 350.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(350.0f, 310.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350.0f, 390.0f), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Driving")) {
         ImGui::End();
         return;
@@ -263,7 +277,17 @@ void Driving::drawDebug(Ecs::World& world)
 
     ImGui::Text("Speed: %.1f km/h", vehicle->speed * 3.6f);
     ImGui::Text("Steering: %.2f", vehicle->steering);
-    ImGui::Text("Traffic: %d", traffic_count_);
+    ImGui::Text("Throttle / brake: %.2f / %.2f", vehicle->throttle, vehicle->brake);
+    ImGui::Text("Position: %.1f, %.1f", player_transform->position.x, player_transform->position.z);
+
+    ImGui::SeparatorText("Traffic");
+    ImGui::Text("Vehicles: %zu", traffic.count);
+    ImGui::Text("Average speed: %.1f km/h", traffic.average_speed * 3.6f);
+    ImGui::Text("Nearest ahead: %.1f m", traffic.nearest_ahead);
+    ImGui::Text("Lane changes: %llu", static_cast<unsigned long long>(traffic.lane_changes));
+    ImGui::DragFloat("Spawn ahead", &traffic_spawn_ahead_, 5.0f, 100.0f, 2000.0f, "%.0f m");
+    ImGui::DragFloat("Despawn behind", &traffic_despawn_behind_, 2.0f, 20.0f, 500.0f, "%.0f m");
+
     ImGui::SeparatorText("Vehicle");
     ImGui::DragFloat("Max speed", &vehicle->maximum_speed, 0.25f, 10.0f, 140.0f, "%.2f m/s");
     ImGui::DragFloat("Acceleration", &vehicle->engine_acceleration, 0.1f, 0.1f, 40.0f);
@@ -284,7 +308,12 @@ void Driving::drawDebug(Ecs::World& world)
 void Driving::emitMetrics(const std::function<void(std::string_view, double)>& emit) const
 {
     if (!emit) return;
-    emit("driving_traffic_entities", static_cast<double>(traffic_count_));
+
+    const Game::Driving::TrafficSystem::Statistics& traffic = traffic_system_.statistics();
+    emit("driving_traffic_entities", static_cast<double>(traffic.count));
+    emit("driving_traffic_average_speed", static_cast<double>(traffic.average_speed));
+    emit("driving_nearest_traffic", static_cast<double>(traffic.nearest_ahead));
+    emit("driving_lane_changes", static_cast<double>(traffic.lane_changes));
     emit("driving_scene_triangles", static_cast<double>(triangle_count_));
 }
 
