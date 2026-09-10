@@ -127,7 +127,11 @@ private:
         rasterizer_ready_ = rasterizer_.init();
         ray_tracer_ready_ = ray_tracer_.init();
         path_tracer_ready_ = path_tracer_.init();
+#ifdef __APPLE__
+        trace_surface_active_ = Metal.isCreated() != 0;
+#else
         trace_surface_active_ = ray_tracer_ready_ || path_tracer_ready_;
+#endif
 
         if (rasterizer_ready_) {
             technique_ = RenderTechnique::Rasterizer;
@@ -208,6 +212,11 @@ private:
                 scene->name(),
                 error.empty() ? "unknown error" : error.c_str()
             );
+            return false;
+        }
+
+        if (scene->camera() == Ecs::INVALID_ENTITY || !next_world->alive(scene->camera())) {
+            std::fprintf(stderr, "[GAME]: scene %s did not create a valid camera\n", scene->name());
             return false;
         }
 
