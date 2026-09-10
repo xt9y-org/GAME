@@ -5,6 +5,7 @@
 
 #include "Sources/Camera.hpp"
 #include "Sources/Models/Models.hpp"
+#include "Sources/Renderer/Components.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -18,15 +19,6 @@ public:
     const char *name() const override
     {
         return "Sponza";
-    }
-
-    void configure(Renderers& renderers) override
-    {
-        renderers.ray_tracer.settings().resolution_divisor = 4;
-        renderers.ray_tracer.settings().exposure = 1.05f;
-        renderers.path_tracer.settings().resolution_divisor = 2;
-        renderers.path_tracer.settings().samples_per_frame = 2;
-        renderers.path_tracer.settings().exposure = 1.05f;
     }
 
     bool load(Ecs::World& world, std::string& error) override
