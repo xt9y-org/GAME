@@ -1,9 +1,10 @@
-GAME using Horse as a shared library.
+Driving game using Horse.
 
 Build: c build
 Run: c run
 Check: renderercheck run
 
-WASD + mouse: move
-Tab: UI / mouse grab
+WASD: drive
+Tab: driving debug
 Enter: switch renderer
+Esc: quit
