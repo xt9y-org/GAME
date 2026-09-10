@@ -5,7 +5,12 @@
 #include <cstdint>
 #include <string_view>
 
+namespace Ecs {
+class World;
+}
+
 namespace Renderer {
+class PathTracer;
 class Rasterizer;
 }
 
@@ -20,15 +25,21 @@ public:
     bool performance() const { return !performance_case_.empty(); }
     std::string_view test() const { return test_; }
     std::string_view performanceCase() const { return performance_case_; }
+    std::string_view rendererName() const;
 
     bool captureDue(std::uint64_t frame) const;
     bool lastFrame(std::uint64_t frame) const;
     bool captureOpenGL(int width, int height) const;
     void configure(Renderer::Rasterizer& rasterizer) const;
+    void configure(Renderer::PathTracer& path_tracer) const;
+    void update(Ecs::World& world) const;
     void record(const Renderer::Rasterizer& rasterizer) const;
+    void record(const Renderer::PathTracer& path_tracer) const;
     void metric(std::string_view name, double value) const;
 
 private:
+    std::string_view profile() const;
+
     bool active_ = false;
     std::string_view test_{};
     std::string_view performance_case_{};
