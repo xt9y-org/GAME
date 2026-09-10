@@ -41,6 +41,17 @@ static void configureViewer(C_Target *target, C_Dependency *horse, const char *s
     c_link_flag(target, "-Wl,-rpath,/usr/local/lib");
 }
 
+static void configureContract(C_Target *target)
+{
+    c_flag(target, "-std=c++20");
+    c_warnings_strict(target);
+#ifdef __APPLE__
+    c_link_system(target, "c++");
+#else
+    c_link_system(target, "stdc++");
+#endif
+}
+
 void build(C_Build *b)
 {
     C_Dependency *horse = c_git(
@@ -58,6 +69,10 @@ void build(C_Build *b)
 
     C_Target *earth = c_test(b, "earth");
     configureViewer(earth, horse, "Examples/earth.cpp");
+
+    C_Target *imgui_selector_contract = c_test(b, "imgui-selector-contract");
+    c_sources(imgui_selector_contract, "tests/imgui_selector_contract.cpp");
+    configureContract(imgui_selector_contract);
 
     c_default_target(b, sponza);
 }
