@@ -2,18 +2,11 @@
 #define GAME_SCENES_SCENE_HPP
 
 #include "Sources/Ecs/Ecs.hpp"
-#include "Sources/Renderer/Render.hpp"
 
 #include <cstddef>
 #include <string>
 
 namespace Game::Scenes {
-
-struct Renderers {
-    Renderer::Rasterizer& rasterizer;
-    Renderer::RayTracer& ray_tracer;
-    Renderer::PathTracer& path_tracer;
-};
 
 class Scene {
 public:
@@ -25,10 +18,6 @@ public:
     {
         (void)world;
         (void)delta_seconds;
-    }
-    virtual void configure(Renderers& renderers)
-    {
-        (void)renderers;
     }
 
     virtual Ecs::Entity camera() const = 0;
