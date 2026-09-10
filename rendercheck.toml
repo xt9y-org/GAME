@@ -60,3 +60,21 @@ sample_ms = 3000.0
 regression_percent = 15.0
 min_samples = 3
 timeout_ms = 30000.0
+
+[[perf]]
+name = "path-stationary"
+command = "./build/debug/game"
+warmup_ms = 1000.0
+sample_ms = 3000.0
+regression_percent = 15.0
+min_samples = 3
+timeout_ms = 30000.0
+
+[[perf]]
+name = "path-turn"
+command = "./build/debug/game"
+warmup_ms = 1000.0
+sample_ms = 3000.0
+regression_percent = 15.0
+min_samples = 3
+timeout_ms = 30000.0
