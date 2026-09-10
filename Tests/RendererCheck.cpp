@@ -1,5 +1,8 @@
 #include "Tests/RendererCheck.hpp"
 
+#include "Sources/Camera.hpp"
+#include "Sources/Renderer/Components.hpp"
+#include "Sources/Renderer/PathTracer/PathTracer.hpp"
 #include "Sources/Renderer/Rasterizer/Rasterizer.hpp"
 
 #include <lwcgl/lwcgl.h>
@@ -64,6 +67,18 @@ RendererCheck::RendererCheck()
     frame_limit_ = environmentUnsigned("RENDERCHECK_FRAME_LIMIT", 0u);
 }
 
+std::string_view RendererCheck::profile() const
+{
+    return visual() ? test_ : performance_case_;
+}
+
+std::string_view RendererCheck::rendererName() const
+{
+    const std::string_view value = profile();
+    if (value == "path-stationary" || value == "path-turn") return "Path Tracer";
+    return "Rasterizer";
+}
+
 bool RendererCheck::captureDue(std::uint64_t frame) const
 {
     return active_ && capture_path_ && frame == capture_frame_;
@@ -108,8 +123,8 @@ bool RendererCheck::captureOpenGL(int width, int height) const
 
 void RendererCheck::configure(Renderer::Rasterizer& rasterizer) const
 {
-    const std::string_view profile = visual() ? test_ : performance_case_;
-    if (profile == "horizon-gi") {
+    const std::string_view value = profile();
+    if (value == "horizon-gi") {
         rasterizer.setLightingResolutionDivisor(1);
         rasterizer.setShadowResolutionDivisor(1);
         rasterizer.setDepthAwareUpscaling(true);
@@ -122,7 +137,7 @@ void RendererCheck::configure(Renderer::Rasterizer& rasterizer) const
         return;
     }
 
-    if (profile == "low-end") {
+    if (value == "low-end") {
         rasterizer.setLightingResolutionDivisor(2);
         rasterizer.setShadowResolutionDivisor(4);
         rasterizer.setDepthAwareUpscaling(true);
@@ -133,6 +148,28 @@ void RendererCheck::configure(Renderer::Rasterizer& rasterizer) const
         rasterizer.setHorizonGiSteps(4);
         rasterizer.setHorizonGiTemporalFilter(false);
     }
+}
+
+void RendererCheck::configure(Renderer::PathTracer& path_tracer) const
+{
+    const std::string_view value = profile();
+    if (value != "path-stationary" && value != "path-turn") return;
+
+    path_tracer.setResolutionDivisor(2);
+    path_tracer.setSamplesPerFrame(1);
+    path_tracer.setStationaryPhaseGrid(2);
+    path_tracer.setResetPhaseGrid(1);
+    path_tracer.setMovingPhaseGrid(4);
+    path_tracer.setMovingDepthBlock(4);
+}
+
+void RendererCheck::update(Ecs::World& world) const
+{
+    if (profile() != "path-turn") return;
+    const Ecs::Entity camera = Camera::activeCamera(world);
+    if (camera == Ecs::INVALID_ENTITY) return;
+    Renderer::Transform *transform = world.get<Renderer::Transform>(camera);
+    if (transform) transform->rotation.y += 1.0f;
 }
 
 void RendererCheck::record(const Renderer::Rasterizer& rasterizer) const
@@ -166,6 +203,25 @@ void RendererCheck::record(const Renderer::Rasterizer& rasterizer) const
     metric("upscale_source_height", static_cast<double>(upscale.source_height));
     metric("upscale_output_width", static_cast<double>(upscale.output_width));
     metric("upscale_output_height", static_cast<double>(upscale.output_height));
+}
+
+void RendererCheck::record(const Renderer::PathTracer& path_tracer) const
+{
+    const Renderer::PathTracerStatistics path = path_tracer.statistics();
+    metric("path_active", path.active ? 1.0 : 0.0);
+    metric("path_output_width", static_cast<double>(path.output_width));
+    metric("path_output_height", static_cast<double>(path.output_height));
+    metric("path_trace_width", static_cast<double>(path.trace_width));
+    metric("path_trace_height", static_cast<double>(path.trace_height));
+    metric("path_samples_per_frame", static_cast<double>(path.samples_per_frame));
+    metric("path_stationary_phase_grid", static_cast<double>(path.stationary_phase_grid));
+    metric("path_reset_phase_grid", static_cast<double>(path.reset_phase_grid));
+    metric("path_moving_phase_grid", static_cast<double>(path.moving_phase_grid));
+    metric("path_moving_depth_block", static_cast<double>(path.moving_depth_block));
+    metric("path_stationary_pixel_budget", static_cast<double>(path.stationary_path_pixel_budget));
+    metric("path_reset_pixel_budget", static_cast<double>(path.reset_path_pixel_budget));
+    metric("path_moving_pixel_budget", static_cast<double>(path.moving_path_pixel_budget));
+    metric("path_moving_depth_ray_budget", static_cast<double>(path.moving_depth_ray_budget));
 }
 
 void RendererCheck::metric(std::string_view name, double value) const
