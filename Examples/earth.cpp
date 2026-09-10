@@ -486,7 +486,7 @@ public:
         const Ecs::Entity _stats = Font::screen(
             *e->world_,
             "",
-            {12.0f, 140.0f},
+            {12.0f, 12.0f},
             2.0f
         );
 
