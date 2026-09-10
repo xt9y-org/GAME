@@ -99,16 +99,6 @@ bool Driving::load(Ecs::World& world, std::string& error)
         .intensity = 2.1f,
     });
 
-    const Ecs::Entity gi = world.createEntity();
-    world.add<Renderer::GlobalIlluminationComponent>(gi, Renderer::GlobalIlluminationComponent{
-        .enabled = false,
-        .intensity = 0.65f,
-        .bounces = 1,
-        .photon_mapping = false,
-        .photon_count = 0u,
-        .photon_radius = 0.0f,
-    });
-
     world.markChanged();
     return true;
 }
@@ -268,9 +258,9 @@ void Driving::drawDebug(Ecs::World& world)
 
     const Game::Driving::TrafficSystem::Statistics& traffic = traffic_system_.statistics();
 
-    ImGui::SetNextWindowPos(ImVec2(8.0f, 350.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(350.0f, 470.0f), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Driving")) {
+    if (!ImGui::Begin("Driving Debug")) {
         ImGui::End();
         return;
     }
