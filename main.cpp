@@ -87,11 +87,14 @@ public:
 
             if (!renderer_check_.active()) updateStats(delta_seconds);
             resizeIfNeeded();
+            if (renderer_check_.active()) renderer_check_.update(*world_);
             renderers_.render(*world_);
 
             if (renderer_check_.active()) {
                 if (auto *rasterizer = dynamic_cast<Renderer::Rasterizer *>(renderers_.active()))
                     renderer_check_.record(*rasterizer);
+                else if (auto *path_tracer = dynamic_cast<Renderer::PathTracer *>(renderers_.active()))
+                    renderer_check_.record(*path_tracer);
             }
 
             const auto frame_finished = Clock::now();
@@ -158,6 +161,10 @@ private:
         framebuffer_width_ = std::max(Display.getWidth(), 1);
         framebuffer_height_ = std::max(Display.getHeight(), 1);
         renderers_.resize(framebuffer_width_, framebuffer_height_);
+        if (renderer_check_.active() && !renderers_.activate(renderer_check_.rendererName())) {
+            std::fprintf(stderr, "[RendererCheck]: requested renderer unavailable\n");
+            return false;
+        }
 
         scenes_.add<Scenes::Sponza>();
         scenes_.add<Scenes::Earth>();
@@ -265,6 +272,7 @@ private:
         path_tracer.setResetPhaseGrid(1);
         path_tracer.setMovingPhaseGrid(4);
         path_tracer.setMovingDepthBlock(4);
+        renderer_check_.configure(path_tracer);
 
         interface_.addIntControl(
             ray_tracer,
