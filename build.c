@@ -23,7 +23,11 @@ static void configurePlatform(C_Target *target)
     c_link_system(target, "glfw");
 }
 
-static void configureViewer(C_Target *target, C_Dependency *horse, const char *source)
+static void configureViewer(
+    C_Target *target,
+    C_Dependency *horse,
+    C_Dependency *imgui,
+    const char *source)
 {
     c_sources(target, source);
     c_include(target, "/usr/local/include/lwcgl-2.9.3");
@@ -31,6 +35,7 @@ static void configureViewer(C_Target *target, C_Dependency *horse, const char *s
     c_warnings_strict(target);
 
     c_use(target, horse);
+    c_use(target, imgui);
 
     configurePlatform(target);
     c_link_flag(target, "-L/usr/local/lib");
@@ -64,11 +69,20 @@ void build(C_Build *b)
     c_dep_include(horse, ".");
     c_dep_include(horse, "Sources");
 
+    C_Dependency *imgui = c_git(
+        b,
+        "imgui",
+        "https://github.com/ocornut/imgui.git",
+        "v1.92.9b"
+    );
+    c_dep_header_only(imgui);
+    c_dep_include(imgui, ".");
+
     C_Target *sponza = c_test(b, "sponza");
-    configureViewer(sponza, horse, "Examples/sponza.cpp");
+    configureViewer(sponza, horse, imgui, "Examples/sponza.cpp");
 
     C_Target *earth = c_test(b, "earth");
-    configureViewer(earth, horse, "Examples/earth.cpp");
+    configureViewer(earth, horse, imgui, "Examples/earth.cpp");
 
     C_Target *imgui_selector_contract = c_test(b, "imgui-selector-contract");
     c_sources(imgui_selector_contract, "tests/imgui_selector_contract.cpp");
