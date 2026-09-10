@@ -2,8 +2,8 @@
 #define GAME_SCENES_DRIVING_HPP
 
 #include "Driving/Traffic.hpp"
-#include "Scenes/Scene.hpp"
 
+#include "Sources/Ecs/Ecs.hpp"
 #include "Sources/Models/Models.hpp"
 #include "Sources/Renderer/Components.hpp"
 
@@ -15,17 +15,15 @@
 
 namespace Game::Scenes {
 
-class Driving final : public Scene {
+class Driving {
 public:
-    const char *name() const override;
-    bool load(Ecs::World& world, std::string& error) override;
-    void update(Ecs::World& world, float delta_seconds) override;
-    Ecs::Entity camera() const override;
-    std::size_t triangleCount() const override;
-    bool usesFreeCamera() const override { return false; }
-    bool showStats() const override { return false; }
-    void drawDebug(Ecs::World& world) override;
-    void emitMetrics(const std::function<void(std::string_view, double)>& emit) const override;
+    const char *name() const;
+    bool load(Ecs::World& world, std::string& error);
+    void update(Ecs::World& world, float delta_seconds);
+    Ecs::Entity camera() const;
+    std::size_t triangleCount() const;
+    void drawDebug(Ecs::World& world);
+    void emitMetrics(const std::function<void(std::string_view, double)>& emit) const;
 
 private:
     void createRoad(Ecs::World& world);
