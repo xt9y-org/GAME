@@ -1,6 +1,7 @@
 #include "Scenes/Earth.hpp"
 #include "Scenes/Manager.hpp"
 #include "Scenes/Sponza.hpp"
+#include "Tests/RendererCheck.hpp"
 #include "UI/Interface.hpp"
 
 #include "Font.hpp"
@@ -41,15 +42,17 @@ public:
 
         using Clock = std::chrono::steady_clock;
         auto previous = Clock::now();
+        std::uint64_t frame_index = 0u;
 
         while (!Display.isCloseRequested()) {
+            const auto frame_started = Clock::now();
             Display.processMessages();
             if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE)) break;
 
-            updateMouseMode();
+            if (!renderer_check_.active()) updateMouseMode();
 
             std::size_t requested_scene = scenes_.currentIndex();
-            const bool ui_visible = ::UI::beginFrame();
+            const bool ui_visible = !renderer_check_.active() && ::UI::beginFrame();
             if (ui_visible && world_) {
                 requested_scene = interface_.draw(
                     *world_,
@@ -79,12 +82,30 @@ public:
                 animation_system_.update(*world_, frame_delta);
             }
 
-            if (!::UI::wantsMouse() && !::UI::wantsKeyboard())
+            if (!renderer_check_.active() && !::UI::wantsMouse() && !::UI::wantsKeyboard())
                 camera_controller_.update(*world_, frame_delta);
 
-            updateStats(delta_seconds);
+            if (!renderer_check_.active()) updateStats(delta_seconds);
             resizeIfNeeded();
             renderers_.render(*world_);
+
+            const auto frame_finished = Clock::now();
+            renderer_check_.metric(
+                "frame_ms",
+                std::chrono::duration<double, std::milli>(frame_finished - frame_started).count()
+            );
+
+            if (renderer_check_.captureDue(frame_index)) {
+                const Renderer::Manager::Entry *active = renderers_.activeEntry();
+                const bool rasterizer = active && active->name == "Rasterizer";
+                if (!rasterizer || !renderer_check_.captureOpenGL(framebuffer_width_, framebuffer_height_)) {
+                    std::fprintf(stderr, "[RendererCheck]: capture failed\n");
+                    return 4;
+                }
+            }
+
+            if (renderer_check_.lastFrame(frame_index)) break;
+            ++frame_index;
         }
 
         return 0;
@@ -415,6 +436,7 @@ private:
     UI::Interface interface_;
     std::unique_ptr<Ecs::World> world_;
     Ecs::Entity stats_ = Ecs::INVALID_ENTITY;
+    Tests::RendererCheck renderer_check_{};
 };
 
 } // namespace Game

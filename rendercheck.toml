@@ -1,0 +1,37 @@
+[project]
+name = "GAME"
+command = "./build/debug/game"
+cwd = "."
+baseline_dir = "Tests/Baselines"
+headless = "auto"
+renderer = "hardware"
+timeout_ms = 30000.0
+
+[validation]
+vulkan = false
+fail_on_error = true
+fail_on_warning = false
+
+[performance]
+max_process_ms = 30000.0
+warmup_ms = 1000.0
+sample_ms = 3000.0
+regression_percent = 15.0
+min_samples = 3
+
+[[test]]
+name = "rasterizer"
+capture = true
+warmup_frames = 8
+pixel_threshold = 2
+max_changed_percent = 0.05
+timeout_ms = 30000.0
+
+[[perf]]
+name = "rasterizer"
+command = "./build/debug/game"
+warmup_ms = 1000.0
+sample_ms = 3000.0
+regression_percent = 15.0
+min_samples = 3
+timeout_ms = 30000.0
