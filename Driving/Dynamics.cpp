@@ -91,7 +91,7 @@ void updatePlayer(Ecs::World& world, float delta_seconds, bool input_enabled)
         }
     );
 
-    if (changed) world.markChanged();
+    if (changed) world.markChanged(Ecs::ChangeKind::Transform);
 }
 
 } // namespace Game::Driving
