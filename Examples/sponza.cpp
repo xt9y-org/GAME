@@ -3,7 +3,9 @@
 #include "Sources/Ecs/Ecs.hpp"
 #include "Sources/Models/Models.hpp"
 #include "Sources/Renderer/Render.hpp"
+#include "Sources/UI/UI.hpp"
 
+#include <imgui.h>
 #include <lwcgl/context.h>
 #include <lwcgl/lwcgl.h>
 #ifdef __APPLE__
@@ -25,12 +27,7 @@ extern "C" void lwmglSurfaceDetach(void);
 class Example
 {
 private:
-    enum class RenderTechnique
-    {
-        Rasterizer,
-        RayTracer,
-        PathTracer,
-    };
+    using RenderTechnique = UI::RendererChoice;
 
     Renderer::Rasterizer *rasterizer_ = new Renderer::Rasterizer();
     Renderer::RayTracer *ray_tracer_ = new Renderer::RayTracer();
@@ -111,13 +108,7 @@ private:
     const char *techniqueLabel(bool camera_moving) const
     {
         (void)camera_moving;
-        switch (technique_)
-        {
-            case RenderTechnique::Rasterizer: return "Rasterizer";
-            case RenderTechnique::RayTracer: return "RayTracer";
-            case RenderTechnique::PathTracer: return "PathTracer";
-        }
-        return "Rasterizer";
+        return UI::rendererName(technique_);
     }
 
     bool setTraceSurface(bool active)
@@ -234,6 +225,9 @@ public:
         Mouse.getDX();
         Mouse.getDY();
 
+        if (!UI::init())
+            std::fprintf(stderr, "[UI]: initialization failed\n");
+
         rasterizer_ready_ = rasterizer_->init();
         ray_tracer_ready_ = ray_tracer_->init();
         path_tracer_ready_ = path_tracer_->init();
@@ -259,6 +253,7 @@ public:
 
     ~Example()
     {
+        UI::shutdown();
         setTraceSurface(false);
         path_tracer_->shutdown();
         ray_tracer_->shutdown();
@@ -416,7 +411,7 @@ public:
         const Ecs::Entity _stats = Font::screen(
             *e->world_,
             "",
-            {12.0f, 12.0f},
+            {12.0f, 140.0f},
             2.0f
         );
 
@@ -449,6 +444,17 @@ public:
             Display.processMessages();
             if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE)) break;
 
+            UI::beginFrame();
+            ImGui::SetNextWindowBgAlpha(0.92f);
+            UI::rendererSelector(
+                e->technique_,
+                UI::RendererAvailability{
+                    .rasterizer = e->rasterizer_ready_,
+                    .ray_tracer = e->ray_tracer_ready_,
+                    .path_tracer = e->path_tracer_ready_,
+                }
+            );
+
             const bool tab_down = Keyboard.isKeyDown(Keyboard.KEY_TAB);
             if (tab_down && !_tab_down)
             {
@@ -460,7 +466,7 @@ public:
             _tab_down = tab_down;
 
             const bool enter_down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
-            if (enter_down && !_enter_down)
+            if (enter_down && !_enter_down && !UI::wantsKeyboard())
                 e->cycleTechnique();
             _enter_down = enter_down;
 
@@ -478,7 +484,8 @@ public:
             }
 
             e->animation_system_->update(*e->world_, frame_delta);
-            e->camera_controller_->update(*e->world_, frame_delta);
+            if (!UI::wantsMouse() && !UI::wantsKeyboard())
+                e->camera_controller_->update(*e->world_, frame_delta);
 
             bool camera_moving = false;
             if (had_camera_before)
