@@ -216,7 +216,7 @@ private:
         auto& path_tracer = renderers_.add<Renderer::PathTracer>("Path Tracer");
         path_tracer.setEnabled(true);
         path_tracer.setResolutionDivisor(2);
-        path_tracer.setSamplesPerFrame(2);
+        path_tracer.setSamplesPerFrame(1);
         path_tracer.setExposure(1.05f);
         path_tracer.setStationaryPhaseGrid(2);
         path_tracer.setResetPhaseGrid(1);
