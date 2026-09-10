@@ -269,7 +269,7 @@ void Driving::drawDebug(Ecs::World& world)
     const Game::Driving::TrafficSystem::Statistics& traffic = traffic_system_.statistics();
 
     ImGui::SetNextWindowPos(ImVec2(8.0f, 350.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(350.0f, 390.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350.0f, 470.0f), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Driving")) {
         ImGui::End();
         return;
@@ -301,6 +301,10 @@ void Driving::drawDebug(Ecs::World& world)
     ImGui::DragFloat("Pitch", &camera->pitch_degrees, 0.1f, -30.0f, 20.0f);
     ImGui::DragFloat("Low FOV", &camera->low_speed_fov, 0.1f, 50.0f, 140.0f);
     ImGui::DragFloat("High FOV", &camera->high_speed_fov, 0.1f, 50.0f, 150.0f);
+    ImGui::DragFloat("Steering look", &camera->steering_look_degrees, 0.02f, 0.0f, 8.0f);
+    ImGui::DragFloat("Vibration height", &camera->vibration_height, 0.001f, 0.0f, 0.10f);
+    ImGui::DragFloat("Vibration roll", &camera->vibration_roll_degrees, 0.01f, 0.0f, 2.0f);
+    ImGui::DragFloat("Vibration frequency", &camera->vibration_frequency, 0.1f, 0.0f, 60.0f);
 
     ImGui::End();
 }
