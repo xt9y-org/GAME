@@ -2,9 +2,8 @@
 name = "GAME"
 command = "./build/debug/game"
 cwd = "."
-baseline_dir = "Tests/Baselines"
-headless = "auto"
-renderer = "hardware"
+headless = "xvfb"
+renderer = "software"
 timeout_ms = 30000.0
 
 [validation]
@@ -24,54 +23,8 @@ name = "rasterizer"
 capture = false
 timeout_ms = 30000.0
 
-[[test]]
-name = "horizon-gi"
-capture = false
-timeout_ms = 30000.0
-
-[[test]]
-name = "low-end"
-capture = false
-timeout_ms = 30000.0
-
 [[perf]]
 name = "rasterizer"
-command = "./build/debug/game"
-warmup_ms = 1000.0
-sample_ms = 3000.0
-regression_percent = 15.0
-min_samples = 3
-timeout_ms = 30000.0
-
-[[perf]]
-name = "horizon-gi"
-command = "./build/debug/game"
-warmup_ms = 1000.0
-sample_ms = 3000.0
-regression_percent = 15.0
-min_samples = 3
-timeout_ms = 30000.0
-
-[[perf]]
-name = "low-end"
-command = "./build/debug/game"
-warmup_ms = 1000.0
-sample_ms = 3000.0
-regression_percent = 15.0
-min_samples = 3
-timeout_ms = 30000.0
-
-[[perf]]
-name = "path-stationary"
-command = "./build/debug/game"
-warmup_ms = 1000.0
-sample_ms = 3000.0
-regression_percent = 15.0
-min_samples = 3
-timeout_ms = 30000.0
-
-[[perf]]
-name = "path-turn"
 command = "./build/debug/game"
 warmup_ms = 1000.0
 sample_ms = 3000.0

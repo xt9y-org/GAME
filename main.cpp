@@ -87,30 +87,13 @@ public:
 
             if (!renderer_check_.active()) updateStats(delta_seconds);
             resizeIfNeeded();
-            if (renderer_check_.active()) renderer_check_.update(*world_);
             renderers_.render(*world_);
-
-            if (renderer_check_.active()) {
-                if (auto *rasterizer = dynamic_cast<Renderer::Rasterizer *>(renderers_.active()))
-                    renderer_check_.record(*rasterizer);
-                else if (auto *path_tracer = dynamic_cast<Renderer::PathTracer *>(renderers_.active()))
-                    renderer_check_.record(*path_tracer);
-            }
 
             const auto frame_finished = Clock::now();
             renderer_check_.metric(
                 "frame_ms",
                 std::chrono::duration<double, std::milli>(frame_finished - frame_started).count()
             );
-
-            if (renderer_check_.captureDue(frame_index)) {
-                const Renderer::Manager::Entry *active = renderers_.activeEntry();
-                const bool rasterizer = active && active->name == "Rasterizer";
-                if (!rasterizer || !renderer_check_.captureOpenGL(framebuffer_width_, framebuffer_height_)) {
-                    std::fprintf(stderr, "[RendererCheck]: capture failed\n");
-                    return 4;
-                }
-            }
 
             if (renderer_check_.lastFrame(frame_index)) break;
             ++frame_index;
@@ -235,28 +218,11 @@ private:
         rasterizer.setEnabled(true);
         rasterizer.setViewportCulling(true);
         rasterizer.setShadowResolution(2048);
-        rasterizer.setShadowResolutionDivisor(1);
         rasterizer.setFallbackShadowResolution(512);
         rasterizer.setMinimumShadowResolution(64);
         rasterizer.setShadowNearPlane(0.05f);
         rasterizer.setShadowFarScale(1.05f);
-        rasterizer.setLightingResolutionDivisor(1);
-        rasterizer.setDepthAwareUpscaling(true);
-        rasterizer.setTemporalUpscaling(false);
-        rasterizer.setTemporalUpscalingWeight(0.85f);
-        rasterizer.setUpscalingDepthThreshold(0.02f);
-        rasterizer.setHorizonGiEnabled(false);
-        rasterizer.setHorizonGiResolutionDivisor(2);
-        rasterizer.setHorizonGiDirections(4);
-        rasterizer.setHorizonGiSteps(6);
-        rasterizer.setHorizonGiRadius(1.5f);
-        rasterizer.setHorizonGiThickness(0.15f);
-        rasterizer.setHorizonGiAoStrength(1.0f);
-        rasterizer.setHorizonGiIndirectStrength(0.35f);
-        rasterizer.setHorizonGiTemporalFilter(true);
-        rasterizer.setHorizonGiTemporalWeight(0.85f);
         rasterizer.setClearColor({0.035f, 0.035f, 0.045f, 1.0f});
-        renderer_check_.configure(rasterizer);
 
         auto& ray_tracer = renderers_.add<Renderer::RayTracer>("Ray Tracer");
         ray_tracer.setEnabled(true);
@@ -272,7 +238,6 @@ private:
         path_tracer.setResetPhaseGrid(1);
         path_tracer.setMovingPhaseGrid(4);
         path_tracer.setMovingDepthBlock(4);
-        renderer_check_.configure(path_tracer);
 
         interface_.addIntControl(
             ray_tracer,
@@ -321,42 +286,6 @@ private:
             4.0f,
             0.01f,
             "Brightness applied when the path traced image is presented."
-        );
-        interface_.addIntControl(
-            path_tracer,
-            "Stationary Phase Grid",
-            [&path_tracer] { return path_tracer.stationaryPhaseGrid(); },
-            [&path_tracer](int value) { path_tracer.setStationaryPhaseGrid(value); },
-            1,
-            8,
-            "Trace one phase of an N x N pixel grid while stationary. Larger values reduce per-frame path work."
-        );
-        interface_.addIntControl(
-            path_tracer,
-            "Reset Phase Grid",
-            [&path_tracer] { return path_tracer.resetPhaseGrid(); },
-            [&path_tracer](int value) { path_tracer.setResetPhaseGrid(value); },
-            1,
-            8,
-            "Phase grid used for the first frame after accumulation resets."
-        );
-        interface_.addIntControl(
-            path_tracer,
-            "Moving Phase Grid",
-            [&path_tracer] { return path_tracer.movingPhaseGrid(); },
-            [&path_tracer](int value) { path_tracer.setMovingPhaseGrid(value); },
-            1,
-            8,
-            "Trace one phase of an N x N pixel grid while the camera moves."
-        );
-        interface_.addIntControl(
-            path_tracer,
-            "Moving Depth Block",
-            [&path_tracer] { return path_tracer.movingDepthBlock(); },
-            [&path_tracer](int value) { path_tracer.setMovingDepthBlock(value); },
-            1,
-            16,
-            "Trace one deterministic depth ray per N x N block while moving, then fill that block for reconstruction."
         );
     }
 

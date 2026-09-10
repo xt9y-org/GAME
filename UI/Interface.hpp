@@ -86,7 +86,6 @@ private:
         Renderer::Debug::Inspector& inspector);
     void debug(
         Ecs::World& world,
-        Renderer::Manager& renderers,
         Renderer::Debug::Inspector& inspector);
 
     Layout approximation_layout_{};
