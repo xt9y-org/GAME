@@ -17,7 +17,12 @@ public:
         std::uint64_t lane_changes = 0u;
     };
 
-    void setSeed(std::uint32_t seed) { random_state_ = seed ? seed : 1u; }
+    void setSeed(std::uint32_t seed)
+    {
+        random_state_ = seed ? seed : 1u;
+        statistics_ = {};
+    }
+
     void update(
         Ecs::World& world,
         Ecs::Entity player,
