@@ -183,7 +183,7 @@ void TrafficSystem::update(
         statistics_.average_speed /= static_cast<float>(entries.size());
     if (!std::isfinite(statistics_.nearest_ahead)) statistics_.nearest_ahead = 0.0f;
 
-    if (!entries.empty()) world.markChanged();
+    if (!entries.empty()) world.markChanged(Ecs::ChangeKind::Transform);
 }
 
 } // namespace Game::Driving
