@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <utility>
 
 namespace Game::UI {
 namespace {
