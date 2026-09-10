@@ -79,8 +79,6 @@ void Library::load()
         "Assets/Driving/Cars/2010_mercedes-benz_sls_amg.glb", *this));
     addIfValid(cars, loadModel(
         "Assets/Driving/Cars/2015_mercedes-benz_s65_amg_coupe.glb", *this));
-    addIfValid(heavy_traffic, loadModel(
-        "Assets/Driving/Cars/ks-4574_mobile_crane.glb", *this));
 
     addIfValid(street, loadModel(
         "Assets/Driving/Street/low_poly_street_gameready_6.glb", *this));
@@ -89,8 +87,6 @@ void Library::load()
 
     addIfValid(foliage, loadModel(
         "Assets/Driving/Foliage/low_poly_stylized_plants_pack_free.glb", *this));
-    addIfValid(foliage, loadModel(
-        "Assets/Driving/Foliage/pine_trees_pack_lowpoly_game_ready_lods.glb", *this));
 
     addIfValid(city, loadModel(
         "Assets/Driving/City/street_city_7_for_games_free.glb", *this));
