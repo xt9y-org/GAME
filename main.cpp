@@ -1,3 +1,4 @@
+#include "Scenes/Driving.hpp"
 #include "Scenes/Earth.hpp"
 #include "Scenes/Manager.hpp"
 #include "Scenes/Sponza.hpp"
@@ -22,9 +23,11 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace Game {
 
@@ -60,6 +63,7 @@ public:
                     renderers_,
                     inspector_
                 );
+                if (Scenes::Scene *scene = scenes_.current()) scene->drawDebug(*world_);
             }
 
             updateRendererKey();
@@ -76,23 +80,44 @@ public:
             const bool frozen = inspector_.frozen();
             Renderer::GlobalIllumination::setPaused(frozen);
 
+            const auto update_started = Clock::now();
             if (!frozen) {
                 if (Scenes::Scene *scene = scenes_.current())
                     scene->update(*world_, frame_delta);
                 animation_system_.update(*world_, frame_delta);
             }
 
-            if (!renderer_check_.active() && !::UI::wantsMouse() && !::UI::wantsKeyboard())
+            Scenes::Scene *scene = scenes_.current();
+            const bool free_camera = scene && scene->usesFreeCamera();
+            if (free_camera && !renderer_check_.active() && !::UI::wantsMouse() && !::UI::wantsKeyboard())
                 camera_controller_.update(*world_, frame_delta);
+
+            const auto update_finished = Clock::now();
+            renderer_check_.metric(
+                "update_ms",
+                std::chrono::duration<double, std::milli>(update_finished - update_started).count()
+            );
 
             if (!renderer_check_.active()) updateStats(delta_seconds);
             resizeIfNeeded();
-            renderers_.render(*world_);
 
-            const auto frame_finished = Clock::now();
+            const auto render_started = Clock::now();
+            renderers_.render(*world_);
+            const auto render_finished = Clock::now();
+            renderer_check_.metric(
+                "render_ms",
+                std::chrono::duration<double, std::milli>(render_finished - render_started).count()
+            );
+
+            if (scene) {
+                scene->emitMetrics([this](std::string_view name, double value) {
+                    renderer_check_.metric(name, value);
+                });
+            }
+
             renderer_check_.metric(
                 "frame_ms",
-                std::chrono::duration<double, std::milli>(frame_finished - frame_started).count()
+                std::chrono::duration<double, std::milli>(render_finished - frame_started).count()
             );
 
             if (renderer_check_.lastFrame(frame_index)) break;
@@ -149,6 +174,7 @@ private:
             return false;
         }
 
+        scenes_.add<Scenes::Driving>();
         scenes_.add<Scenes::Sponza>();
         scenes_.add<Scenes::Earth>();
         return true;
@@ -222,7 +248,7 @@ private:
         rasterizer.setMinimumShadowResolution(64);
         rasterizer.setShadowNearPlane(0.05f);
         rasterizer.setShadowFarScale(1.05f);
-        rasterizer.setClearColor({0.035f, 0.035f, 0.045f, 1.0f});
+        rasterizer.setClearColor({0.47f, 0.58f, 0.70f, 1.0f});
 
         auto& ray_tracer = renderers_.add<Renderer::RayTracer>("Ray Tracer");
         ray_tracer.setEnabled(true);
@@ -258,7 +284,6 @@ private:
             0.01f,
             "Brightness applied when the ray traced image is presented."
         );
-
         interface_.addIntControl(
             path_tracer,
             "Resolution Divisor",
@@ -306,7 +331,6 @@ private:
         Mouse.destroy();
         Keyboard.destroy();
         Display.destroy();
-
         started_ = false;
     }
 
@@ -341,14 +365,17 @@ private:
         Renderer::GlobalIllumination::reset();
         world_ = std::move(next_world);
         scenes_.activate(index);
+        stats_ = Ecs::INVALID_ENTITY;
 
-        stats_ = Font::screen(
-            *world_,
-            "",
-            {12.0f, 12.0f},
-            2.0f,
-            {1.0f, 1.0f, 1.0f, 1.0f}
-        );
+        if (scene->showStats()) {
+            stats_ = Font::screen(
+                *world_,
+                "",
+                {12.0f, 12.0f},
+                2.0f,
+                {1.0f, 1.0f, 1.0f, 1.0f}
+            );
+        }
 
         Display.setTitle(scene->name());
         return true;
@@ -363,8 +390,7 @@ private:
     void updateRendererKey()
     {
         const bool down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
-        if (down && !renderer_key_down_ && !::UI::wantsKeyboard())
-            renderers_.next();
+        if (down && !renderer_key_down_ && !::UI::wantsKeyboard()) renderers_.next();
         renderer_key_down_ = down;
     }
 
@@ -388,9 +414,7 @@ private:
 
         const Renderer::Manager::Entry *active = renderers_.activeEntry();
         const char *renderer_name = active ? active->name.c_str() : "None";
-        const std::size_t triangles = scenes_.current()
-            ? scenes_.current()->triangleCount()
-            : 0u;
+        const std::size_t triangles = scenes_.current() ? scenes_.current()->triangleCount() : 0u;
         const float fps = delta_seconds > 0.0f ? 1.0f / delta_seconds : 0.0f;
 
         char buffer[256]{};
