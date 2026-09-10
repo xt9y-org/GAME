@@ -32,7 +32,6 @@ static void configureGame(
     c_sources(target, "Driving/*.cpp");
     c_sources(target, "Scenes/*.cpp");
     c_sources(target, "Tests/*.cpp");
-    c_sources(target, "UI/*.cpp");
     c_include(target, ".");
     c_include(target, "/usr/local/include/lwcgl-2.9.3");
     c_flag(target, "-std=c++20");
