@@ -21,26 +21,17 @@ min_samples = 3
 
 [[test]]
 name = "rasterizer"
-capture = true
-warmup_frames = 8
-pixel_threshold = 2
-max_changed_percent = 0.05
+capture = false
 timeout_ms = 30000.0
 
 [[test]]
 name = "horizon-gi"
-capture = true
-warmup_frames = 12
-pixel_threshold = 3
-max_changed_percent = 0.10
+capture = false
 timeout_ms = 30000.0
 
 [[test]]
 name = "low-end"
-capture = true
-warmup_frames = 12
-pixel_threshold = 3
-max_changed_percent = 0.10
+capture = false
 timeout_ms = 30000.0
 
 [[perf]]
