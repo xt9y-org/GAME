@@ -1,6 +1,7 @@
 GAME using Horse as a shared library.
 
-Build: c build game
+Build: c build
+Run: c run
 
 WASD + mouse: move
 Tab: UI / mouse grab
