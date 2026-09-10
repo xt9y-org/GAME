@@ -32,6 +32,8 @@ float mixAngle(float current, float target, float amount)
 
 void updateCamera(Ecs::World& world, float delta_seconds)
 {
+    bool changed = false;
+
     world.each<DrivingCamera, Camera::CameraComponent, Renderer::Transform>(
         [&](Ecs::Entity, DrivingCamera& camera, Camera::CameraComponent& projection, Renderer::Transform& transform) {
             const Renderer::Transform *target = world.get<Renderer::Transform>(camera.target);
@@ -76,8 +78,14 @@ void updateCamera(Ecs::World& world, float delta_seconds)
             transform.rotation.z = mix(transform.rotation.z, roll, rotation_mix);
 
             projection.fov_degrees = mix(camera.low_speed_fov, camera.high_speed_fov, speed_ratio);
+            changed = true;
         }
     );
+
+    if (changed) {
+        world.markChanged(Ecs::ChangeKind::Transform);
+        world.markChanged(Ecs::ChangeKind::Camera);
+    }
 }
 
 } // namespace Game::Driving
