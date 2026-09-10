@@ -35,8 +35,11 @@ bool Driving::load(Ecs::World& world, std::string& error)
     camera_ = Ecs::INVALID_ENTITY;
     player_ = Ecs::INVALID_ENTITY;
     triangle_count_ = 0u;
+    real_traffic_instances_ = 0u;
+    scenery_instances_ = 0u;
     traffic_materials_.clear();
     traffic_system_.setSeed(0x48151623u);
+    assets_.load();
 
     road_mesh_ = Game::Driving::Geometry::road(road_width_, segment_length_);
     marking_mesh_ = Game::Driving::Geometry::laneMarkings(lane_count_, lane_width_, segment_length_);
@@ -86,6 +89,7 @@ bool Driving::load(Ecs::World& world, std::string& error)
 
     createRoad(world);
     createTraffic(world);
+    createScenery(world);
 
     const Ecs::Entity sun = world.createEntity();
     world.add<Renderer::Transform>(sun, Renderer::Transform{
@@ -116,6 +120,26 @@ void Driving::addRenderable(
     world.add<Renderer::RenderableComponent>(entity, Renderer::RenderableComponent{true});
     if (road_piece) world.add<Game::Driving::RoadPiece>(entity, Game::Driving::RoadPiece{});
     triangle_count_ += triangles(mesh);
+}
+
+void Driving::addBoxChild(
+    Ecs::World& world,
+    Ecs::Entity parent,
+    Models::MaterialHandle material,
+    float width,
+    float height,
+    float length)
+{
+    const Ecs::Entity visual = world.createEntity();
+    world.add<Renderer::Transform>(visual, Renderer::Transform{
+        .position = {0.0f, height * 0.5f, 0.0f},
+        .rotation = {},
+        .scale = {width, height, length},
+    });
+    world.add<Renderer::Parent>(visual, Renderer::Parent{parent});
+    world.add<Renderer::MeshComponent>(visual, Renderer::MeshComponent{box_mesh_, material});
+    world.add<Renderer::RenderableComponent>(visual, Renderer::RenderableComponent{true});
+    triangle_count_ += triangles(box_mesh_);
 }
 
 void Driving::createRoad(Ecs::World& world)
@@ -176,15 +200,10 @@ void Driving::createTraffic(Ecs::World& world)
 
         const Ecs::Entity entity = world.createEntity();
         world.add<Renderer::Transform>(entity, Renderer::Transform{
-            .position = {Game::Driving::laneCenter(lane, lane_count_, lane_width_), height * 0.5f, z},
+            .position = {Game::Driving::laneCenter(lane, lane_count_, lane_width_), 0.0f, z},
             .rotation = {},
-            .scale = {width, height, length},
+            .scale = {1.0f, 1.0f, 1.0f},
         });
-        world.add<Renderer::MeshComponent>(entity, Renderer::MeshComponent{
-            box_mesh_,
-            traffic_materials_[static_cast<std::size_t>(index) % traffic_materials_.size()]
-        });
-        world.add<Renderer::RenderableComponent>(entity, Renderer::RenderableComponent{true});
 
         Game::Driving::Traffic traffic;
         traffic.lane = lane;
@@ -197,7 +216,115 @@ void Driving::createTraffic(Ecs::World& world)
         traffic.lane_change_cooldown = random01() * 3.0f;
         traffic.heavy = heavy;
         world.add<Game::Driving::Traffic>(entity, traffic);
-        triangle_count_ += triangles(box_mesh_);
+
+        const std::vector<Game::Driving::Assets::Model>& models =
+            heavy ? assets_.heavy_traffic : assets_.cars;
+        std::size_t model_triangles = 0u;
+        if (!models.empty()) {
+            const Game::Driving::Assets::Model& model =
+                models[static_cast<std::size_t>(index) % models.size()];
+            model_triangles = Game::Driving::Assets::attach(world, entity, model, length);
+        }
+
+        if (model_triangles > 0u) {
+            triangle_count_ += model_triangles;
+            ++real_traffic_instances_;
+        } else {
+            addBoxChild(
+                world,
+                entity,
+                traffic_materials_[static_cast<std::size_t>(index) % traffic_materials_.size()],
+                width,
+                height,
+                length
+            );
+        }
+    }
+}
+
+void Driving::createScenery(Ecs::World& world)
+{
+    const float span = segment_length_ * static_cast<float>(segment_count_);
+
+    if (!assets_.city.empty()) {
+        for (int index = 0; index < 8; ++index) {
+            const float side = index % 2 == 0 ? -1.0f : 1.0f;
+            const Ecs::Entity root = world.createEntity();
+            world.add<Renderer::Transform>(root, Renderer::Transform{
+                .position = {
+                    side * (road_width_ * 0.5f + 48.0f + static_cast<float>(index % 3) * 10.0f),
+                    0.0f,
+                    -180.0f - static_cast<float>(index) * (span / 8.0f),
+                },
+                .rotation = {},
+                .scale = {1.0f, 1.0f, 1.0f},
+            });
+            world.add<Game::Driving::RoadPiece>(root, Game::Driving::RoadPiece{});
+
+            const Game::Driving::Assets::Model& model =
+                assets_.city[static_cast<std::size_t>(index) % assets_.city.size()];
+            const std::size_t count = Game::Driving::Assets::attach(
+                world,
+                root,
+                model,
+                85.0f + static_cast<float>(index % 3) * 15.0f,
+                side < 0.0f ? 180.0f : 0.0f
+            );
+            if (count > 0u) {
+                triangle_count_ += count;
+                ++scenery_instances_;
+            }
+        }
+    }
+
+    if (!assets_.foliage.empty()) {
+        for (int index = 0; index < 18; ++index) {
+            const float side = index % 2 == 0 ? -1.0f : 1.0f;
+            const Ecs::Entity root = world.createEntity();
+            world.add<Renderer::Transform>(root, Renderer::Transform{
+                .position = {
+                    side * (road_width_ * 0.5f + 12.0f + static_cast<float>(index % 4) * 3.5f),
+                    0.0f,
+                    -70.0f - static_cast<float>(index) * (span / 18.0f),
+                },
+                .rotation = {},
+                .scale = {1.0f, 1.0f, 1.0f},
+            });
+            world.add<Game::Driving::RoadPiece>(root, Game::Driving::RoadPiece{});
+
+            const std::size_t count = Game::Driving::Assets::attach(
+                world,
+                root,
+                assets_.foliage[static_cast<std::size_t>(index) % assets_.foliage.size()],
+                12.0f + static_cast<float>(index % 3) * 3.0f,
+                static_cast<float>((index * 37) % 360)
+            );
+            if (count > 0u) {
+                triangle_count_ += count;
+                ++scenery_instances_;
+            }
+        }
+    }
+
+    if (!assets_.street.empty()) {
+        const Ecs::Entity root = world.createEntity();
+        world.add<Renderer::Transform>(root, Renderer::Transform{
+            .position = {road_width_ * 0.5f + 80.0f, 0.0f, -span * 0.5f},
+            .rotation = {},
+            .scale = {1.0f, 1.0f, 1.0f},
+        });
+        world.add<Game::Driving::RoadPiece>(root, Game::Driving::RoadPiece{});
+        const std::size_t count = Game::Driving::Assets::attach(
+            world,
+            root,
+            assets_.street.front(),
+            120.0f,
+            0.0f
+        );
+        if (count > 0u) {
+            triangle_count_ += count;
+            ++scenery_instances_;
+        }
     }
 }
 
@@ -219,7 +346,7 @@ void Driving::recycleRoad(Ecs::World& world)
         }
     );
 
-    if (changed) world.markChanged();
+    if (changed) world.markChanged(Ecs::ChangeKind::Transform);
 }
 
 void Driving::update(Ecs::World& world, float delta_seconds)
@@ -259,7 +386,7 @@ void Driving::drawDebug(Ecs::World& world)
     const Game::Driving::TrafficSystem::Statistics& traffic = traffic_system_.statistics();
 
     ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(350.0f, 470.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(350.0f, 490.0f), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Driving Debug")) {
         ImGui::End();
         return;
@@ -269,9 +396,15 @@ void Driving::drawDebug(Ecs::World& world)
     ImGui::Text("Steering: %.2f", vehicle->steering);
     ImGui::Text("Throttle / brake: %.2f / %.2f", vehicle->throttle, vehicle->brake);
     ImGui::Text("Position: %.1f, %.1f", player_transform->position.x, player_transform->position.z);
+    ImGui::Text(
+        "Assets: %zu/%zu loaded (%zu cached)",
+        assets_.loaded,
+        assets_.requested,
+        assets_.files_present
+    );
 
     ImGui::SeparatorText("Traffic");
-    ImGui::Text("Vehicles: %zu", traffic.count);
+    ImGui::Text("Vehicles: %zu (%zu modelled)", traffic.count, real_traffic_instances_);
     ImGui::Text("Average speed: %.1f km/h", traffic.average_speed * 3.6f);
     ImGui::Text("Nearest ahead: %.1f m", traffic.nearest_ahead);
     ImGui::Text("Lane changes: %llu", static_cast<unsigned long long>(traffic.lane_changes));
@@ -308,6 +441,9 @@ void Driving::emitMetrics(const std::function<void(std::string_view, double)>& e
     emit("driving_traffic_average_speed", static_cast<double>(traffic.average_speed));
     emit("driving_nearest_traffic", static_cast<double>(traffic.nearest_ahead));
     emit("driving_lane_changes", static_cast<double>(traffic.lane_changes));
+    emit("driving_release_assets_loaded", static_cast<double>(assets_.loaded));
+    emit("driving_real_traffic", static_cast<double>(real_traffic_instances_));
+    emit("driving_scenery_instances", static_cast<double>(scenery_instances_));
     emit("driving_scene_triangles", static_cast<double>(triangle_count_));
 }
 
