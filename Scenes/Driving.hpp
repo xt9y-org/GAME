@@ -1,6 +1,7 @@
 #ifndef GAME_SCENES_DRIVING_HPP
 #define GAME_SCENES_DRIVING_HPP
 
+#include "Driving/Assets.hpp"
 #include "Driving/Traffic.hpp"
 
 #include "Sources/Ecs/Ecs.hpp"
@@ -28,6 +29,7 @@ public:
 private:
     void createRoad(Ecs::World& world);
     void createTraffic(Ecs::World& world);
+    void createScenery(Ecs::World& world);
     void recycleRoad(Ecs::World& world);
     void addRenderable(
         Ecs::World& world,
@@ -35,6 +37,14 @@ private:
         Models::MaterialHandle material,
         const Renderer::Transform& transform,
         bool road_piece = false
+    );
+    void addBoxChild(
+        Ecs::World& world,
+        Ecs::Entity parent,
+        Models::MaterialHandle material,
+        float width,
+        float height,
+        float length
     );
 
     float lane_width_ = 3.65f;
@@ -49,7 +59,10 @@ private:
     Ecs::Entity camera_ = Ecs::INVALID_ENTITY;
     Ecs::Entity player_ = Ecs::INVALID_ENTITY;
     std::size_t triangle_count_ = 0u;
+    std::size_t real_traffic_instances_ = 0u;
+    std::size_t scenery_instances_ = 0u;
     Game::Driving::TrafficSystem traffic_system_{};
+    Game::Driving::Assets::Library assets_{};
 
     Models::MeshHandle road_mesh_ = Models::INVALID_MESH;
     Models::MeshHandle marking_mesh_ = Models::INVALID_MESH;
