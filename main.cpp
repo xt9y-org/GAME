@@ -1,17 +1,8 @@
 #include "Scenes/Driving.hpp"
-#include "Scenes/Earth.hpp"
-#include "Scenes/Manager.hpp"
-#include "Scenes/Sponza.hpp"
 #include "Tests/RendererCheck.hpp"
-#include "UI/Interface.hpp"
 
-#include "Font.hpp"
-#include "Renderer/Debug/Debug.hpp"
-#include "Renderer/GlobalIllumination/GlobalIllumination.hpp"
 #include "Renderer/Scenes/SceneCache.hpp"
 #include "Renderer/Visibility/Visibility.hpp"
-#include "Sources/Animation/Animation.hpp"
-#include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
 #include "Sources/Models/Models.hpp"
 #include "Sources/Renderer/Render.hpp"
@@ -25,7 +16,6 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
-#include <memory>
 #include <string>
 #include <string_view>
 
@@ -41,7 +31,7 @@ public:
     int run()
     {
         if (!init()) return 2;
-        if (!loadScene(0u)) return 3;
+        if (!load()) return 3;
 
         using Clock = std::chrono::steady_clock;
         auto previous = Clock::now();
@@ -52,68 +42,39 @@ public:
             Display.processMessages();
             if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE)) break;
 
-            if (!renderer_check_.active()) updateMouseMode();
+            if (!renderer_check_.active()) updateDebugKey();
 
-            std::size_t requested_scene = scenes_.currentIndex();
             const bool ui_visible = !renderer_check_.active() && ::UI::beginFrame();
-            if (ui_visible && world_) {
-                requested_scene = interface_.draw(
-                    *world_,
-                    scenes_,
-                    renderers_,
-                    inspector_
-                );
-                if (Scenes::Scene *scene = scenes_.current()) scene->drawDebug(*world_);
-            }
+            if (ui_visible) driving_.drawDebug(world_);
 
             updateRendererKey();
-
-            if (requested_scene != scenes_.currentIndex() && !loadScene(requested_scene)) {
-                std::fprintf(stderr, "[GAME]: keeping scene %s\n", currentSceneName());
-            }
 
             const auto now = Clock::now();
             const float delta_seconds = std::chrono::duration<float>(now - previous).count();
             previous = now;
             const float frame_delta = std::min(delta_seconds, 0.1f);
 
-            const bool frozen = inspector_.frozen();
-            Renderer::GlobalIllumination::setPaused(frozen);
-
             const auto update_started = Clock::now();
-            if (!frozen) {
-                if (Scenes::Scene *scene = scenes_.current())
-                    scene->update(*world_, frame_delta);
-                animation_system_.update(*world_, frame_delta);
-            }
-
-            Scenes::Scene *scene = scenes_.current();
-            const bool free_camera = scene && scene->usesFreeCamera();
-            if (free_camera && !renderer_check_.active() && !::UI::wantsMouse() && !::UI::wantsKeyboard())
-                camera_controller_.update(*world_, frame_delta);
-
+            driving_.update(world_, frame_delta);
             const auto update_finished = Clock::now();
             renderer_check_.metric(
                 "update_ms",
                 std::chrono::duration<double, std::milli>(update_finished - update_started).count()
             );
 
-            if (!renderer_check_.active()) updateStats(delta_seconds);
             resizeIfNeeded();
 
             const auto render_started = Clock::now();
-            renderers_.render(*world_);
+            renderers_.render(world_);
             const auto render_finished = Clock::now();
             renderer_check_.metric(
                 "render_ms",
                 std::chrono::duration<double, std::milli>(render_finished - render_started).count()
             );
 
-            if (scene) {
-                scene->emitMetrics([this](std::string_view name, double value) {
-                    renderer_check_.metric(name, value);
-                });
-            }
+            driving_.emitMetrics([this](std::string_view name, double value) {
+                renderer_check_.metric(name, value);
+            });
 
             renderer_check_.metric(
                 "frame_ms",
@@ -143,7 +104,7 @@ private:
 
         Display.setDisplayMode(new DisplayMode(1280, 720));
         Display.create();
-        Display.setTitle("GAME");
+        Display.setTitle("Driving");
         started_ = true;
 
         Keyboard.create();
@@ -153,89 +114,53 @@ private:
         Mouse.getDY();
 
         configureEngine();
-
-        if (!::UI::init()) {
-            std::fprintf(stderr, "[UI]: initialization failed\n");
-        } else {
-            configureUi();
-        }
-
+        configureUi();
         configureRenderers();
+
         if (!renderers_.initialize()) {
-            std::fprintf(stderr, "[GAME]: no renderer could be initialized\n");
+            std::fprintf(stderr, "[Driving]: no renderer could be initialized\n");
             return false;
         }
 
         framebuffer_width_ = std::max(Display.getWidth(), 1);
         framebuffer_height_ = std::max(Display.getHeight(), 1);
         renderers_.resize(framebuffer_width_, framebuffer_height_);
+
         if (renderer_check_.active() && !renderers_.activate(renderer_check_.rendererName())) {
             std::fprintf(stderr, "[RendererCheck]: requested renderer unavailable\n");
             return false;
         }
 
-        scenes_.add<Scenes::Driving>();
-        scenes_.add<Scenes::Sponza>();
-        scenes_.add<Scenes::Earth>();
         return true;
     }
 
     void configureEngine()
     {
-        camera_controller_.setSpeed(100.0f);
-        camera_controller_.setSprintMultiplier(10.0f);
-        camera_controller_.setMouseSensitivity(0.12f);
-        camera_controller_.setPitchRange(-89.0f, 89.0f);
-
-        Font::configureAtlas("Assets/Font/font.png", 16u, 16u, 8.0f);
-
         Renderer::Scenes::SceneCache::setLeafSize(8u);
         Renderer::Scenes::SceneCache::setMaximumTriangles(1000000u);
         Renderer::Scenes::SceneCache::setOpacityCutoff(0.5f);
         Renderer::Scenes::SceneCache::setAlphaThreshold(250u);
-
-        Renderer::GlobalIllumination::setRaysPerProbe(48u);
-        Renderer::GlobalIllumination::setProbeBudgetPerFrame(16u);
-        Renderer::GlobalIllumination::setProbeDimensionRange(3u, 8u);
-        Renderer::GlobalIllumination::setBoundsMargin(0.05f, 0.25f);
-        Renderer::GlobalIllumination::setRayEpsilon(0.0025f);
-        Renderer::GlobalIllumination::setMaximumBounces(4u);
-        Renderer::GlobalIllumination::setMaximumPhotonCount(262144u);
-        Renderer::GlobalIllumination::setPaused(false);
-
         Renderer::Visibility::system().setFarDistance(10000.0f);
-
-        inspector_.setShowBvh(false);
-        inspector_.setShowViewport(false);
-        inspector_.setBvhLevel(2);
-        inspector_.setOverlayOpacity(0.80f);
-        inspector_.setBvhColor({0.20f, 0.52f, 1.00f, 1.00f});
-        inspector_.setHighlightColor({1.00f, 0.82f, 0.16f, 1.00f});
-        inspector_.setPlayerColor({1.00f, 0.12f, 0.12f, 1.00f});
-        inspector_.setPlayerHeight(1.80f);
-        inspector_.setCameraMarkerSize(0.08f);
     }
 
     void configureUi()
     {
+        if (!::UI::init()) {
+            std::fprintf(stderr, "[Driving]: ImGui initialization failed\n");
+            return;
+        }
+
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-        io.IniFilename = "imgui.ini";
+        io.IniFilename = nullptr;
         io.LogFilename = nullptr;
 
         ImGui::StyleColorsDark();
         ImGuiStyle& style = ImGui::GetStyle();
-        style.FontScaleMain = 0.82f;
-        style.ScaleAllSizes(0.82f);
+        style.FontScaleMain = 0.86f;
+        style.ScaleAllSizes(0.86f);
         style.FrameRounding = 0.0f;
-        style.WindowRounding = 4.0f;
-
-        interface_.setApproximationWindow(8.0f, 8.0f, 350.0f, 330.0f);
-        interface_.setSceneWindow(370.0f, 8.0f, 260.0f, 125.0f);
-        interface_.setInformationWindow(370.0f, 145.0f, 260.0f, 430.0f);
-        interface_.setDebugWindow(642.0f, 8.0f, 360.0f, 610.0f);
-        interface_.setTooltip(4.0f, 3.0f, 220.0f);
-        interface_.setControlWidth(150.0f);
+        style.WindowRounding = 3.0f;
     }
 
     void configureRenderers()
@@ -264,127 +189,39 @@ private:
         path_tracer.setResetPhaseGrid(1);
         path_tracer.setMovingPhaseGrid(4);
         path_tracer.setMovingDepthBlock(4);
+    }
 
-        interface_.addIntControl(
-            ray_tracer,
-            "Resolution Divisor",
-            [&ray_tracer] { return ray_tracer.resolutionDivisor(); },
-            [&ray_tracer](int value) { ray_tracer.setResolutionDivisor(value); },
-            1,
-            8,
-            "Render the ray tracer at 1/N of the display resolution."
-        );
-        interface_.addFloatControl(
-            ray_tracer,
-            "Exposure",
-            [&ray_tracer] { return ray_tracer.exposure(); },
-            [&ray_tracer](float value) { ray_tracer.setExposure(value); },
-            0.1f,
-            4.0f,
-            0.01f,
-            "Brightness applied when the ray traced image is presented."
-        );
-        interface_.addIntControl(
-            path_tracer,
-            "Resolution Divisor",
-            [&path_tracer] { return path_tracer.resolutionDivisor(); },
-            [&path_tracer](int value) { path_tracer.setResolutionDivisor(value); },
-            1,
-            8,
-            "Render the path tracer at 1/N of the display resolution."
-        );
-        interface_.addIntControl(
-            path_tracer,
-            "Samples / Frame",
-            [&path_tracer] { return path_tracer.samplesPerFrame(); },
-            [&path_tracer](int value) { path_tracer.setSamplesPerFrame(value); },
-            1,
-            16,
-            "Number of path tracing samples accumulated per frame."
-        );
-        interface_.addFloatControl(
-            path_tracer,
-            "Exposure",
-            [&path_tracer] { return path_tracer.exposure(); },
-            [&path_tracer](float value) { path_tracer.setExposure(value); },
-            0.1f,
-            4.0f,
-            0.01f,
-            "Brightness applied when the path traced image is presented."
-        );
+    bool load()
+    {
+        std::string error;
+        if (!driving_.load(world_, error)) {
+            std::fprintf(
+                stderr,
+                "[Driving]: failed to load: %s\n",
+                error.empty() ? "unknown error" : error.c_str()
+            );
+            return false;
+        }
+
+        if (driving_.camera() == Ecs::INVALID_ENTITY || !world_.alive(driving_.camera())) {
+            std::fprintf(stderr, "[Driving]: no valid camera\n");
+            return false;
+        }
+
+        return true;
     }
 
     void shutdown()
     {
         if (!started_) return;
 
-        if (world_ && inspector_.frozen()) inspector_.unfreeze(*world_);
-        Renderer::GlobalIllumination::setPaused(false);
-
         ::UI::shutdown();
-        Renderer::Debug::shutdown();
         renderers_.shutdown();
-        Renderer::GlobalIllumination::reset();
-
-        world_.reset();
         Models::clearCache();
         Mouse.destroy();
         Keyboard.destroy();
         Display.destroy();
         started_ = false;
-    }
-
-    bool loadScene(std::size_t index)
-    {
-        Scenes::Scene *scene = scenes_.at(index);
-        if (!scene) return false;
-
-        if (world_) {
-            if (inspector_.frozen()) inspector_.unfreeze(*world_);
-            inspector_.clear(world_.get());
-        }
-        Renderer::GlobalIllumination::setPaused(false);
-
-        auto next_world = std::make_unique<Ecs::World>();
-        std::string error;
-        if (!scene->load(*next_world, error)) {
-            std::fprintf(
-                stderr,
-                "[GAME]: failed to load scene %s: %s\n",
-                scene->name(),
-                error.empty() ? "unknown error" : error.c_str()
-            );
-            return false;
-        }
-
-        if (scene->camera() == Ecs::INVALID_ENTITY || !next_world->alive(scene->camera())) {
-            std::fprintf(stderr, "[GAME]: scene %s did not create a valid camera\n", scene->name());
-            return false;
-        }
-
-        Renderer::GlobalIllumination::reset();
-        world_ = std::move(next_world);
-        scenes_.activate(index);
-        stats_ = Ecs::INVALID_ENTITY;
-
-        if (scene->showStats()) {
-            stats_ = Font::screen(
-                *world_,
-                "",
-                {12.0f, 12.0f},
-                2.0f,
-                {1.0f, 1.0f, 1.0f, 1.0f}
-            );
-        }
-
-        Display.setTitle(scene->name());
-        return true;
-    }
-
-    const char *currentSceneName() const
-    {
-        const Scenes::Scene *scene = scenes_.current();
-        return scene ? scene->name() : "No Scene";
     }
 
     void updateRendererKey()
@@ -394,7 +231,7 @@ private:
         renderer_key_down_ = down;
     }
 
-    void updateMouseMode()
+    void updateDebugKey()
     {
         const bool down = Keyboard.isKeyDown(Keyboard.KEY_TAB);
         if (down && !tab_down_) {
@@ -404,29 +241,6 @@ private:
             Mouse.getDY();
         }
         tab_down_ = down;
-    }
-
-    void updateStats(float delta_seconds)
-    {
-        if (!world_ || stats_ == Ecs::INVALID_ENTITY) return;
-        Font::TextComponent *text = world_->get<Font::TextComponent>(stats_);
-        if (!text) return;
-
-        const Renderer::Manager::Entry *active = renderers_.activeEntry();
-        const char *renderer_name = active ? active->name.c_str() : "None";
-        const std::size_t triangles = scenes_.current() ? scenes_.current()->triangleCount() : 0u;
-        const float fps = delta_seconds > 0.0f ? 1.0f / delta_seconds : 0.0f;
-
-        char buffer[256]{};
-        std::snprintf(
-            buffer,
-            sizeof(buffer),
-            "Technique: %s\nFPS: %.1f\nTriangles: %zu",
-            renderer_name,
-            fps,
-            triangles
-        );
-        text->text = buffer;
     }
 
     void resizeIfNeeded()
@@ -446,15 +260,9 @@ private:
     int framebuffer_width_ = 1;
     int framebuffer_height_ = 1;
 
+    Ecs::World world_;
+    Scenes::Driving driving_;
     Renderer::Manager renderers_;
-    Camera::Controller camera_controller_;
-    Animation::System animation_system_;
-    Renderer::Debug::Inspector& inspector_ = Renderer::Debug::inspector();
-
-    Scenes::Manager scenes_;
-    UI::Interface interface_;
-    std::unique_ptr<Ecs::World> world_;
-    Ecs::Entity stats_ = Ecs::INVALID_ENTITY;
     Tests::RendererCheck renderer_check_{};
 };
 
