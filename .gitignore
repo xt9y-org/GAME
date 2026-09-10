@@ -2,4 +2,5 @@ build/
 compile_commands.json
 imgui.ini
 .rendercheck/
+Assets/Driving/
 .DS_Store
