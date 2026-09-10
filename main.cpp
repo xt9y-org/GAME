@@ -190,7 +190,7 @@ private:
 
         interface_.setApproximationWindow(8.0f, 8.0f, 350.0f, 330.0f);
         interface_.setSceneWindow(370.0f, 8.0f, 260.0f, 125.0f);
-        interface_.setInformationWindow(370.0f, 145.0f, 260.0f, 155.0f);
+        interface_.setInformationWindow(370.0f, 145.0f, 260.0f, 430.0f);
         interface_.setDebugWindow(642.0f, 8.0f, 360.0f, 610.0f);
         interface_.setTooltip(4.0f, 3.0f, 220.0f);
         interface_.setControlWidth(150.0f);

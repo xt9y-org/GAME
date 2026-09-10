@@ -272,7 +272,10 @@ std::size_t Interface::sceneManager(Scenes::Manager& scenes, Renderer::Manager& 
     return requested_scene;
 }
 
-void Interface::information(Renderer::Debug::Inspector& inspector)
+void Interface::information(
+    Ecs::World& world,
+    Renderer::Manager& renderers,
+    Renderer::Debug::Inspector& inspector)
 {
     place(information_layout_);
     if (!ImGui::Begin("Informations")) {
@@ -280,21 +283,76 @@ void Interface::information(Renderer::Debug::Inspector& inspector)
         return;
     }
 
-    const Renderer::Debug::SnapshotInfo info = inspector.snapshotInfo();
-    ImGui::Text("Snapshot: %s", info.frozen ? "Frozen" : "Live");
-    if (info.frozen) {
-        ImGui::Text("Visible entities: %zu", info.visible_entities);
-        ImGui::Text("Culled entities: %zu", info.culled_entities);
-        ImGui::Text("Visible triangles: %zu", info.visible_triangles);
-        ImGui::Text("Culled triangles: %zu", info.culled_triangles);
+    ImGui::SeparatorText("Frame");
+    const Renderer::Manager::Entry *active = renderers.activeEntry();
+    const ImGuiIO& io = ImGui::GetIO();
+    const float fps = io.Framerate;
+    const float frame_ms = fps > 0.0f ? 1000.0f / fps : 0.0f;
+    ImGui::Text("Renderer: %s", active ? active->name.c_str() : "None");
+    ImGui::Text("Resolution: %d x %d", std::max(Display.getWidth(), 1), std::max(Display.getHeight(), 1));
+    ImGui::Text("Frame: %.1f FPS / %.2f ms", fps, frame_ms);
+
+    ImGui::SeparatorText("Viewport");
+    const Renderer::Visibility::Result visibility = Renderer::Visibility::system().evaluate(
+        world,
+        std::max(Display.getWidth(), 1),
+        std::max(Display.getHeight(), 1)
+    );
+    const std::size_t entity_total = visibility.visible.size() + visibility.culled.size();
+    const std::size_t triangle_total = visibility.visible_triangles + visibility.culled_triangles;
+    const float entity_culled = entity_total > 0u
+        ? 100.0f * static_cast<float>(visibility.culled.size()) / static_cast<float>(entity_total)
+        : 0.0f;
+    const float triangle_culled = triangle_total > 0u
+        ? 100.0f * static_cast<float>(visibility.culled_triangles) / static_cast<float>(triangle_total)
+        : 0.0f;
+    ImGui::Text("Entities: %zu visible / %zu culled (%.1f%%)",
+        visibility.visible.size(), visibility.culled.size(), entity_culled);
+    ImGui::Text("Triangles: %zu visible / %zu culled (%.1f%%)",
+        visibility.visible_triangles, visibility.culled_triangles, triangle_culled);
+    ImGui::Text("Far distance: %.1f", Renderer::Visibility::system().farDistance());
+
+    const Renderer::Debug::SnapshotInfo snapshot = inspector.snapshotInfo();
+    ImGui::Text("Snapshot: %s", snapshot.frozen ? "Frozen" : "Live");
+    if (snapshot.frozen) {
+        ImGui::Text("Frozen entities: %zu visible / %zu culled",
+            snapshot.visible_entities, snapshot.culled_entities);
+        ImGui::Text("Frozen triangles: %zu visible / %zu culled",
+            snapshot.visible_triangles, snapshot.culled_triangles);
     }
+
+    ImGui::SeparatorText("GI / Photon Mapping");
+    const Renderer::GlobalIllumination::Debug::Statistics gi_stats =
+        Renderer::GlobalIllumination::Debug::statistics();
+    const Renderer::GlobalIlluminationComponent *gi = globalIllumination(world);
+    const bool gi_enabled = gi && gi->enabled;
+    const bool photon_requested = gi_enabled && gi->photon_mapping && gi->photon_count > 0u;
+    const bool photon_active = photon_requested &&
+        Renderer::GlobalIllumination::Debug::photonMap().valid();
+    ImGui::Text("GI: %s", gi_enabled
+        ? (gi_stats.calculating ? "Calculating" : "Ready")
+        : "Disabled");
+    ImGui::Text("GI progress: %.1f%%", std::clamp(gi_stats.progress, 0.0f, 1.0f) * 100.0f);
+    ImGui::Text("GI probes: %zu", gi_stats.probes);
+    ImGui::Text("GI bounce: %u / %u",
+        static_cast<unsigned>(gi_stats.bounce), static_cast<unsigned>(gi_stats.bounces));
+    ImGui::Text("GI scene: %zu triangles / %zu materials",
+        gi_stats.triangles, gi_stats.materials);
+    ImGui::Text("GI BVH: %zu nodes / depth %u", gi_stats.bvh_nodes, gi_stats.bvh_depth);
+    ImGui::Text("GI scene build: %.2f ms", gi_stats.scene_build_ms);
+    ImGui::Text("Photon Mapping: %s", photon_active
+        ? "ACTIVE"
+        : (photon_requested ? "BUILDING / EMPTY" : "INACTIVE"));
+    ImGui::Text("Photons: %zu stored / %u requested",
+        gi_stats.photons, gi_stats.requested_photons);
+    ImGui::Text("Photon radius: %.4f", gi_stats.photon_radius);
+    ImGui::Text("Photon build: %.2f ms", gi_stats.photon_build_ms);
 
     ImGui::End();
 }
 
 void Interface::debug(
     Ecs::World& world,
-    Renderer::Manager& renderers,
     Renderer::Debug::Inspector& inspector)
 {
     place(debug_layout_);
@@ -338,70 +396,6 @@ void Interface::debug(
         inspector.setOverlayOpacity(opacity);
     help("Opacity of the BVH, frozen viewport and player markers.");
 
-    ImGui::SeparatorText("Frame");
-    const Renderer::Manager::Entry *active = renderers.activeEntry();
-    const ImGuiIO& io = ImGui::GetIO();
-    const float fps = io.Framerate;
-    const float frame_ms = fps > 0.0f ? 1000.0f / fps : 0.0f;
-    ImGui::Text("Renderer: %s", active ? active->name.c_str() : "None");
-    ImGui::Text("Resolution: %d x %d", std::max(Display.getWidth(), 1), std::max(Display.getHeight(), 1));
-    ImGui::Text("Frame: %.1f FPS / %.2f ms", fps, frame_ms);
-
-    ImGui::SeparatorText("Viewport");
-    const Renderer::Visibility::Result visibility = Renderer::Visibility::system().evaluate(
-        world,
-        std::max(Display.getWidth(), 1),
-        std::max(Display.getHeight(), 1)
-    );
-    const std::size_t entity_total = visibility.visible.size() + visibility.culled.size();
-    const std::size_t triangle_total = visibility.visible_triangles + visibility.culled_triangles;
-    const float entity_culled = entity_total > 0u
-        ? 100.0f * static_cast<float>(visibility.culled.size()) / static_cast<float>(entity_total)
-        : 0.0f;
-    const float triangle_culled = triangle_total > 0u
-        ? 100.0f * static_cast<float>(visibility.culled_triangles) / static_cast<float>(triangle_total)
-        : 0.0f;
-    ImGui::Text("Entities: %zu visible / %zu culled (%.1f%%)",
-        visibility.visible.size(), visibility.culled.size(), entity_culled);
-    ImGui::Text("Triangles: %zu visible / %zu culled (%.1f%%)",
-        visibility.visible_triangles, visibility.culled_triangles, triangle_culled);
-    ImGui::Text("Far distance: %.1f", Renderer::Visibility::system().farDistance());
-
-    if (inspector.frozen()) {
-        const Renderer::Debug::SnapshotInfo snapshot = inspector.snapshotInfo();
-        ImGui::Text("Frozen snapshot: %zu visible / %zu culled entities",
-            snapshot.visible_entities, snapshot.culled_entities);
-        ImGui::Text("Frozen triangles: %zu visible / %zu culled",
-            snapshot.visible_triangles, snapshot.culled_triangles);
-    }
-
-    ImGui::SeparatorText("GI / Photon Mapping");
-    const Renderer::GlobalIllumination::Debug::Statistics gi_stats =
-        Renderer::GlobalIllumination::Debug::statistics();
-    const Renderer::GlobalIlluminationComponent *gi = globalIllumination(world);
-    const bool gi_enabled = gi && gi->enabled;
-    const bool photon_requested = gi_enabled && gi->photon_mapping && gi->photon_count > 0u;
-    const bool photon_active = photon_requested &&
-        Renderer::GlobalIllumination::Debug::photonMap().valid();
-    ImGui::Text("GI: %s", gi_enabled
-        ? (gi_stats.calculating ? "Calculating" : "Ready")
-        : "Disabled");
-    ImGui::Text("GI progress: %.1f%%", std::clamp(gi_stats.progress, 0.0f, 1.0f) * 100.0f);
-    ImGui::Text("GI probes: %zu", gi_stats.probes);
-    ImGui::Text("GI bounce: %u / %u",
-        static_cast<unsigned>(gi_stats.bounce), static_cast<unsigned>(gi_stats.bounces));
-    ImGui::Text("GI scene: %zu triangles / %zu materials",
-        gi_stats.triangles, gi_stats.materials);
-    ImGui::Text("GI BVH: %zu nodes / depth %u", gi_stats.bvh_nodes, gi_stats.bvh_depth);
-    ImGui::Text("GI scene build: %.2f ms", gi_stats.scene_build_ms);
-    ImGui::Text("Photon Mapping: %s", photon_active
-        ? "ACTIVE"
-        : (photon_requested ? "BUILDING / EMPTY" : "INACTIVE"));
-    ImGui::Text("Photons: %zu stored / %u requested",
-        gi_stats.photons, gi_stats.requested_photons);
-    ImGui::Text("Photon radius: %.4f", gi_stats.photon_radius);
-    ImGui::Text("Photon build: %.2f ms", gi_stats.photon_build_ms);
-
     ImGui::End();
 }
 
@@ -413,8 +407,8 @@ std::size_t Interface::draw(
 {
     approximation(world, renderers);
     const std::size_t requested_scene = sceneManager(scenes, renderers);
-    information(inspector);
-    debug(world, renderers, inspector);
+    information(world, renderers, inspector);
+    debug(world, inspector);
     return requested_scene;
 }
 

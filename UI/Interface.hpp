@@ -80,10 +80,12 @@ private:
     void rendererControls(Renderer::Manager& renderers);
     void approximation(Ecs::World& world, Renderer::Manager& renderers);
     std::size_t sceneManager(Scenes::Manager& scenes, Renderer::Manager& renderers);
-    void information(Renderer::Debug::Inspector& inspector);
-    void debug(
+    void information(
         Ecs::World& world,
         Renderer::Manager& renderers,
+        Renderer::Debug::Inspector& inspector);
+    void debug(
+        Ecs::World& world,
         Renderer::Debug::Inspector& inspector);
 
     Layout approximation_layout_{};
