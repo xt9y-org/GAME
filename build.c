@@ -23,13 +23,13 @@ static void configurePlatform(C_Target *target)
     c_link_system(target, "glfw");
 }
 
-static void configureViewer(
+static void configureGame(
     C_Target *target,
     C_Dependency *horse,
-    C_Dependency *imgui,
-    const char *source)
+    C_Dependency *imgui)
 {
-    c_sources(target, source);
+    c_sources(target, "main.cpp");
+    c_include(target, ".");
     c_include(target, "/usr/local/include/lwcgl-2.9.3");
     c_flag(target, "-std=c++20");
     c_warnings_strict(target);
@@ -67,11 +67,7 @@ void build(C_Build *b)
     c_dep_header_only(imgui);
     c_dep_include(imgui, ".");
 
-    C_Target *sponza = c_test(b, "sponza");
-    configureViewer(sponza, horse, imgui, "Examples/sponza.cpp");
-
-    C_Target *earth = c_test(b, "earth");
-    configureViewer(earth, horse, imgui, "Examples/earth.cpp");
-
-    c_default_target(b, sponza);
+    C_Target *game = c_executable(b, "game");
+    configureGame(game, horse, imgui);
+    c_default_target(b, game);
 }
