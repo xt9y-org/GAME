@@ -22,13 +22,14 @@ struct Vehicle {
     float aerodynamic_drag = 0.0014f;
     float maximum_steering_degrees = 31.0f;
     float steering_response = 5.0f;
-    float road_half_width = 9.0f;
+    float road_half_width = 0.0f;
+    float road_edge_margin = 0.35f;
 };
 
 struct DrivingCamera {
     Ecs::Entity target = Ecs::INVALID_ENTITY;
     float forward_offset = 1.65f;
-    float height = 0.38f;
+    float height = 0.55f;
     float pitch_degrees = -8.0f;
     float low_speed_fov = 96.0f;
     float high_speed_fov = 108.0f;
