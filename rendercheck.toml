@@ -23,6 +23,16 @@ name = "rasterizer"
 capture = false
 timeout_ms = 30000.0
 
+[[test]]
+name = "ray-tracer"
+capture = false
+timeout_ms = 30000.0
+
+[[test]]
+name = "path-tracer"
+capture = false
+timeout_ms = 30000.0
+
 [[perf]]
 name = "rasterizer"
 command = "./build/debug/game"
