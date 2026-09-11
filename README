@@ -3,7 +3,7 @@ Driving game using Horse.
 Build: c build
 Run: c run
 Check: renderercheck run
-Asset: xt9y-org/Street v1.0.0 basic street GLB
+Asset: xt9y-org/Street v1.0.0 realistic-road-highway-gameready.zip
 
 WASD: drive
 Tab: driving debug
