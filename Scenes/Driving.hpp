@@ -28,7 +28,7 @@ private:
 
     float street_segment_length_ = 120.0f;
     int street_segment_count_ = 12;
-    float road_half_width_ = 9.0f;
+    float road_half_width_ = 0.0f;
 
     Ecs::Entity camera_ = Ecs::INVALID_ENTITY;
     Ecs::Entity player_ = Ecs::INVALID_ENTITY;
