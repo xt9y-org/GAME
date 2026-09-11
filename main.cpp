@@ -213,7 +213,9 @@ private:
         const float width = road_bounds_.maximum.x - road_bounds_.minimum.x;
         const float depth = road_bounds_.maximum.z - road_bounds_.minimum.z;
 
-        stack_on_x_ = width >= depth;
+        // The authored GLB transform presents the road's visual long axis on the
+        // opposite X/Z label from the measured source-space extents.
+        stack_on_x_ = depth > width;
         tile_length_ = stack_on_x_ ? width : depth;
         if (tile_length_ <= 0.001f) return false;
 
