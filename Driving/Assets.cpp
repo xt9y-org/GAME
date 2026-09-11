@@ -9,15 +9,25 @@
 namespace Game::Driving::Assets {
 namespace {
 
-Model loadModel(const char *path, Library& library)
+constexpr const char *street_path =
+    "Assets/Driving/Street/low_poly_street_gameready_6.glb";
+
+Model loadModel(const char *path, Library& library, std::string& error)
 {
     ++library.requested;
-    if (!path || !std::filesystem::exists(path)) return {};
+    if (!path || !std::filesystem::exists(path)) {
+        error = "missing street asset: " + std::string(path ? path : "<null>");
+        return {};
+    }
     ++library.files_present;
 
-    std::string error;
-    const Models::ModelHandle handle = Models::load(path, &error);
-    if (handle == Models::INVALID_MODEL) return {};
+    std::string model_error;
+    const Models::ModelHandle handle = Models::load(path, &model_error);
+    if (handle == Models::INVALID_MODEL) {
+        error = "failed to load street asset";
+        if (!model_error.empty()) error += ": " + model_error;
+        return {};
+    }
 
     const float infinity = std::numeric_limits<float>::infinity();
     Models::Bounds bounds{
@@ -42,7 +52,10 @@ Model loadModel(const char *path, Library& library)
         has_mesh = true;
     }
 
-    if (!has_mesh) return {};
+    if (!has_mesh) {
+        error = "street asset contains no renderable mesh parts";
+        return {};
+    }
 
     const float width = bounds.maximum.x - bounds.minimum.x;
     const float depth = bounds.maximum.z - bounds.minimum.z;
@@ -55,43 +68,18 @@ Model loadModel(const char *path, Library& library)
     };
 }
 
-void addIfValid(std::vector<Model>& models, Model model)
-{
-    if (model.valid()) models.push_back(model);
-}
-
 } // namespace
 
-void Library::load()
+bool Library::load(std::string& error)
 {
-    cars.clear();
-    heavy_traffic.clear();
-    street.clear();
-    foliage.clear();
-    city.clear();
+    street = {};
     requested = 0u;
     files_present = 0u;
     loaded = 0u;
+    error.clear();
 
-    addIfValid(cars, loadModel(
-        "Assets/Driving/Cars/1967_chevy_camaro_ss_hidden_jewel.glb", *this));
-    addIfValid(cars, loadModel(
-        "Assets/Driving/Cars/2010_mercedes-benz_sls_amg.glb", *this));
-    addIfValid(cars, loadModel(
-        "Assets/Driving/Cars/2015_mercedes-benz_s65_amg_coupe.glb", *this));
-
-    addIfValid(street, loadModel(
-        "Assets/Driving/Street/low_poly_street_gameready_6.glb", *this));
-    addIfValid(street, loadModel(
-        "Assets/Driving/Street/road_signs_asset_pack__australian_american.glb", *this));
-
-    addIfValid(foliage, loadModel(
-        "Assets/Driving/Foliage/low_poly_stylized_plants_pack_free.glb", *this));
-
-    addIfValid(city, loadModel(
-        "Assets/Driving/City/street_city_7_for_games_free.glb", *this));
-    addIfValid(city, loadModel(
-        "Assets/Driving/City/street_city_buildings_8.glb", *this));
+    street = loadModel(street_path, *this, error);
+    return street.valid();
 }
 
 std::size_t attach(
@@ -138,10 +126,12 @@ std::size_t attach(
         world.add<Renderer::Parent>(child, Renderer::Parent{parent});
         world.add<Renderer::MeshComponent>(
             child,
-            Renderer::MeshComponent{part->mesh, part->material});
+            Renderer::MeshComponent{part->mesh, part->material}
+        );
         world.add<Renderer::RenderableComponent>(
             child,
-            Renderer::RenderableComponent{true});
+            Renderer::RenderableComponent{true}
+        );
 
         const Models::MeshData *mesh = Models::mesh(part->mesh);
         if (mesh) triangle_count += mesh->indices.size() / 3u;
