@@ -1,30 +1,88 @@
 #include "Driving/Assets.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <limits>
 #include <string>
+#include <system_error>
+#include <vector>
 
 namespace Game::Driving::Assets {
 namespace {
 
-constexpr const char *street_path =
-    "Assets/Driving/Street/low_poly_street_gameready_6.glb";
+constexpr const char *highway_directory = "Assets/Driving/Street/Highway";
 
-Model loadModel(const char *path, Library& library, std::string& error)
+std::string lower(std::string value)
 {
-    ++library.requested;
-    if (!path || !std::filesystem::exists(path)) {
-        error = "missing street asset: " + std::string(path ? path : "<null>");
-        return {};
-    }
-    ++library.files_present;
+    std::transform(
+        value.begin(),
+        value.end(),
+        value.begin(),
+        [](unsigned char character) { return static_cast<char>(std::tolower(character)); }
+    );
+    return value;
+}
 
+bool supportedModel(const std::filesystem::path& path)
+{
+    const std::string extension = lower(path.extension().string());
+    return extension == ".glb" || extension == ".gltf" ||
+        extension == ".fbx" || extension == ".obj";
+}
+
+int modelPriority(const std::filesystem::path& path)
+{
+    const std::string name = lower(path.filename().string());
+    if (name.find("highway") != std::string::npos) return 0;
+    if (name.find("road") != std::string::npos) return 1;
+    if (name.find("street") != std::string::npos) return 2;
+    return 3;
+}
+
+std::vector<std::filesystem::path> highwayModels()
+{
+    std::vector<std::filesystem::path> result;
+    std::error_code error;
+    const std::filesystem::path root(highway_directory);
+    if (!std::filesystem::exists(root, error) || error) return result;
+
+    std::filesystem::recursive_directory_iterator iterator(
+        root,
+        std::filesystem::directory_options::skip_permission_denied,
+        error
+    );
+    const std::filesystem::recursive_directory_iterator end;
+
+    while (iterator != end) {
+        if (!error && iterator->is_regular_file(error) && !error && supportedModel(iterator->path()))
+            result.push_back(iterator->path());
+
+        error.clear();
+        iterator.increment(error);
+        if (error) error.clear();
+    }
+
+    std::sort(
+        result.begin(),
+        result.end(),
+        [](const std::filesystem::path& a, const std::filesystem::path& b) {
+            const int a_priority = modelPriority(a);
+            const int b_priority = modelPriority(b);
+            if (a_priority != b_priority) return a_priority < b_priority;
+            return a.generic_string() < b.generic_string();
+        }
+    );
+    return result;
+}
+
+Model loadModel(const std::filesystem::path& path, std::string& error)
+{
     std::string model_error;
-    const Models::ModelHandle handle = Models::load(path, &model_error);
+    const Models::ModelHandle handle = Models::load(path.string(), &model_error);
     if (handle == Models::INVALID_MODEL) {
-        error = "failed to load street asset";
+        error = path.filename().string();
         if (!model_error.empty()) error += ": " + model_error;
         return {};
     }
@@ -53,14 +111,13 @@ Model loadModel(const char *path, Library& library, std::string& error)
     }
 
     if (!has_mesh) {
-        error = "street asset contains no renderable mesh parts";
+        error = path.filename().string() + ": model contains no renderable mesh parts";
         return {};
     }
 
     const float width = bounds.maximum.x - bounds.minimum.x;
     const float depth = bounds.maximum.z - bounds.minimum.z;
 
-    ++library.loaded;
     return Model{
         .handle = handle,
         .bounds = bounds,
@@ -73,13 +130,33 @@ Model loadModel(const char *path, Library& library, std::string& error)
 bool Library::load(std::string& error)
 {
     street = {};
-    requested = 0u;
+    requested = 1u;
     files_present = 0u;
     loaded = 0u;
     error.clear();
 
-    street = loadModel(street_path, *this, error);
-    return street.valid();
+    const std::vector<std::filesystem::path> candidates = highwayModels();
+    files_present = candidates.size();
+    if (candidates.empty()) {
+        error = "realistic highway archive contains no supported model (.glb/.gltf/.fbx/.obj)";
+        return false;
+    }
+
+    std::string first_error;
+    for (const std::filesystem::path& path : candidates) {
+        std::string candidate_error;
+        Model model = loadModel(path, candidate_error);
+        if (model.valid()) {
+            street = model;
+            loaded = 1u;
+            return true;
+        }
+        if (first_error.empty()) first_error = std::move(candidate_error);
+    }
+
+    error = "failed to load a road model from realistic-road-highway-gameready.zip";
+    if (!first_error.empty()) error += ": " + first_error;
+    return false;
 }
 
 std::size_t attach(
