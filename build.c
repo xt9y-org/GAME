@@ -30,6 +30,8 @@ static void configureDrivingAssets(C_Target *target)
         "build/generated/driving_assets.cpp",
         "build.c",
         "mkdir -p build/generated Assets/Driving/Street; "
+        "rm -rf Assets/Driving/Cars Assets/Driving/Foliage Assets/Driving/City; "
+        "rm -f Assets/Driving/Street/road_signs_asset_pack__australian_american.glb; "
         "dst='Assets/Driving/Street/low_poly_street_gameready_6.glb'; "
         "url='https://github.com/xt9y-org/Street/releases/download/v1.0.0/low_poly_street_gameready_6.glb'; "
         "if [ ! -s \"$dst\" ]; then "
