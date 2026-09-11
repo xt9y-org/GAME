@@ -78,18 +78,6 @@ void updatePlayer(Ecs::World& world, float delta_seconds, bool input_enabled)
             transform.position.x += forward_x * vehicle.speed * delta_seconds;
             transform.position.z += forward_z * vehicle.speed * delta_seconds;
 
-            const float boundary = std::max(
-                vehicle.road_half_width - vehicle.road_edge_margin,
-                0.5f
-            );
-            if (transform.position.x < -boundary) {
-                transform.position.x = -boundary;
-                vehicle.speed *= 0.985f;
-            } else if (transform.position.x > boundary) {
-                transform.position.x = boundary;
-                vehicle.speed *= 0.985f;
-            }
-
             changed = true;
         }
     );
