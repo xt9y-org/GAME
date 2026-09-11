@@ -13,6 +13,7 @@ namespace Game::Driving::Assets {
 namespace {
 
 constexpr const char *highway_directory = "Assets/Driving/Street/Highway";
+constexpr float pi = 3.14159265358979323846f;
 
 std::string lower(std::string value)
 {
@@ -159,6 +160,20 @@ bool Library::load(std::string& error)
     return false;
 }
 
+float halfWidth(const Model& model, float target_length, float yaw_offset_degrees)
+{
+    if (!model.valid()) return 0.0f;
+
+    const float width = std::max(model.bounds.maximum.x - model.bounds.minimum.x, 0.0f);
+    const float depth = std::max(model.bounds.maximum.z - model.bounds.minimum.z, 0.0f);
+    const float horizontal_extent = std::max(std::max(width, depth), 0.001f);
+    const float scale = std::max(target_length, 0.001f) / horizontal_extent;
+    const float radians = (model.yaw_degrees + yaw_offset_degrees) * (pi / 180.0f);
+    const float rotated_width =
+        std::abs(std::cos(radians)) * width + std::abs(std::sin(radians)) * depth;
+    return rotated_width * scale * 0.5f;
+}
+
 std::size_t attach(
     Ecs::World& world,
     Ecs::Entity parent,
@@ -173,7 +188,7 @@ std::size_t attach(
     const float horizontal_extent = std::max(std::max(width, depth), 0.001f);
     const float scale = std::max(target_length, 0.001f) / horizontal_extent;
     const float yaw = model.yaw_degrees + yaw_offset_degrees;
-    const float radians = yaw * (3.14159265358979323846f / 180.0f);
+    const float radians = yaw * (pi / 180.0f);
     const float cosine = std::cos(radians);
     const float sine = std::sin(radians);
 
