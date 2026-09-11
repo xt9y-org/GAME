@@ -35,6 +35,15 @@ void build(C_Build *b)
     c_dep_include(horse, ".");
     c_dep_include(horse, "Sources");
 
+    C_Dependency *imgui = c_git(
+        b,
+        "imgui",
+        "https://github.com/ocornut/imgui.git",
+        "v1.92.9b"
+    );
+    c_dep_header_only(imgui);
+    c_dep_include(imgui, ".");
+
     C_Target *game = c_executable(b, "game");
     c_sources(game, "main.cpp");
     c_include(game, ".");
@@ -43,6 +52,7 @@ void build(C_Build *b)
     c_warnings_strict(game);
 
     c_use(game, horse);
+    c_use(game, imgui);
     configurePlatform(game);
     c_link_flag(game, "-L/usr/local/lib");
     c_link_flag(game, "-llwcgl");
