@@ -216,8 +216,11 @@ private:
 
         const float width = road_bounds_.maximum.x - road_bounds_.minimum.x;
         const float depth = road_bounds_.maximum.z - road_bounds_.minimum.z;
-        stack_on_x_ = width >= depth;
-        tile_length_ = stack_on_x_ ? width : depth;
+
+        // The authored GLB transform swaps the horizontal axes in the rendered scene.
+        // Repeat along the visually longer side, not the raw transformed AABB label.
+        stack_on_x_ = depth > width;
+        tile_length_ = std::max(width, depth);
         if (tile_length_ <= 0.001f) return false;
 
         model_offset_ = {
