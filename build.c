@@ -23,76 +23,6 @@ static void configurePlatform(C_Target *target)
     c_link_system(target, "glfw");
 }
 
-static void configureDrivingAssets(C_Target *target)
-{
-    c_generate(
-        target,
-        "build/generated/driving_assets.cpp",
-        "build.c",
-        "mkdir -p build/generated Assets/Driving/Street; "
-        "rm -rf Assets/Driving/Cars Assets/Driving/Foliage Assets/Driving/City; "
-        "rm -f Assets/Driving/Street/low_poly_street_gameready_6.glb "
-            "Assets/Driving/Street/road_signs_asset_pack__australian_american.glb; "
-        "archive='Assets/Driving/Street/realistic-road-highway-gameready.zip'; "
-        "extract='Assets/Driving/Street/Highway'; "
-        "url='https://github.com/xt9y-org/Street/releases/download/v1.0.0/realistic-road-highway-gameready.zip'; "
-        "if [ ! -s \"$archive\" ]; then "
-            "if ! command -v curl >/dev/null 2>&1; then "
-                "echo '[assets] curl unavailable; highway archive is required' >&2; exit 1; "
-            "fi; "
-            "echo \"[assets] $archive\"; "
-            "if curl -fL --retry 2 --connect-timeout 10 -o \"$archive.part\" \"$url\"; then "
-                "mv \"$archive.part\" \"$archive\"; "
-            "else "
-                "rm -f \"$archive.part\"; "
-                "echo '[assets] failed to download required highway archive' >&2; exit 1; "
-            "fi; "
-        "fi; "
-        "if ! command -v unzip >/dev/null 2>&1; then "
-            "echo '[assets] unzip unavailable; highway archive cannot be extracted' >&2; exit 1; "
-        "fi; "
-        "if ! find \"$extract\" -type f \\( -name '*.glb' -o -name '*.gltf' -o -name '*.fbx' -o -name '*.obj' \\) "
-            "-print -quit 2>/dev/null | grep -q .; then "
-            "rm -rf \"$extract\"; mkdir -p \"$extract\"; "
-            "if ! unzip -q -o \"$archive\" -d \"$extract\"; then "
-                "echo '[assets] failed to extract highway archive' >&2; exit 1; "
-            "fi; "
-        "fi; "
-        "if ! find \"$extract\" -type f \\( -name '*.glb' -o -name '*.gltf' -o -name '*.fbx' -o -name '*.obj' \\) "
-            "-print -quit 2>/dev/null | grep -q .; then "
-            "echo '[assets] highway archive contains no supported model (.glb/.gltf/.fbx/.obj)' >&2; exit 1; "
-        "fi; "
-        "printf '%s\\n' 'int game_driving_assets_stamp = 0;' > build/generated/driving_assets.cpp"
-    );
-}
-
-static void configureGame(
-    C_Target *target,
-    C_Dependency *horse,
-    C_Dependency *imgui)
-{
-    c_sources(target, "main.cpp");
-    c_sources(target, "Driving/*.cpp");
-    c_sources(target, "Scenes/*.cpp");
-    c_sources(target, "Tests/*.cpp");
-    c_include(target, ".");
-    c_include(target, "/usr/local/include/lwcgl-2.9.3");
-    c_flag(target, "-std=c++20");
-    c_warnings_strict(target);
-
-    c_use(target, horse);
-    c_use(target, imgui);
-    configureDrivingAssets(target);
-
-    configurePlatform(target);
-    c_link_flag(target, "-L/usr/local/lib");
-    c_link_flag(target, "-llwcgl");
-#ifdef __APPLE__
-    c_link_flag(target, "-llwmgl");
-#endif
-    c_link_flag(target, "-Wl,-rpath,/usr/local/lib");
-}
-
 void build(C_Build *b)
 {
     C_Dependency *horse = c_git(
@@ -105,16 +35,21 @@ void build(C_Build *b)
     c_dep_include(horse, ".");
     c_dep_include(horse, "Sources");
 
-    C_Dependency *imgui = c_git(
-        b,
-        "imgui",
-        "https://github.com/ocornut/imgui.git",
-        "v1.92.9b"
-    );
-    c_dep_header_only(imgui);
-    c_dep_include(imgui, ".");
-
     C_Target *game = c_executable(b, "game");
-    configureGame(game, horse, imgui);
+    c_sources(game, "main.cpp");
+    c_include(game, ".");
+    c_include(game, "/usr/local/include/lwcgl-2.9.3");
+    c_flag(game, "-std=c++20");
+    c_warnings_strict(game);
+
+    c_use(game, horse);
+    configurePlatform(game);
+    c_link_flag(game, "-L/usr/local/lib");
+    c_link_flag(game, "-llwcgl");
+#ifdef __APPLE__
+    c_link_flag(game, "-llwmgl");
+#endif
+    c_link_flag(game, "-Wl,-rpath,/usr/local/lib");
+
     c_default_target(b, game);
 }

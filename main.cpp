@@ -1,30 +1,30 @@
-#include "Scenes/Driving.hpp"
-#include "Tests/RendererCheck.hpp"
-
-#include "Renderer/Environment.hpp"
-#include "Renderer/PostProcess.hpp"
-#include "Renderer/Scenes/SceneCache.hpp"
-#include "Renderer/Visibility/Visibility.hpp"
+#include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
 #include "Sources/Models/Models.hpp"
+#include "Sources/Renderer/Environment.hpp"
 #include "Sources/Renderer/Render.hpp"
-#include "Sources/UI/UI.hpp"
 
-#include <imgui.h>
 #include <lwcgl/context.h>
 #include <lwcgl/lwcgl.h>
 
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
-
 #include <algorithm>
 #include <chrono>
-#include <cstdint>
+#include <cmath>
 #include <cstdio>
+#include <limits>
 #include <string>
-#include <string_view>
+#include <vector>
 
-namespace Game {
+namespace {
+
+constexpr int tile_count = 18;
+constexpr int tile_guard = 3;
+constexpr float pi = 3.14159265358979323846f;
+
+struct Tile {
+    Ecs::Entity entity = Ecs::INVALID_ENTITY;
+    long long index = 0;
+};
 
 class Application {
 public:
@@ -35,59 +35,27 @@ public:
 
     int run()
     {
-        if (!init()) return 2;
-        if (!load()) return 3;
+        if (!init()) return 1;
+        if (!load()) return 2;
 
         using Clock = std::chrono::steady_clock;
         auto previous = Clock::now();
-        std::uint64_t frame_index = 0u;
 
         while (!Display.isCloseRequested()) {
-            const auto frame_started = Clock::now();
             Display.processMessages();
             if (Keyboard.isKeyDown(Keyboard.KEY_ESCAPE)) break;
 
-            if (!renderer_check_.active()) updateDebugKey();
-
-            const bool ui_visible = !renderer_check_.active() && ::UI::beginFrame();
-            if (ui_visible) driving_.drawDebug(world_);
-
-            if (!renderer_check_.active()) updateRendererKey();
-
             const auto now = Clock::now();
-            const float delta_seconds = std::chrono::duration<float>(now - previous).count();
+            const float delta_seconds = std::min(
+                std::chrono::duration<float>(now - previous).count(),
+                0.1f
+            );
             previous = now;
-            const float frame_delta = std::min(delta_seconds, 0.1f);
 
-            const auto update_started = Clock::now();
-            driving_.update(world_, frame_delta);
-            const auto update_finished = Clock::now();
-            renderer_check_.metric(
-                "update_ms",
-                std::chrono::duration<double, std::milli>(update_finished - update_started).count()
-            );
-
+            camera_controller_.update(world_, delta_seconds);
+            recycleRoad();
             resizeIfNeeded();
-
-            const auto render_started = Clock::now();
-            renderers_.render(world_);
-            const auto render_finished = Clock::now();
-            renderer_check_.metric(
-                "render_ms",
-                std::chrono::duration<double, std::milli>(render_finished - render_started).count()
-            );
-
-            driving_.emitMetrics([this](std::string_view name, double value) {
-                renderer_check_.metric(name, value);
-            });
-
-            renderer_check_.metric(
-                "frame_ms",
-                std::chrono::duration<double, std::milli>(render_finished - frame_started).count()
-            );
-
-            if (renderer_check_.lastFrame(frame_index)) break;
-            ++frame_index;
+            renderer_.render(world_);
         }
 
         return 0;
@@ -96,8 +64,6 @@ public:
 private:
     bool init()
     {
-        if (started_) return true;
-
         lwcglInstallFastRuntime();
 #ifdef __APPLE__
         lwcglSetContextVersion(2, 1);
@@ -109,126 +75,63 @@ private:
 
         Display.setDisplayMode(new DisplayMode(1280, 720));
         Display.create();
-        Display.setTitle("Driving");
+        Display.setTitle("GAME");
         started_ = true;
-
-        if (renderer_check_.active()) {
-            if (auto *window = static_cast<GLFWwindow *>(Display.getNativeWindow()))
-                glfwHideWindow(window);
-        }
 
         Keyboard.create();
         Mouse.create();
-        if (!renderer_check_.active()) Mouse.setGrabbed(LWCGL_TRUE);
-        Mouse.getDX();
-        Mouse.getDY();
 
-        configureEngine();
-        if (!renderer_check_.active()) configureUi();
-        configureRenderers();
+        renderer_.setEnabled(true);
+        renderer_.setViewportCulling(true);
+        renderer_.setShadowResolution(1024);
+        renderer_.setFallbackShadowResolution(256);
+        renderer_.setMinimumShadowResolution(64);
+        renderer_.setShadowNearPlane(0.05f);
+        renderer_.setShadowFarScale(1.05f);
+        renderer_.setClearColor({0.38f, 0.50f, 0.66f, 1.0f});
 
-        if (!renderers_.initialize()) {
-            std::fprintf(stderr, "[Driving]: no renderer could be initialized\n");
+        if (!renderer_.init()) {
+            std::fprintf(stderr, "failed to initialize rasterizer\n");
             return false;
         }
-
-        reportRenderers();
 
         framebuffer_width_ = std::max(Display.getWidth(), 1);
         framebuffer_height_ = std::max(Display.getHeight(), 1);
-        renderers_.resize(framebuffer_width_, framebuffer_height_);
-
-        const std::string_view requested = renderer_check_.active()
-            ? renderer_check_.rendererName()
-            : std::string_view("Rasterizer");
-        if (!renderers_.activate(requested)) {
-            std::fprintf(
-                stderr,
-                "[%s]: requested renderer '%.*s' is unavailable\n",
-                renderer_check_.active() ? "RendererCheck" : "Driving",
-                static_cast<int>(requested.size()),
-                requested.data()
-            );
-            return false;
-        }
-
-        updateWindowTitle();
+        renderer_.resize(framebuffer_width_, framebuffer_height_);
         return true;
-    }
-
-    void configureEngine()
-    {
-        Renderer::Scenes::SceneCache::setLeafSize(8u);
-        Renderer::Scenes::SceneCache::setMaximumTriangles(1000000u);
-        Renderer::Scenes::SceneCache::setOpacityCutoff(0.5f);
-        Renderer::Scenes::SceneCache::setAlphaThreshold(250u);
-        Renderer::Visibility::system().setFarDistance(10000.0f);
-    }
-
-    void configureUi()
-    {
-        if (!::UI::init()) {
-            std::fprintf(stderr, "[Driving]: ImGui initialization failed\n");
-            return;
-        }
-
-        ImGuiIO& io = ImGui::GetIO();
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-        io.IniFilename = nullptr;
-        io.LogFilename = nullptr;
-
-        ImGui::StyleColorsDark();
-        ImGuiStyle& style = ImGui::GetStyle();
-        style.FontScaleMain = 0.86f;
-        style.ScaleAllSizes(0.86f);
-        style.FrameRounding = 0.0f;
-        style.WindowRounding = 3.0f;
-    }
-
-    void configureRenderers()
-    {
-        auto& rasterizer = renderers_.add<Renderer::Rasterizer>("Rasterizer");
-        rasterizer.setEnabled(true);
-        rasterizer.setViewportCulling(true);
-        rasterizer.setShadowResolution(2048);
-        rasterizer.setFallbackShadowResolution(512);
-        rasterizer.setMinimumShadowResolution(64);
-        rasterizer.setShadowNearPlane(0.05f);
-        rasterizer.setShadowFarScale(1.05f);
-        rasterizer.setClearColor({0.47f, 0.58f, 0.70f, 1.0f});
-
-        auto& ray_tracer = renderers_.add<Renderer::RayTracer>("Ray Tracer");
-        ray_tracer.setEnabled(true);
-        ray_tracer.setResolutionDivisor(4);
-        ray_tracer.setExposure(1.05f);
-
-        auto& path_tracer = renderers_.add<Renderer::PathTracer>("Path Tracer");
-        path_tracer.setEnabled(true);
-        path_tracer.setResolutionDivisor(2);
-        path_tracer.setSamplesPerFrame(1);
-        path_tracer.setExposure(1.05f);
-        path_tracer.setStationaryPhaseGrid(2);
-        path_tracer.setResetPhaseGrid(1);
-        path_tracer.setMovingPhaseGrid(4);
-        path_tracer.setMovingDepthBlock(4);
     }
 
     bool load()
     {
-        std::string error;
-        if (!driving_.load(world_, error)) {
+        road_model_ = Models::load("Assets/road_tile.glb", &model_error_);
+        if (road_model_ == Models::INVALID_MODEL) {
             std::fprintf(
                 stderr,
-                "[Driving]: failed to load: %s\n",
-                error.empty() ? "unknown error" : error.c_str()
+                "failed to load Assets/road_tile.glb: %s\n",
+                model_error_.empty() ? "unknown error" : model_error_.c_str()
             );
             return false;
         }
 
-        if (driving_.camera() == Ecs::INVALID_ENTITY || !world_.alive(driving_.camera())) {
-            std::fprintf(stderr, "[Driving]: no valid camera\n");
+        if (!measureRoad()) {
+            std::fprintf(stderr, "road_tile.glb contains no usable mesh\n");
             return false;
         }
+
+        camera_ = world_.createEntity();
+        world_.add<Renderer::Transform>(camera_, Renderer::Transform{
+            .position = {0.0f, 3.0f, 0.0f},
+            .rotation = {-12.0f, 0.0f, 0.0f},
+            .scale = {1.0f, 1.0f, 1.0f},
+        });
+        world_.add<Camera::CameraComponent>(camera_, Camera::CameraComponent{
+            78.0f, 0.05f, true
+        });
+
+        camera_controller_.setSpeed(16.0f);
+        camera_controller_.setSprintMultiplier(4.0f);
+        camera_controller_.setMouseSensitivity(0.10f);
+        camera_controller_.setPitchRange(-89.0f, 89.0f);
 
         const Ecs::Entity environment = world_.createEntity();
         world_.add<Renderer::EnvironmentComponent>(
@@ -236,91 +139,156 @@ private:
             Renderer::EnvironmentComponent{
                 .enabled = true,
                 .texture = Models::INVALID_TEXTURE,
-                .sky_color = {0.47f, 0.58f, 0.70f},
+                .sky_color = {0.38f, 0.50f, 0.66f},
                 .intensity = 1.0f,
                 .rotation_degrees = 0.0f,
-                .ambient_color = {0.78f, 0.84f, 0.92f},
-                .ambient_intensity = 0.22f,
+                .ambient_color = {1.0f, 1.0f, 1.0f},
+                .ambient_intensity = 0.65f,
                 .fog = Renderer::FogMode::None,
-                .fog_color = {0.47f, 0.58f, 0.70f},
-                .fog_density = 0.0f,
-                .fog_start = 260.0f,
-                .fog_end = 1450.0f,
-            }
-        );
-        world_.add<Renderer::PostProcessComponent>(
-            environment,
-            Renderer::PostProcessComponent{
-                .enabled = true,
-                .exposure = 1.0f,
-                .bloom = false,
-                .bloom_threshold = 1.0f,
-                .bloom_intensity = 0.12f,
-                .motion_blur = false,
-                .motion_blur_strength = 0.5f,
-                .motion_blur_samples = 8u,
-                .anti_aliasing = Renderer::AntiAliasing::Fxaa,
             }
         );
 
-        world_.markChanged(Ecs::ChangeKind::Lighting);
+        tiles_.reserve(tile_count);
+        const int first = -(tile_count / 2);
+        for (int slot = 0; slot < tile_count; ++slot) {
+            const long long index = static_cast<long long>(first + slot);
+            const Ecs::Entity root = world_.createEntity();
+            world_.add<Renderer::Transform>(root, Renderer::Transform{
+                .position = {0.0f, 0.0f, static_cast<float>(index) * tile_length_},
+                .rotation = {},
+                .scale = {1.0f, 1.0f, 1.0f},
+            });
+
+            if (!attachRoad(root)) {
+                std::fprintf(stderr, "road_tile.glb contains no renderable parts\n");
+                return false;
+            }
+            tiles_.push_back(Tile{root, index});
+        }
+
+        world_.markChanged();
         return true;
     }
 
-    void shutdown()
+    bool measureRoad()
     {
-        if (!started_) return;
+        const float infinity = std::numeric_limits<float>::infinity();
+        road_bounds_.minimum = {infinity, infinity, infinity};
+        road_bounds_.maximum = {-infinity, -infinity, -infinity};
 
-        ::UI::shutdown();
-        renderers_.shutdown();
-        Models::clearCache();
-        Mouse.destroy();
-        Keyboard.destroy();
-        Display.destroy();
-        started_ = false;
+        bool found = false;
+        const std::size_t parts = Models::partCount(road_model_);
+        for (std::size_t index = 0; index < parts; ++index) {
+            const Models::ModelPart *part = Models::part(road_model_, index);
+            if (!part) continue;
+            const Models::MeshData *mesh = Models::mesh(part->mesh);
+            if (!mesh) continue;
+
+            road_bounds_.minimum.x = std::min(road_bounds_.minimum.x, mesh->bounds.minimum.x);
+            road_bounds_.minimum.y = std::min(road_bounds_.minimum.y, mesh->bounds.minimum.y);
+            road_bounds_.minimum.z = std::min(road_bounds_.minimum.z, mesh->bounds.minimum.z);
+            road_bounds_.maximum.x = std::max(road_bounds_.maximum.x, mesh->bounds.maximum.x);
+            road_bounds_.maximum.y = std::max(road_bounds_.maximum.y, mesh->bounds.maximum.y);
+            road_bounds_.maximum.z = std::max(road_bounds_.maximum.z, mesh->bounds.maximum.z);
+            found = true;
+        }
+
+        if (!found) return false;
+
+        const float width = road_bounds_.maximum.x - road_bounds_.minimum.x;
+        const float depth = road_bounds_.maximum.z - road_bounds_.minimum.z;
+        road_yaw_ = width > depth ? 90.0f : 0.0f;
+        tile_length_ = std::max(width, depth);
+        if (tile_length_ <= 0.001f) return false;
+
+        const float center_x = (road_bounds_.minimum.x + road_bounds_.maximum.x) * 0.5f;
+        const float center_z = (road_bounds_.minimum.z + road_bounds_.maximum.z) * 0.5f;
+        const float radians = road_yaw_ * (pi / 180.0f);
+        const float cosine = std::cos(radians);
+        const float sine = std::sin(radians);
+        const float rotated_center_x = cosine * center_x + sine * center_z;
+        const float rotated_center_z = -sine * center_x + cosine * center_z;
+
+        road_local_ = Renderer::Transform{
+            .position = {
+                -rotated_center_x,
+                -road_bounds_.minimum.y,
+                -rotated_center_z,
+            },
+            .rotation = {0.0f, road_yaw_, 0.0f},
+            .scale = {1.0f, 1.0f, 1.0f},
+        };
+        return true;
     }
 
-    void reportRenderers() const
+    bool attachRoad(Ecs::Entity root)
     {
-        for (std::size_t index = 0u; index < renderers_.count(); ++index) {
-            const Renderer::Manager::Entry *entry = renderers_.entry(index);
-            if (!entry) continue;
-            std::fprintf(
-                stderr,
-                "[Driving]: renderer %-11s %s\n",
-                entry->name.c_str(),
-                entry->available ? "ready" : "unavailable"
+        bool attached = false;
+        const std::size_t parts = Models::partCount(road_model_);
+        for (std::size_t index = 0; index < parts; ++index) {
+            const Models::ModelPart *part = Models::part(road_model_, index);
+            if (!part || part->mesh == Models::INVALID_MESH) continue;
+
+            const Ecs::Entity child = world_.createEntity();
+            world_.add<Renderer::Transform>(child, road_local_);
+            world_.add<Renderer::Parent>(child, Renderer::Parent{root});
+            world_.add<Renderer::MeshComponent>(
+                child,
+                Renderer::MeshComponent{part->mesh, part->material}
             );
+            world_.add<Renderer::RenderableComponent>(
+                child,
+                Renderer::RenderableComponent{true}
+            );
+            attached = true;
         }
+        return attached;
     }
 
-    void updateWindowTitle()
+    void recycleRoad()
     {
-        if (renderer_check_.active()) return;
-        const Renderer::Manager::Entry *active = renderers_.activeEntry();
-        const std::string title = active ? "Driving - " + active->name : "Driving";
-        Display.setTitle(title.c_str());
-    }
+        const Renderer::Transform *camera_transform = world_.get<Renderer::Transform>(camera_);
+        if (!camera_transform || tiles_.empty()) return;
 
-    void updateRendererKey()
-    {
-        const bool down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
-        if (down && !renderer_key_down_ && !::UI::wantsKeyboard()) {
-            if (renderers_.next()) updateWindowTitle();
-        }
-        renderer_key_down_ = down;
-    }
+        const long long camera_index = static_cast<long long>(
+            std::floor(camera_transform->position.z / tile_length_)
+        );
+        bool changed = false;
 
-    void updateDebugKey()
-    {
-        const bool down = Keyboard.isKeyDown(Keyboard.KEY_TAB);
-        if (down && !tab_down_) {
-            const bool grabbed = Mouse.isGrabbed() != LWCGL_FALSE;
-            Mouse.setGrabbed(grabbed ? LWCGL_FALSE : LWCGL_TRUE);
-            Mouse.getDX();
-            Mouse.getDY();
+        for (;;) {
+            auto minimum = std::min_element(
+                tiles_.begin(),
+                tiles_.end(),
+                [](const Tile& a, const Tile& b) { return a.index < b.index; }
+            );
+            auto maximum = std::max_element(
+                tiles_.begin(),
+                tiles_.end(),
+                [](const Tile& a, const Tile& b) { return a.index < b.index; }
+            );
+
+            if (camera_index < minimum->index + tile_guard) {
+                maximum->index = minimum->index - 1;
+                Renderer::Transform *transform = world_.get<Renderer::Transform>(maximum->entity);
+                if (transform)
+                    transform->position.z = static_cast<float>(maximum->index) * tile_length_;
+                changed = true;
+                continue;
+            }
+
+            if (camera_index > maximum->index - tile_guard) {
+                minimum->index = maximum->index + 1;
+                Renderer::Transform *transform = world_.get<Renderer::Transform>(minimum->entity);
+                if (transform)
+                    transform->position.z = static_cast<float>(minimum->index) * tile_length_;
+                changed = true;
+                continue;
+            }
+
+            break;
         }
-        tab_down_ = down;
+
+        if (changed) world_.markChanged(Ecs::ChangeKind::Transform);
     }
 
     void resizeIfNeeded()
@@ -331,25 +299,42 @@ private:
 
         framebuffer_width_ = width;
         framebuffer_height_ = height;
-        renderers_.resize(width, height);
+        renderer_.resize(width, height);
+    }
+
+    void shutdown()
+    {
+        if (!started_) return;
+        renderer_.shutdown();
+        Models::clearCache();
+        Mouse.destroy();
+        Keyboard.destroy();
+        Display.destroy();
+        started_ = false;
     }
 
     bool started_ = false;
-    bool tab_down_ = false;
-    bool renderer_key_down_ = false;
     int framebuffer_width_ = 1;
     int framebuffer_height_ = 1;
 
     Ecs::World world_;
-    Scenes::Driving driving_;
-    Renderer::Manager renderers_;
-    Tests::RendererCheck renderer_check_{};
+    Renderer::Rasterizer renderer_;
+    Camera::FreeController camera_controller_;
+    Ecs::Entity camera_ = Ecs::INVALID_ENTITY;
+
+    Models::ModelHandle road_model_ = Models::INVALID_MODEL;
+    Models::Bounds road_bounds_{};
+    Renderer::Transform road_local_{};
+    float road_yaw_ = 0.0f;
+    float tile_length_ = 1.0f;
+    std::string model_error_;
+    std::vector<Tile> tiles_;
 };
 
-} // namespace Game
+} // namespace
 
 int main()
 {
-    Game::Application application;
+    Application application;
     return application.run();
 }

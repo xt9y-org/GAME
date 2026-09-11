@@ -1,11 +1,8 @@
-Driving game using Horse.
+Horse road tile test.
 
 Build: c build
 Run: c run
-Check: renderercheck run
-Asset: xt9y-org/Street v1.0.0 realistic-road-highway-gameready.zip
 
-WASD: drive
-Tab: driving debug
-Enter: switch renderer
+WASD + mouse: fly
+Shift: faster
 Esc: quit
