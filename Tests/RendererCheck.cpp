@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <string_view>
 
 namespace Game::Tests {
 namespace {
@@ -25,6 +26,15 @@ std::uint64_t environmentUnsigned(const char *name, std::uint64_t fallback)
     const unsigned long long parsed = std::strtoull(value, &end, 10);
     if (errno != 0 || !end || *end != '\0') return fallback;
     return static_cast<std::uint64_t>(parsed);
+}
+
+std::string_view rendererForTest(const char *test)
+{
+    if (!test) return "Rasterizer";
+    const std::string_view name(test);
+    if (name == "ray-tracer") return "Ray Tracer";
+    if (name == "path-tracer") return "Path Tracer";
+    return "Rasterizer";
 }
 
 bool metricNameValid(std::string_view name)
@@ -50,6 +60,7 @@ RendererCheck::RendererCheck()
 
     metrics_path_ = environment("RENDERCHECK_METRICS_PATH");
     frame_limit_ = environmentUnsigned("RENDERCHECK_FRAME_LIMIT", 0u);
+    renderer_name_ = rendererForTest(environment("RENDERCHECK_TEST"));
 }
 
 bool RendererCheck::lastFrame(std::uint64_t frame) const
