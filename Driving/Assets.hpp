@@ -6,7 +6,7 @@
 #include "Sources/Renderer/Components.hpp"
 
 #include <cstddef>
-#include <vector>
+#include <string>
 
 namespace Game::Driving::Assets {
 
@@ -19,17 +19,12 @@ struct Model {
 };
 
 struct Library {
-    std::vector<Model> cars;
-    std::vector<Model> heavy_traffic;
-    std::vector<Model> street;
-    std::vector<Model> foliage;
-    std::vector<Model> city;
-
+    Model street{};
     std::size_t requested = 0u;
     std::size_t files_present = 0u;
     std::size_t loaded = 0u;
 
-    void load();
+    bool load(std::string& error);
 };
 
 std::size_t attach(
