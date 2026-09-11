@@ -13,18 +13,13 @@
 #include <cstdio>
 #include <limits>
 #include <string>
-#include <vector>
 
 namespace {
 
-constexpr int tile_count = 18;
+constexpr int initial_tile_count = 18;
 constexpr int tile_guard = 3;
 constexpr float pi = 3.14159265358979323846f;
-
-struct Tile {
-    Ecs::Entity entity = Ecs::INVALID_ENTITY;
-    long long index = 0;
-};
+constexpr float road_yaw_degrees = -90.0f;
 
 class Application {
 public:
@@ -53,7 +48,7 @@ public:
             previous = now;
 
             camera_controller_.update(world_, delta_seconds);
-            recycleRoad();
+            expandRoad();
             resizeIfNeeded();
             renderer_.render(world_);
         }
@@ -148,22 +143,13 @@ private:
             }
         );
 
-        tiles_.reserve(tile_count);
-        const int first = -(tile_count / 2);
-        for (int slot = 0; slot < tile_count; ++slot) {
-            const long long index = static_cast<long long>(first + slot);
-            const Ecs::Entity root = world_.createEntity();
-            world_.add<Renderer::Transform>(root, Renderer::Transform{
-                .position = {static_cast<float>(index) * tile_length_, 0.0f, 0.0f},
-                .rotation = {},
-                .scale = {1.0f, 1.0f, 1.0f},
-            });
-
-            if (!attachRoad(root)) {
+        minimum_tile_index_ = -(initial_tile_count / 2);
+        maximum_tile_index_ = minimum_tile_index_ + initial_tile_count - 1;
+        for (long long index = minimum_tile_index_; index <= maximum_tile_index_; ++index) {
+            if (!createRoadTile(index)) {
                 std::fprintf(stderr, "road_tile.glb contains no renderable parts\n");
                 return false;
             }
-            tiles_.push_back(Tile{root, index});
         }
 
         world_.markChanged();
@@ -197,13 +183,15 @@ private:
 
         const float width = road_bounds_.maximum.x - road_bounds_.minimum.x;
         const float depth = road_bounds_.maximum.z - road_bounds_.minimum.z;
-        road_yaw_ = (width > depth ? 90.0f : 0.0f) - 90.0f;
         tile_length_ = std::max(width, depth);
         if (tile_length_ <= 0.001f) return false;
 
+        // Fixed left turn. No automatic yaw adjustment can cancel this rotation.
+        stack_on_x_ = depth >= width;
+
         const float center_x = (road_bounds_.minimum.x + road_bounds_.maximum.x) * 0.5f;
         const float center_z = (road_bounds_.minimum.z + road_bounds_.maximum.z) * 0.5f;
-        const float radians = road_yaw_ * (pi / 180.0f);
+        const float radians = road_yaw_degrees * (pi / 180.0f);
         const float cosine = std::cos(radians);
         const float sine = std::sin(radians);
         const float rotated_center_x = cosine * center_x + sine * center_z;
@@ -215,18 +203,33 @@ private:
                 -road_bounds_.minimum.y,
                 -rotated_center_z,
             },
-            .rotation = {0.0f, road_yaw_, 0.0f},
+            .rotation = {0.0f, road_yaw_degrees, 0.0f},
             .scale = {1.0f, 1.0f, 1.0f},
         };
         return true;
     }
 
-    bool attachRoad(Ecs::Entity root)
+    Renderer::Vec3 tilePosition(long long index) const
     {
+        const float offset = static_cast<float>(index) * tile_length_;
+        return stack_on_x_
+            ? Renderer::Vec3{offset, 0.0f, 0.0f}
+            : Renderer::Vec3{0.0f, 0.0f, offset};
+    }
+
+    bool createRoadTile(long long index)
+    {
+        const Ecs::Entity root = world_.createEntity();
+        world_.add<Renderer::Transform>(root, Renderer::Transform{
+            .position = tilePosition(index),
+            .rotation = {},
+            .scale = {1.0f, 1.0f, 1.0f},
+        });
+
         bool attached = false;
         const std::size_t parts = Models::partCount(road_model_);
-        for (std::size_t index = 0; index < parts; ++index) {
-            const Models::ModelPart *part = Models::part(road_model_, index);
+        for (std::size_t part_index = 0; part_index < parts; ++part_index) {
+            const Models::ModelPart *part = Models::part(road_model_, part_index);
             if (!part || part->mesh == Models::INVALID_MESH) continue;
 
             const Ecs::Entity child = world_.createEntity();
@@ -245,50 +248,44 @@ private:
         return attached;
     }
 
-    void recycleRoad()
+    void expandRoad()
     {
+        if (road_expansion_failed_) return;
+
         const Renderer::Transform *camera_transform = world_.get<Renderer::Transform>(camera_);
-        if (!camera_transform || tiles_.empty()) return;
+        if (!camera_transform) return;
 
+        const float camera_axis = stack_on_x_
+            ? camera_transform->position.x
+            : camera_transform->position.z;
         const long long camera_index = static_cast<long long>(
-            std::floor(camera_transform->position.x / tile_length_)
+            std::floor(camera_axis / tile_length_)
         );
+
         bool changed = false;
-
-        for (;;) {
-            auto minimum = std::min_element(
-                tiles_.begin(),
-                tiles_.end(),
-                [](const Tile& a, const Tile& b) { return a.index < b.index; }
-            );
-            auto maximum = std::max_element(
-                tiles_.begin(),
-                tiles_.end(),
-                [](const Tile& a, const Tile& b) { return a.index < b.index; }
-            );
-
-            if (camera_index < minimum->index + tile_guard) {
-                maximum->index = minimum->index - 1;
-                Renderer::Transform *transform = world_.get<Renderer::Transform>(maximum->entity);
-                if (transform)
-                    transform->position.x = static_cast<float>(maximum->index) * tile_length_;
-                changed = true;
-                continue;
+        while (camera_index < minimum_tile_index_ + tile_guard) {
+            const long long next = minimum_tile_index_ - 1;
+            if (!createRoadTile(next)) {
+                road_expansion_failed_ = true;
+                break;
             }
-
-            if (camera_index > maximum->index - tile_guard) {
-                minimum->index = maximum->index + 1;
-                Renderer::Transform *transform = world_.get<Renderer::Transform>(minimum->entity);
-                if (transform)
-                    transform->position.x = static_cast<float>(minimum->index) * tile_length_;
-                changed = true;
-                continue;
-            }
-
-            break;
+            minimum_tile_index_ = next;
+            changed = true;
         }
 
-        if (changed) world_.markChanged(Ecs::ChangeKind::Transform);
+        while (!road_expansion_failed_ && camera_index > maximum_tile_index_ - tile_guard) {
+            const long long next = maximum_tile_index_ + 1;
+            if (!createRoadTile(next)) {
+                road_expansion_failed_ = true;
+                break;
+            }
+            maximum_tile_index_ = next;
+            changed = true;
+        }
+
+        if (road_expansion_failed_)
+            std::fprintf(stderr, "failed to extend infinite road\n");
+        if (changed) world_.markChanged();
     }
 
     void resizeIfNeeded()
@@ -314,8 +311,12 @@ private:
     }
 
     bool started_ = false;
+    bool stack_on_x_ = false;
+    bool road_expansion_failed_ = false;
     int framebuffer_width_ = 1;
     int framebuffer_height_ = 1;
+    long long minimum_tile_index_ = 0;
+    long long maximum_tile_index_ = 0;
 
     Ecs::World world_;
     Renderer::Rasterizer renderer_;
@@ -325,10 +326,8 @@ private:
     Models::ModelHandle road_model_ = Models::INVALID_MODEL;
     Models::Bounds road_bounds_{};
     Renderer::Transform road_local_{};
-    float road_yaw_ = 0.0f;
     float tile_length_ = 1.0f;
     std::string model_error_;
-    std::vector<Tile> tiles_;
 };
 
 } // namespace
