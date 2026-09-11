@@ -27,6 +27,12 @@ struct Library {
     bool load(std::string& error);
 };
 
+float halfWidth(
+    const Model& model,
+    float target_length,
+    float yaw_offset_degrees = 0.0f
+);
+
 std::size_t attach(
     Ecs::World& world,
     Ecs::Entity parent,
