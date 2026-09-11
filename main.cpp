@@ -129,7 +129,7 @@ private:
         });
 
         camera_controller_.setSpeed(16.0f);
-        camera_controller_.setSprintMultiplier(4.0f);
+        camera_controller_.setSprintMultiplier(10.0f);
         camera_controller_.setMouseSensitivity(0.10f);
         camera_controller_.setPitchRange(-89.0f, 89.0f);
 
@@ -154,7 +154,7 @@ private:
             const long long index = static_cast<long long>(first + slot);
             const Ecs::Entity root = world_.createEntity();
             world_.add<Renderer::Transform>(root, Renderer::Transform{
-                .position = {0.0f, 0.0f, static_cast<float>(index) * tile_length_},
+                .position = {static_cast<float>(index) * tile_length_, 0.0f, 0.0f},
                 .rotation = {},
                 .scale = {1.0f, 1.0f, 1.0f},
             });
@@ -197,7 +197,7 @@ private:
 
         const float width = road_bounds_.maximum.x - road_bounds_.minimum.x;
         const float depth = road_bounds_.maximum.z - road_bounds_.minimum.z;
-        road_yaw_ = width > depth ? 90.0f : 0.0f;
+        road_yaw_ = (width > depth ? 90.0f : 0.0f) - 90.0f;
         tile_length_ = std::max(width, depth);
         if (tile_length_ <= 0.001f) return false;
 
@@ -251,7 +251,7 @@ private:
         if (!camera_transform || tiles_.empty()) return;
 
         const long long camera_index = static_cast<long long>(
-            std::floor(camera_transform->position.z / tile_length_)
+            std::floor(camera_transform->position.x / tile_length_)
         );
         bool changed = false;
 
@@ -271,7 +271,7 @@ private:
                 maximum->index = minimum->index - 1;
                 Renderer::Transform *transform = world_.get<Renderer::Transform>(maximum->entity);
                 if (transform)
-                    transform->position.z = static_cast<float>(maximum->index) * tile_length_;
+                    transform->position.x = static_cast<float>(maximum->index) * tile_length_;
                 changed = true;
                 continue;
             }
@@ -280,7 +280,7 @@ private:
                 minimum->index = maximum->index + 1;
                 Renderer::Transform *transform = world_.get<Renderer::Transform>(minimum->entity);
                 if (transform)
-                    transform->position.z = static_cast<float>(minimum->index) * tile_length_;
+                    transform->position.x = static_cast<float>(minimum->index) * tile_length_;
                 changed = true;
                 continue;
             }
