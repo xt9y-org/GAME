@@ -3,7 +3,7 @@ Driving game using Horse.
 Build: c build
 Run: c run
 Check: renderercheck run
-Assets: pinned xt9y-org release packs, cached in Assets/Driving
+Asset: xt9y-org/Street v1.0.0 basic street GLB
 
 WASD: drive
 Tab: driving debug
