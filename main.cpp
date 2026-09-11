@@ -1,6 +1,8 @@
 #include "Scenes/Driving.hpp"
 #include "Tests/RendererCheck.hpp"
 
+#include "Renderer/Environment.hpp"
+#include "Renderer/PostProcess.hpp"
 #include "Renderer/Scenes/SceneCache.hpp"
 #include "Renderer/Visibility/Visibility.hpp"
 #include "Sources/Ecs/Ecs.hpp"
@@ -11,6 +13,9 @@
 #include <imgui.h>
 #include <lwcgl/context.h>
 #include <lwcgl/lwcgl.h>
+
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 #include <algorithm>
 #include <chrono>
@@ -47,7 +52,7 @@ public:
             const bool ui_visible = !renderer_check_.active() && ::UI::beginFrame();
             if (ui_visible) driving_.drawDebug(world_);
 
-            updateRendererKey();
+            if (!renderer_check_.active()) updateRendererKey();
 
             const auto now = Clock::now();
             const float delta_seconds = std::chrono::duration<float>(now - previous).count();
@@ -107,14 +112,19 @@ private:
         Display.setTitle("Driving");
         started_ = true;
 
+        if (renderer_check_.active()) {
+            if (auto *window = static_cast<GLFWwindow *>(Display.getNativeWindow()))
+                glfwHideWindow(window);
+        }
+
         Keyboard.create();
         Mouse.create();
-        Mouse.setGrabbed(LWCGL_TRUE);
+        if (!renderer_check_.active()) Mouse.setGrabbed(LWCGL_TRUE);
         Mouse.getDX();
         Mouse.getDY();
 
         configureEngine();
-        configureUi();
+        if (!renderer_check_.active()) configureUi();
         configureRenderers();
 
         if (!renderers_.initialize()) {
@@ -122,15 +132,27 @@ private:
             return false;
         }
 
+        reportRenderers();
+
         framebuffer_width_ = std::max(Display.getWidth(), 1);
         framebuffer_height_ = std::max(Display.getHeight(), 1);
         renderers_.resize(framebuffer_width_, framebuffer_height_);
 
-        if (renderer_check_.active() && !renderers_.activate(renderer_check_.rendererName())) {
-            std::fprintf(stderr, "[RendererCheck]: requested renderer unavailable\n");
+        const std::string_view requested = renderer_check_.active()
+            ? renderer_check_.rendererName()
+            : std::string_view("Rasterizer");
+        if (!renderers_.activate(requested)) {
+            std::fprintf(
+                stderr,
+                "[%s]: requested renderer '%.*s' is unavailable\n",
+                renderer_check_.active() ? "RendererCheck" : "Driving",
+                static_cast<int>(requested.size()),
+                requested.data()
+            );
             return false;
         }
 
+        updateWindowTitle();
         return true;
     }
 
@@ -208,6 +230,40 @@ private:
             return false;
         }
 
+        const Ecs::Entity environment = world_.createEntity();
+        world_.add<Renderer::EnvironmentComponent>(
+            environment,
+            Renderer::EnvironmentComponent{
+                .enabled = true,
+                .texture = Models::INVALID_TEXTURE,
+                .sky_color = {0.47f, 0.58f, 0.70f},
+                .intensity = 1.0f,
+                .rotation_degrees = 0.0f,
+                .ambient_color = {0.78f, 0.84f, 0.92f},
+                .ambient_intensity = 0.22f,
+                .fog = Renderer::FogMode::None,
+                .fog_color = {0.47f, 0.58f, 0.70f},
+                .fog_density = 0.0f,
+                .fog_start = 260.0f,
+                .fog_end = 1450.0f,
+            }
+        );
+        world_.add<Renderer::PostProcessComponent>(
+            environment,
+            Renderer::PostProcessComponent{
+                .enabled = true,
+                .exposure = 1.0f,
+                .bloom = false,
+                .bloom_threshold = 1.0f,
+                .bloom_intensity = 0.12f,
+                .motion_blur = false,
+                .motion_blur_strength = 0.5f,
+                .motion_blur_samples = 8u,
+                .anti_aliasing = Renderer::AntiAliasing::Fxaa,
+            }
+        );
+
+        world_.markChanged(Ecs::ChangeKind::Lighting);
         return true;
     }
 
@@ -224,10 +280,34 @@ private:
         started_ = false;
     }
 
+    void reportRenderers() const
+    {
+        for (std::size_t index = 0u; index < renderers_.count(); ++index) {
+            const Renderer::Manager::Entry *entry = renderers_.entry(index);
+            if (!entry) continue;
+            std::fprintf(
+                stderr,
+                "[Driving]: renderer %-11s %s\n",
+                entry->name.c_str(),
+                entry->available ? "ready" : "unavailable"
+            );
+        }
+    }
+
+    void updateWindowTitle()
+    {
+        if (renderer_check_.active()) return;
+        const Renderer::Manager::Entry *active = renderers_.activeEntry();
+        const std::string title = active ? "Driving - " + active->name : "Driving";
+        Display.setTitle(title.c_str());
+    }
+
     void updateRendererKey()
     {
         const bool down = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
-        if (down && !renderer_key_down_ && !::UI::wantsKeyboard()) renderers_.next();
+        if (down && !renderer_key_down_ && !::UI::wantsKeyboard()) {
+            if (renderers_.next()) updateWindowTitle();
+        }
         renderer_key_down_ = down;
     }
 
