@@ -10,8 +10,6 @@
 
 #include <imgui.h>
 
-#include <algorithm>
-
 namespace Game::Scenes {
 
 const char *Driving::name() const
@@ -24,18 +22,8 @@ bool Driving::load(Ecs::World& world, std::string& error)
     camera_ = Ecs::INVALID_ENTITY;
     player_ = Ecs::INVALID_ENTITY;
     triangle_count_ = 0u;
-    road_half_width_ = 0.0f;
 
     if (!assets_.load(error)) return false;
-
-    road_half_width_ = Game::Driving::Assets::halfWidth(
-        assets_.street,
-        street_segment_length_
-    );
-    if (road_half_width_ <= 0.5f) {
-        error = "failed to trace usable highway width from model bounds";
-        return false;
-    }
 
     player_ = world.createEntity();
     world.add<Renderer::Transform>(player_, Renderer::Transform{
@@ -44,9 +32,7 @@ bool Driving::load(Ecs::World& world, std::string& error)
         .scale = {1.0f, 1.0f, 1.0f},
     });
     world.add<Game::Driving::Player>(player_, Game::Driving::Player{});
-    Game::Driving::Vehicle vehicle;
-    vehicle.road_half_width = road_half_width_;
-    world.add<Game::Driving::Vehicle>(player_, vehicle);
+    world.add<Game::Driving::Vehicle>(player_, Game::Driving::Vehicle{});
 
     camera_ = world.createEntity();
     world.add<Renderer::Transform>(camera_, Renderer::Transform{
@@ -157,13 +143,8 @@ void Driving::drawDebug(Ecs::World& world)
     const Renderer::Transform *player_transform = world.get<Renderer::Transform>(player_);
     if (!vehicle || !player_transform) return;
 
-    const float drive_limit = std::max(
-        vehicle->road_half_width - vehicle->road_edge_margin,
-        0.5f
-    );
-
     ImGui::SetNextWindowPos(ImVec2(8.0f, 8.0f), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(285.0f, 165.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(260.0f, 125.0f), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Driving Debug")) {
         ImGui::End();
         return;
@@ -172,8 +153,6 @@ void Driving::drawDebug(Ecs::World& world)
     ImGui::Text("Speed: %.1f km/h", vehicle->speed * 3.6f);
     ImGui::Text("Position: %.1f, %.1f", player_transform->position.x, player_transform->position.z);
     ImGui::Text("Street: %s", assets_.street.valid() ? "loaded" : "missing");
-    ImGui::Text("Mesh edges: %.2f .. %.2f m", -vehicle->road_half_width, vehicle->road_half_width);
-    ImGui::Text("Drive limits: %.2f .. %.2f m", -drive_limit, drive_limit);
     ImGui::Text("Segments: %d", street_segment_count_);
     ImGui::Text("Triangles: %zu", triangle_count_);
 
@@ -184,7 +163,6 @@ void Driving::emitMetrics(const std::function<void(std::string_view, double)>& e
 {
     if (!emit) return;
     emit("driving_street_segments", static_cast<double>(street_segment_count_));
-    emit("driving_road_half_width", static_cast<double>(road_half_width_));
     emit("driving_release_assets_loaded", static_cast<double>(assets_.loaded));
     emit("driving_scene_triangles", static_cast<double>(triangle_count_));
 }
