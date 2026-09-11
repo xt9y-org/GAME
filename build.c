@@ -46,6 +46,7 @@ void build(C_Build *b)
 
     C_Target *game = c_executable(b, "game");
     c_sources(game, "main.cpp");
+    c_sources(game, "Dashcam/*.cpp");
     c_include(game, ".");
     c_include(game, "/usr/local/include/lwcgl-2.9.3");
     c_flag(game, "-std=c++20");

@@ -1,10 +1,14 @@
+#include "Dashcam/CameraMount.hpp"
+#include "Dashcam/PostProcess.hpp"
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
 #include "Sources/Models/Models.hpp"
 #include "Sources/Models/Runtime.hpp"
 #include "Sources/Renderer/Environment.hpp"
+#include "Sources/Renderer/GlobalIllumination/Debug.hpp"
 #include "Sources/Renderer/Math.hpp"
 #include "Sources/Renderer/Render.hpp"
+#include "Sources/Renderer/Scenes/SceneCache.hpp"
 #include "Sources/UI/UI.hpp"
 
 #include <imgui.h>
@@ -14,6 +18,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <limits>
 #include <map>
@@ -23,7 +28,7 @@
 namespace {
 
 constexpr long long tiles_ahead = 24;
-constexpr long long tiles_behind = 8;
+constexpr long long road_loop_half_tiles = tiles_ahead;
 
 struct RoadTile {
     Ecs::Entity root = Ecs::INVALID_ENTITY;
@@ -57,22 +62,59 @@ public:
             previous = now;
             frame_seconds_ = delta_seconds;
 
+            if (!game_frozen_ && !debug_camera_enabled_) {
+                if (Renderer::Transform *camera_transform =
+                        world_.get<Renderer::Transform>(camera_))
+                {
+                    dashcam_mount_.beginFrame(*camera_transform);
+                }
+            }
+
             updateDebugMode();
             if (ui_ready_) {
                 const bool ui_visible = ::UI::beginFrame();
-                if (debug_visible_ && ui_visible) drawDebug();
+                if (debug_visible_ && ui_visible) {
+                    drawDebug();
+                    drawRenderingDebug();
+                }
             }
 
-            if (!debug_visible_ && (!ui_ready_ || !::UI::wantsKeyboard()))
-                camera_controller_.update(world_, delta_seconds);
+            if (!debug_visible_ && (!ui_ready_ || !::UI::wantsKeyboard())) {
+                if (debug_camera_enabled_) {
+                    debug_camera_controller_.update(world_, delta_seconds);
+                } else if (!game_frozen_) {
+                    camera_controller_.update(world_, delta_seconds);
+                }
+            }
 
-            if (!road_stream_failed_ && !updateRoadWindow()) {
-                road_stream_failed_ = true;
-                std::fprintf(stderr, "failed to stream infinite road\n");
+            if (!game_frozen_) {
+                wrapRoadOrigin();
+                if (!debug_camera_enabled_) {
+                    if (Renderer::Transform *camera_transform =
+                            world_.get<Renderer::Transform>(camera_))
+                    {
+                        dashcam_mount_.update(
+                            *camera_transform,
+                            delta_seconds,
+                            dashcam_settings_,
+                            dashcam_runtime_
+                        );
+                        world_.markChanged(Ecs::ChangeKind::Transform);
+                    }
+                } else {
+                    dashcam_runtime_.delta_seconds = delta_seconds;
+                    dashcam_runtime_.time_seconds += delta_seconds;
+                    dashcam_runtime_.speed = 0.0f;
+                    dashcam_runtime_.turn_rate = 0.0f;
+                    dashcam_runtime_.acceleration = 0.0f;
+                    dashcam_runtime_.g_force = 0.0f;
+                }
+            } else {
+                dashcam_runtime_.delta_seconds = 0.0f;
             }
 
             resizeIfNeeded();
-            renderer_.render(world_);
+            renderer_manager_.render(world_);
         }
 
         return 0;
@@ -98,17 +140,37 @@ private:
         Keyboard.create();
         Mouse.create();
 
-        renderer_.setEnabled(true);
-        renderer_.setViewportCulling(false);
-        renderer_.setShadowResolution(1024);
-        renderer_.setFallbackShadowResolution(256);
-        renderer_.setMinimumShadowResolution(64);
-        renderer_.setShadowNearPlane(0.05f);
-        renderer_.setShadowFarScale(1.05f);
-        renderer_.setClearColor({0.38f, 0.50f, 0.66f, 1.0f});
+        rasterizer_ = &renderer_manager_.add<Renderer::Rasterizer>("Rasterizer");
+        rasterizer_->setEnabled(true);
+        rasterizer_->setViewportCulling(false);
+        rasterizer_->setShadowResolution(1024);
+        rasterizer_->setFallbackShadowResolution(256);
+        rasterizer_->setMinimumShadowResolution(64);
+        rasterizer_->setShadowNearPlane(0.05f);
+        rasterizer_->setShadowFarScale(1.05f);
+        rasterizer_->setClearColor({0.38f, 0.50f, 0.66f, 1.0f});
 
-        if (!renderer_.init()) {
-            std::fprintf(stderr, "failed to initialize rasterizer\n");
+        path_tracer_ = &renderer_manager_.add<Renderer::PathTracer>("PathTracer");
+        path_tracer_->setEnabled(true);
+        path_tracer_->setResolutionDivisor(2);
+        path_tracer_->setSamplesPerFrame(1);
+        path_tracer_->setStationaryPhaseGrid(1);
+        path_tracer_->setResetPhaseGrid(1);
+        path_tracer_->setMovingPhaseGrid(2);
+        path_tracer_->setMovingDepthBlock(2);
+
+        ray_tracer_ = &renderer_manager_.add<Renderer::RayTracer>("RayTracer");
+        ray_tracer_->setEnabled(true);
+        ray_tracer_->setResolutionDivisor(1);
+
+        dashcam_pipeline_.add<Dashcam::LensPass>(dashcam_settings_, dashcam_runtime_);
+        dashcam_pipeline_.add<Dashcam::SensorPass>(dashcam_settings_, dashcam_runtime_);
+        dashcam_pipeline_.add<Dashcam::CompressionPass>(dashcam_settings_, dashcam_runtime_);
+        dashcam_pipeline_.add<Dashcam::FrameHoldPass>(dashcam_settings_, dashcam_runtime_);
+        renderer_manager_.setPostProcessPipeline(&dashcam_pipeline_);
+
+        if (!renderer_manager_.initialize()) {
+            std::fprintf(stderr, "failed to initialize a renderer\n");
             return false;
         }
 
@@ -124,7 +186,7 @@ private:
 
         framebuffer_width_ = std::max(Display.getWidth(), 1);
         framebuffer_height_ = std::max(Display.getHeight(), 1);
-        renderer_.resize(framebuffer_width_, framebuffer_height_);
+        renderer_manager_.resize(framebuffer_width_, framebuffer_height_);
         return true;
     }
 
@@ -154,6 +216,13 @@ private:
             return false;
         }
 
+        const std::size_t streamed_tile_count = static_cast<std::size_t>(
+            road_loop_half_tiles * 2 + 1
+        );
+        Renderer::Scenes::SceneCache::setMaximumTriangles(
+            std::max<std::size_t>(tile_triangle_count_ * streamed_tile_count, 1u)
+        );
+
         camera_ = world_.createEntity();
         world_.add<Renderer::Transform>(camera_, Renderer::Transform{
             .position = {0.0f, 3.0f, 0.0f},
@@ -161,13 +230,28 @@ private:
             .scale = {1.0f, 1.0f, 1.0f},
         });
         world_.add<Camera::CameraComponent>(camera_, Camera::CameraComponent{
-            78.0f, 0.05f, true
+            dashcam_settings_.fov_degrees, 0.05f, true
         });
 
         camera_controller_.setSpeed(16.0f);
         camera_controller_.setSprintMultiplier(10.0f);
         camera_controller_.setMouseSensitivity(0.10f);
         camera_controller_.setPitchRange(-89.0f, 89.0f);
+
+        debug_camera_ = world_.createEntity();
+        world_.add<Renderer::Transform>(debug_camera_, Renderer::Transform{
+            .position = {0.0f, 3.0f, 0.0f},
+            .rotation = {-12.0f, stack_on_x_ ? 90.0f : 0.0f, 0.0f},
+            .scale = {1.0f, 1.0f, 1.0f},
+        });
+        world_.add<Camera::CameraComponent>(debug_camera_, Camera::CameraComponent{
+            78.0f, 0.05f, false
+        });
+
+        debug_camera_controller_.setSpeed(24.0f);
+        debug_camera_controller_.setSprintMultiplier(12.0f);
+        debug_camera_controller_.setMouseSensitivity(0.10f);
+        debug_camera_controller_.setPitchRange(-89.0f, 89.0f);
 
         environment_ = world_.createEntity();
         world_.add<Renderer::EnvironmentComponent>(
@@ -197,7 +281,20 @@ private:
             .range = 0.0f,
         });
 
-        if (!updateRoadWindow()) {
+        global_illumination_ = world_.createEntity();
+        world_.add<Renderer::GlobalIlluminationComponent>(
+            global_illumination_,
+            Renderer::GlobalIlluminationComponent{
+                .enabled = false,
+                .intensity = 1.0f,
+                .bounces = 2u,
+                .photon_mapping = false,
+                .photon_count = 25000u,
+                .photon_radius = 1.5f,
+            }
+        );
+
+        if (!initializeRoadLoop()) {
             std::fprintf(stderr, "road_tile.glb contains no renderable parts\n");
             return false;
         }
@@ -327,59 +424,88 @@ private:
         return true;
     }
 
-    void destroyRoadTile(long long index)
+    bool initializeRoadLoop()
     {
-        const auto found = road_tiles_.find(index);
-        if (found == road_tiles_.end()) return;
-
-        RoadTile& tile = found->second;
-        for (auto child = tile.children.rbegin(); child != tile.children.rend(); ++child)
-            world_.destroyEntity(*child);
-        world_.destroyEntity(tile.root);
-        road_tiles_.erase(found);
-    }
-
-    bool updateRoadWindow()
-    {
-        const Renderer::Transform *camera_transform = world_.get<Renderer::Transform>(camera_);
-        if (!camera_transform) return false;
-
-        const float camera_axis = stack_on_x_
-            ? camera_transform->position.x
-            : camera_transform->position.z;
-
-        if (have_last_camera_axis_) {
-            const float movement = camera_axis - last_camera_axis_;
-            if (std::abs(movement) > 0.05f)
-                travel_direction_ = movement > 0.0f ? 1 : -1;
-        }
-        last_camera_axis_ = camera_axis;
-        have_last_camera_axis_ = true;
-
-        const long long camera_index = static_cast<long long>(
-            std::floor(camera_axis / tile_length_)
-        );
-
-        const long long minimum_index = travel_direction_ < 0
-            ? camera_index - tiles_ahead
-            : camera_index - tiles_behind;
-        const long long maximum_index = travel_direction_ < 0
-            ? camera_index + tiles_behind
-            : camera_index + tiles_ahead;
-
-        for (long long index = minimum_index; index <= maximum_index; ++index) {
+        for (long long index = -road_loop_half_tiles; index <= road_loop_half_tiles; ++index) {
             if (!createRoadTile(index)) return false;
         }
-
-        std::vector<long long> stale;
-        stale.reserve(road_tiles_.size());
-        for (const auto& entry : road_tiles_) {
-            if (entry.first < minimum_index || entry.first > maximum_index)
-                stale.push_back(entry.first);
-        }
-        for (const long long index : stale) destroyRoadTile(index);
-
         return true;
+    }
+
+    void wrapRoadOrigin()
+    {
+        const Ecs::Entity active_camera = debug_camera_enabled_ ? debug_camera_ : camera_;
+        Renderer::Transform *camera_transform = world_.get<Renderer::Transform>(active_camera);
+        if (!camera_transform || tile_length_ <= 0.0f) return;
+
+        float& camera_axis = stack_on_x_
+            ? camera_transform->position.x
+            : camera_transform->position.z;
+        const float half_tile = tile_length_ * 0.5f;
+        bool changed = false;
+
+        while (camera_axis > half_tile) {
+            camera_axis -= tile_length_;
+            changed = true;
+        }
+        while (camera_axis < -half_tile) {
+            camera_axis += tile_length_;
+            changed = true;
+        }
+
+        if (changed) world_.markChanged(Ecs::ChangeKind::Transform);
+    }
+
+    const char *activeRendererName() const
+    {
+        const Renderer::Manager::Entry *entry = renderer_manager_.activeEntry();
+        return entry ? entry->name.c_str() : "None";
+    }
+
+    void cycleRenderer()
+    {
+        if (!renderer_manager_.next())
+            std::fprintf(stderr, "failed to switch renderer\n");
+    }
+
+    void applyDashcamFov()
+    {
+        Camera::CameraComponent *camera = world_.get<Camera::CameraComponent>(camera_);
+        if (!camera || camera->fov_degrees == dashcam_settings_.fov_degrees) return;
+        camera->fov_degrees = dashcam_settings_.fov_degrees;
+        world_.markChanged();
+    }
+
+    void applyGiPauseState()
+    {
+        Renderer::GlobalIllumination::setPaused(game_frozen_ || gi_paused_);
+    }
+
+    void setGameFrozen(bool frozen)
+    {
+        if (game_frozen_ == frozen) return;
+        game_frozen_ = frozen;
+        applyGiPauseState();
+    }
+
+    void setDebugCameraEnabled(bool enabled)
+    {
+        if (debug_camera_enabled_ == enabled) return;
+
+        Camera::CameraComponent *game_camera = world_.get<Camera::CameraComponent>(camera_);
+        Camera::CameraComponent *debug_camera = world_.get<Camera::CameraComponent>(debug_camera_);
+        if (!game_camera || !debug_camera) return;
+
+        if (enabled) {
+            const Renderer::Transform *game_transform = world_.get<Renderer::Transform>(camera_);
+            Renderer::Transform *debug_transform = world_.get<Renderer::Transform>(debug_camera_);
+            if (game_transform && debug_transform) *debug_transform = *game_transform;
+        }
+
+        game_camera->active = !enabled;
+        debug_camera->active = enabled;
+        debug_camera_enabled_ = enabled;
+        world_.markChanged(Ecs::ChangeKind::Transform);
     }
 
     void updateDebugMode()
@@ -392,6 +518,10 @@ private:
             Mouse.getDY();
         }
         tab_down_ = tab;
+
+        const bool enter = Keyboard.isKeyDown(Keyboard.KEY_RETURN);
+        if (enter && !enter_down_) cycleRenderer();
+        enter_down_ = enter;
     }
 
     void drawDebug()
@@ -403,6 +533,17 @@ private:
             ImGui::End();
             return;
         }
+
+        if (ImGui::Button(game_frozen_ ? "Resume Game" : "Freeze Game"))
+            setGameFrozen(!game_frozen_);
+        ImGui::SameLine();
+        ImGui::TextUnformatted(game_frozen_ ? "FROZEN" : "RUNNING");
+
+        bool debug_camera_enabled = debug_camera_enabled_;
+        if (ImGui::Checkbox("Debug Fly Camera", &debug_camera_enabled))
+            setDebugCameraEnabled(debug_camera_enabled);
+        if (debug_camera_enabled_)
+            ImGui::TextUnformatted("Close debug with Tab to fly (WASD + mouse, Shift sprint)");
 
         bool lighting_changed = false;
         Renderer::EnvironmentComponent *environment =
@@ -482,9 +623,9 @@ private:
 
         if (lighting_changed) world_.markChanged();
 
-        ImGui::SeparatorText("Streaming");
-        ImGui::Text("Tiles: %zu", road_tiles_.size());
-        ImGui::Text("Range: %lld ahead / %lld behind", tiles_ahead, tiles_behind);
+        ImGui::SeparatorText("Road Loop");
+        ImGui::Text("Static tiles: %zu", road_tiles_.size());
+        ImGui::Text("Visible reserve: %lld tiles each side", road_loop_half_tiles);
         ImGui::Text("Axis: %s", stack_on_x_ ? "X" : "Z");
         if (!road_tiles_.empty()) {
             ImGui::Text(
@@ -504,7 +645,197 @@ private:
         );
 
         ImGui::Separator();
-        ImGui::TextUnformatted("Tab: close debug");
+        ImGui::Text("Renderer: %s", activeRendererName());
+        ImGui::TextUnformatted("Enter: next renderer | Tab: close debug");
+        ImGui::End();
+    }
+
+    void drawRenderingDebug()
+    {
+        ImGui::SetNextWindowPos(ImVec2(364.0f, 12.0f), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(390.0f, 650.0f), ImGuiCond_FirstUseEver);
+
+        if (!ImGui::Begin("Rendering Debug")) {
+            ImGui::End();
+            return;
+        }
+
+        ImGui::SeparatorText("Renderer");
+        ImGui::Text("Active: %s", activeRendererName());
+        if (ImGui::Button("Next Renderer")) cycleRenderer();
+
+        for (std::size_t index = 0; index < renderer_manager_.count(); ++index) {
+            const Renderer::Manager::Entry *entry = renderer_manager_.entry(index);
+            if (!entry) continue;
+            ImGui::SameLine();
+            const std::string label = entry->name + (entry->available ? "##renderer" : " (unavailable)##renderer");
+            if (ImGui::Button(label.c_str()) && entry->available)
+                renderer_manager_.activate(index);
+        }
+
+        if (rasterizer_ && ImGui::CollapsingHeader("Rasterizer")) {
+            bool viewport_culling = rasterizer_->viewportCulling();
+            if (ImGui::Checkbox("Viewport Culling", &viewport_culling))
+                rasterizer_->setViewportCulling(viewport_culling);
+
+            int shadow_resolution = rasterizer_->shadowResolution();
+            if (ImGui::SliderInt("Shadow Resolution", &shadow_resolution, 64, 4096))
+                rasterizer_->setShadowResolution(shadow_resolution);
+
+            float clear_color[4] {
+                rasterizer_->clearColor().x,
+                rasterizer_->clearColor().y,
+                rasterizer_->clearColor().z,
+                rasterizer_->clearColor().w,
+            };
+            if (ImGui::ColorEdit4("Clear Color", clear_color)) {
+                rasterizer_->setClearColor({
+                    clear_color[0], clear_color[1], clear_color[2], clear_color[3]
+                });
+            }
+        }
+
+        if (path_tracer_ && ImGui::CollapsingHeader("Path Tracer")) {
+            int resolution_divisor = path_tracer_->resolutionDivisor();
+            if (ImGui::SliderInt("PT Resolution Divisor", &resolution_divisor, 1, 4)) {
+                path_tracer_->setResolutionDivisor(resolution_divisor);
+                path_tracer_->resize(framebuffer_width_, framebuffer_height_);
+            }
+
+            int samples = path_tracer_->samplesPerFrame();
+            if (ImGui::SliderInt("Samples / Frame", &samples, 1, 16))
+                path_tracer_->setSamplesPerFrame(samples);
+
+            int stationary_grid = path_tracer_->stationaryPhaseGrid();
+            if (ImGui::SliderInt("Stationary Phase Grid", &stationary_grid, 1, 8))
+                path_tracer_->setStationaryPhaseGrid(stationary_grid);
+
+            int moving_grid = path_tracer_->movingPhaseGrid();
+            if (ImGui::SliderInt("Moving Phase Grid", &moving_grid, 1, 8))
+                path_tracer_->setMovingPhaseGrid(moving_grid);
+        }
+
+        if (ray_tracer_ && ImGui::CollapsingHeader("Ray Tracer")) {
+            int resolution_divisor = ray_tracer_->resolutionDivisor();
+            if (ImGui::SliderInt("RT Resolution Divisor", &resolution_divisor, 1, 4)) {
+                ray_tracer_->setResolutionDivisor(resolution_divisor);
+                ray_tracer_->resize(framebuffer_width_, framebuffer_height_);
+            }
+        }
+
+        ImGui::SeparatorText("Global Illumination");
+        Renderer::GlobalIlluminationComponent *gi =
+            world_.get<Renderer::GlobalIlluminationComponent>(global_illumination_);
+        if (gi) {
+            bool gi_changed = false;
+            gi_changed |= ImGui::Checkbox("Enabled##gi", &gi->enabled);
+            gi_changed |= ImGui::SliderFloat("GI Intensity", &gi->intensity, 0.0f, 4.0f);
+
+            int bounces = static_cast<int>(gi->bounces);
+            if (ImGui::SliderInt("Bounces", &bounces, 1, 8)) {
+                gi->bounces = static_cast<std::uint8_t>(bounces);
+                gi_changed = true;
+            }
+
+            gi_changed |= ImGui::Checkbox("Photon Mapping", &gi->photon_mapping);
+            int photon_count = static_cast<int>(gi->photon_count);
+            if (ImGui::SliderInt("Photon Count", &photon_count, 1000, 200000)) {
+                gi->photon_count = static_cast<std::uint32_t>(photon_count);
+                gi_changed = true;
+            }
+            gi_changed |= ImGui::SliderFloat("Photon Radius", &gi->photon_radius, 0.05f, 10.0f);
+
+            bool gi_paused = gi_paused_;
+            if (ImGui::Checkbox("Pause GI", &gi_paused)) {
+                gi_paused_ = gi_paused;
+                applyGiPauseState();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset GI")) Renderer::GlobalIllumination::reset();
+
+            if (gi_changed) world_.markChanged();
+
+            const Renderer::GlobalIllumination::Debug::Statistics stats =
+                Renderer::GlobalIllumination::Debug::statistics();
+            ImGui::Text(
+                "Probes: %zu | Photons: %zu | GI: %.0f%%",
+                stats.probes,
+                stats.photons,
+                stats.progress * 100.0f
+            );
+            ImGui::Text(
+                "Triangles: %zu | BVH nodes: %zu | depth: %u",
+                stats.triangles,
+                stats.bvh_nodes,
+                stats.bvh_depth
+            );
+        }
+
+        ImGui::SeparatorText("Dashcam Post Processing");
+        ImGui::Checkbox("Enabled##dashcam", &dashcam_settings_.enabled);
+        ImGui::SameLine();
+        if (ImGui::Button("Reset Dashcam")) {
+            Dashcam::reset(dashcam_settings_);
+            applyDashcamFov();
+        }
+
+        if (ImGui::SliderFloat("FOV", &dashcam_settings_.fov_degrees, 90.0f, 120.0f, "%.0f deg"))
+            applyDashcamFov();
+        ImGui::SliderFloat("Capture FPS", &dashcam_settings_.capture_fps, 8.0f, 60.0f, "%.0f");
+        ImGui::SliderFloat(
+            "Virtual Height",
+            &dashcam_settings_.virtual_height,
+            240.0f,
+            1080.0f,
+            "%.0f px"
+        );
+
+        if (ImGui::CollapsingHeader("Lens / Glass", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SliderFloat("Barrel Distortion", &dashcam_settings_.barrel_distortion, 0.0f, 0.40f);
+            ImGui::SliderFloat(
+                "Chromatic Aberration",
+                &dashcam_settings_.chromatic_aberration,
+                0.0f,
+                0.015f,
+                "%.4f"
+            );
+            ImGui::SliderFloat("Vignette", &dashcam_settings_.vignette, 0.0f, 0.90f);
+            ImGui::SliderFloat("Rolling Shutter", &dashcam_settings_.rolling_shutter, 0.0f, 0.08f);
+            ImGui::SliderFloat("Dirt / Smudges", &dashcam_settings_.dirt, 0.0f, 0.80f);
+            ImGui::SliderFloat(
+                "Windshield Reflection",
+                &dashcam_settings_.windshield_reflection,
+                0.0f,
+                0.50f
+            );
+        }
+
+        if (ImGui::CollapsingHeader("Sensor / Color", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SliderFloat("Exposure", &dashcam_settings_.exposure, 0.10f, 4.0f);
+            ImGui::SliderFloat("Shadow Crush", &dashcam_settings_.shadow_crush, 0.0f, 0.50f);
+            ImGui::SliderFloat("Highlight Clip", &dashcam_settings_.highlight_clip, 0.20f, 4.0f);
+            ImGui::SliderFloat("Desaturation", &dashcam_settings_.desaturation, 0.0f, 1.0f);
+            ImGui::SliderFloat("Green Tint", &dashcam_settings_.green_tint, -0.15f, 0.15f);
+            ImGui::SliderFloat("Yellow Tint", &dashcam_settings_.yellow_tint, -0.15f, 0.15f);
+            ImGui::SliderFloat("ISO / Digital Noise", &dashcam_settings_.noise, 0.0f, 0.20f);
+            ImGui::SliderFloat("Color Bleed", &dashcam_settings_.color_bleed, 0.0f, 0.80f);
+        }
+
+        if (ImGui::CollapsingHeader("Compression / Motion", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::SliderFloat("Macroblocking", &dashcam_settings_.macroblocking, 0.0f, 1.0f);
+            ImGui::SliderFloat("Interlacing", &dashcam_settings_.interlacing, 0.0f, 0.35f);
+            ImGui::SliderFloat("G-force Glitch", &dashcam_settings_.glitch, 0.0f, 1.0f);
+            ImGui::SliderFloat("Mount Vibration", &dashcam_settings_.vibration, 0.0f, 1.0f);
+            ImGui::SliderFloat("Mount Inertia", &dashcam_settings_.inertia, 0.0f, 1.0f);
+        }
+
+        ImGui::Text(
+            "Dashcam: %.1f m/s | turn %.1f deg/s | %.2f g",
+            dashcam_runtime_.speed,
+            dashcam_runtime_.turn_rate,
+            dashcam_runtime_.g_force
+        );
+
         ImGui::End();
     }
 
@@ -516,14 +847,15 @@ private:
 
         framebuffer_width_ = width;
         framebuffer_height_ = height;
-        renderer_.resize(width, height);
+        renderer_manager_.resize(width, height);
     }
 
     void shutdown()
     {
         if (!started_) return;
         if (ui_ready_) ::UI::shutdown();
-        renderer_.shutdown();
+        renderer_manager_.shutdown();
+        Renderer::GlobalIllumination::reset();
         Models::clearCache();
         Mouse.destroy();
         Keyboard.destroy();
@@ -535,19 +867,30 @@ private:
     bool ui_ready_ = false;
     bool debug_visible_ = false;
     bool tab_down_ = false;
+    bool enter_down_ = false;
+    bool game_frozen_ = false;
+    bool debug_camera_enabled_ = false;
+    bool gi_paused_ = false;
     bool stack_on_x_ = false;
-    bool road_stream_failed_ = false;
-    bool have_last_camera_axis_ = false;
-    int travel_direction_ = -1;
     int framebuffer_width_ = 1;
     int framebuffer_height_ = 1;
 
     Ecs::World world_;
-    Renderer::Rasterizer renderer_;
+    Renderer::Manager renderer_manager_;
+    Renderer::PostProcess::Pipeline dashcam_pipeline_;
+    Renderer::Rasterizer *rasterizer_ = nullptr;
+    Renderer::PathTracer *path_tracer_ = nullptr;
+    Renderer::RayTracer *ray_tracer_ = nullptr;
     Camera::FreeController camera_controller_;
+    Camera::FreeController debug_camera_controller_;
+    Dashcam::Settings dashcam_settings_{};
+    Dashcam::Runtime dashcam_runtime_{};
+    Dashcam::CameraMount dashcam_mount_;
     Ecs::Entity camera_ = Ecs::INVALID_ENTITY;
+    Ecs::Entity debug_camera_ = Ecs::INVALID_ENTITY;
     Ecs::Entity environment_ = Ecs::INVALID_ENTITY;
     Ecs::Entity sun_ = Ecs::INVALID_ENTITY;
+    Ecs::Entity global_illumination_ = Ecs::INVALID_ENTITY;
 
     Models::ModelHandle road_model_ = Models::INVALID_MODEL;
     Models::Runtime::Pose road_pose_{};
@@ -556,7 +899,6 @@ private:
     std::map<long long, RoadTile> road_tiles_;
     std::size_t tile_triangle_count_ = 0u;
     float tile_length_ = 1.0f;
-    float last_camera_axis_ = 0.0f;
     float frame_seconds_ = 0.0f;
     std::string model_error_;
 };
