@@ -1,13 +1,16 @@
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
 #include "Sources/Models/Models.hpp"
+#include "Sources/Models/Runtime.hpp"
 #include "Sources/Renderer/Environment.hpp"
+#include "Sources/Renderer/Math.hpp"
 #include "Sources/Renderer/Render.hpp"
 
 #include <lwcgl/context.h>
 #include <lwcgl/lwcgl.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -18,8 +21,6 @@ namespace {
 
 constexpr int initial_tile_count = 18;
 constexpr int tile_guard = 3;
-constexpr float pi = 3.14159265358979323846f;
-constexpr float road_yaw_degrees = -90.0f;
 
 class Application {
 public:
@@ -77,7 +78,7 @@ private:
         Mouse.create();
 
         renderer_.setEnabled(true);
-        renderer_.setViewportCulling(true);
+        renderer_.setViewportCulling(false);
         renderer_.setShadowResolution(1024);
         renderer_.setFallbackShadowResolution(256);
         renderer_.setMinimumShadowResolution(64);
@@ -108,6 +109,15 @@ private:
             return false;
         }
 
+        if (!Models::Runtime::reset(road_model_, &road_pose_, &model_error_)) {
+            std::fprintf(
+                stderr,
+                "failed to resolve road_tile.glb node transforms: %s\n",
+                model_error_.empty() ? "unknown error" : model_error_.c_str()
+            );
+            return false;
+        }
+
         if (!measureRoad()) {
             std::fprintf(stderr, "road_tile.glb contains no usable mesh\n");
             return false;
@@ -116,7 +126,7 @@ private:
         camera_ = world_.createEntity();
         world_.add<Renderer::Transform>(camera_, Renderer::Transform{
             .position = {0.0f, 3.0f, 0.0f},
-            .rotation = {-12.0f, 0.0f, 0.0f},
+            .rotation = {-12.0f, stack_on_x_ ? 90.0f : 0.0f, 0.0f},
             .scale = {1.0f, 1.0f, 1.0f},
         });
         world_.add<Camera::CameraComponent>(camera_, Camera::CameraComponent{
@@ -156,6 +166,13 @@ private:
         return true;
     }
 
+    Models::Mat4 partMatrix(const Models::ModelPart& part) const
+    {
+        if (part.node != Models::INVALID_INDEX && part.node < road_pose_.nodes.size())
+            return road_pose_.nodes[part.node].world;
+        return Models::identityMatrix();
+    }
+
     bool measureRoad()
     {
         const float infinity = std::numeric_limits<float>::infinity();
@@ -170,41 +187,43 @@ private:
             const Models::MeshData *mesh = Models::mesh(part->mesh);
             if (!mesh) continue;
 
-            road_bounds_.minimum.x = std::min(road_bounds_.minimum.x, mesh->bounds.minimum.x);
-            road_bounds_.minimum.y = std::min(road_bounds_.minimum.y, mesh->bounds.minimum.y);
-            road_bounds_.minimum.z = std::min(road_bounds_.minimum.z, mesh->bounds.minimum.z);
-            road_bounds_.maximum.x = std::max(road_bounds_.maximum.x, mesh->bounds.maximum.x);
-            road_bounds_.maximum.y = std::max(road_bounds_.maximum.y, mesh->bounds.maximum.y);
-            road_bounds_.maximum.z = std::max(road_bounds_.maximum.z, mesh->bounds.maximum.z);
-            found = true;
+            const Models::Mat4 matrix = partMatrix(*part);
+            const Models::Bounds& bounds = mesh->bounds;
+            const std::array<Renderer::Vec3, 8> corners {{
+                {bounds.minimum.x, bounds.minimum.y, bounds.minimum.z},
+                {bounds.maximum.x, bounds.minimum.y, bounds.minimum.z},
+                {bounds.maximum.x, bounds.maximum.y, bounds.minimum.z},
+                {bounds.minimum.x, bounds.maximum.y, bounds.minimum.z},
+                {bounds.minimum.x, bounds.minimum.y, bounds.maximum.z},
+                {bounds.maximum.x, bounds.minimum.y, bounds.maximum.z},
+                {bounds.maximum.x, bounds.maximum.y, bounds.maximum.z},
+                {bounds.minimum.x, bounds.maximum.y, bounds.maximum.z},
+            }};
+
+            for (const Renderer::Vec3 corner : corners) {
+                const Renderer::Vec3 point = Renderer::Math::transformPoint(matrix, corner);
+                road_bounds_.minimum.x = std::min(road_bounds_.minimum.x, point.x);
+                road_bounds_.minimum.y = std::min(road_bounds_.minimum.y, point.y);
+                road_bounds_.minimum.z = std::min(road_bounds_.minimum.z, point.z);
+                road_bounds_.maximum.x = std::max(road_bounds_.maximum.x, point.x);
+                road_bounds_.maximum.y = std::max(road_bounds_.maximum.y, point.y);
+                road_bounds_.maximum.z = std::max(road_bounds_.maximum.z, point.z);
+                found = true;
+            }
         }
 
         if (!found) return false;
 
         const float width = road_bounds_.maximum.x - road_bounds_.minimum.x;
         const float depth = road_bounds_.maximum.z - road_bounds_.minimum.z;
-        tile_length_ = std::max(width, depth);
+        stack_on_x_ = width >= depth;
+        tile_length_ = stack_on_x_ ? width : depth;
         if (tile_length_ <= 0.001f) return false;
 
-        // Fixed left turn. No automatic yaw adjustment can cancel this rotation.
-        stack_on_x_ = depth >= width;
-
-        const float center_x = (road_bounds_.minimum.x + road_bounds_.maximum.x) * 0.5f;
-        const float center_z = (road_bounds_.minimum.z + road_bounds_.maximum.z) * 0.5f;
-        const float radians = road_yaw_degrees * (pi / 180.0f);
-        const float cosine = std::cos(radians);
-        const float sine = std::sin(radians);
-        const float rotated_center_x = cosine * center_x + sine * center_z;
-        const float rotated_center_z = -sine * center_x + cosine * center_z;
-
-        road_local_ = Renderer::Transform{
-            .position = {
-                -rotated_center_x,
-                -road_bounds_.minimum.y,
-                -rotated_center_z,
-            },
-            .rotation = {0.0f, road_yaw_degrees, 0.0f},
-            .scale = {1.0f, 1.0f, 1.0f},
+        model_offset_ = {
+            -(road_bounds_.minimum.x + road_bounds_.maximum.x) * 0.5f,
+            -road_bounds_.minimum.y,
+            -(road_bounds_.minimum.z + road_bounds_.maximum.z) * 0.5f,
         };
         return true;
     }
@@ -212,9 +231,10 @@ private:
     Renderer::Vec3 tilePosition(long long index) const
     {
         const float offset = static_cast<float>(index) * tile_length_;
-        return stack_on_x_
-            ? Renderer::Vec3{offset, 0.0f, 0.0f}
-            : Renderer::Vec3{0.0f, 0.0f, offset};
+        Renderer::Vec3 position = model_offset_;
+        if (stack_on_x_) position.x += offset;
+        else position.z += offset;
+        return position;
     }
 
     bool createRoadTile(long long index)
@@ -232,8 +252,12 @@ private:
             const Models::ModelPart *part = Models::part(road_model_, part_index);
             if (!part || part->mesh == Models::INVALID_MESH) continue;
 
+            Renderer::Transform authored_transform{};
+            authored_transform.matrix_override = partMatrix(*part);
+            authored_transform.matrix_override_enabled = true;
+
             const Ecs::Entity child = world_.createEntity();
-            world_.add<Renderer::Transform>(child, road_local_);
+            world_.add<Renderer::Transform>(child, authored_transform);
             world_.add<Renderer::Parent>(child, Renderer::Parent{root});
             world_.add<Renderer::MeshComponent>(
                 child,
@@ -324,8 +348,9 @@ private:
     Ecs::Entity camera_ = Ecs::INVALID_ENTITY;
 
     Models::ModelHandle road_model_ = Models::INVALID_MODEL;
+    Models::Runtime::Pose road_pose_{};
     Models::Bounds road_bounds_{};
-    Renderer::Transform road_local_{};
+    Renderer::Vec3 model_offset_{};
     float tile_length_ = 1.0f;
     std::string model_error_;
 };
