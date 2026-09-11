@@ -10,7 +10,6 @@
 #include <lwcgl/lwcgl.h>
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -181,27 +180,24 @@ private:
 
         bool found = false;
         const std::size_t parts = Models::partCount(road_model_);
-        for (std::size_t index = 0; index < parts; ++index) {
-            const Models::ModelPart *part = Models::part(road_model_, index);
+        for (std::size_t part_index = 0; part_index < parts; ++part_index) {
+            const Models::ModelPart *part = Models::part(road_model_, part_index);
             if (!part) continue;
+
             const Models::MeshData *mesh = Models::mesh(part->mesh);
-            if (!mesh) continue;
+            if (!mesh || mesh->vertices.empty()) continue;
 
             const Models::Mat4 matrix = partMatrix(*part);
-            const Models::Bounds& bounds = mesh->bounds;
-            const std::array<Renderer::Vec3, 8> corners {{
-                {bounds.minimum.x, bounds.minimum.y, bounds.minimum.z},
-                {bounds.maximum.x, bounds.minimum.y, bounds.minimum.z},
-                {bounds.maximum.x, bounds.maximum.y, bounds.minimum.z},
-                {bounds.minimum.x, bounds.maximum.y, bounds.minimum.z},
-                {bounds.minimum.x, bounds.minimum.y, bounds.maximum.z},
-                {bounds.maximum.x, bounds.minimum.y, bounds.maximum.z},
-                {bounds.maximum.x, bounds.maximum.y, bounds.maximum.z},
-                {bounds.minimum.x, bounds.maximum.y, bounds.maximum.z},
-            }};
+            for (const Models::Vertex& vertex : mesh->vertices) {
+                const Renderer::Vec3 point = Renderer::Math::transformPoint(
+                    matrix,
+                    {
+                        vertex.position.x,
+                        vertex.position.y,
+                        vertex.position.z,
+                    }
+                );
 
-            for (const Renderer::Vec3 corner : corners) {
-                const Renderer::Vec3 point = Renderer::Math::transformPoint(matrix, corner);
                 road_bounds_.minimum.x = std::min(road_bounds_.minimum.x, point.x);
                 road_bounds_.minimum.y = std::min(road_bounds_.minimum.y, point.y);
                 road_bounds_.minimum.z = std::min(road_bounds_.minimum.z, point.z);
@@ -217,10 +213,8 @@ private:
         const float width = road_bounds_.maximum.x - road_bounds_.minimum.x;
         const float depth = road_bounds_.maximum.z - road_bounds_.minimum.z;
 
-        // The authored GLB transform swaps the horizontal axes in the rendered scene.
-        // Repeat along the visually longer side, not the raw transformed AABB label.
-        stack_on_x_ = depth > width;
-        tile_length_ = std::max(width, depth);
+        stack_on_x_ = width >= depth;
+        tile_length_ = stack_on_x_ ? width : depth;
         if (tile_length_ <= 0.001f) return false;
 
         model_offset_ = {
