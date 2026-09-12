@@ -1,0 +1,62 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR waitAll state regression",
+          "types": [{"signature": "int"}],
+          "declarations": [
+            {"op": "flow/waitAll"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"}
+          ],
+          "variables": [
+            {"name": "initial", "type": 0, "value": -1},
+            {"name": "afterFirst", "type": 0, "value": -1},
+            {"name": "afterDuplicate", "type": 0, "value": -1},
+            {"name": "afterSecondUnique", "type": 0, "value": -1},
+            {"name": "afterComplete", "type": 0, "value": -1},
+            {"name": "afterReset", "type": 0, "value": -1}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "configuration": {"inputFlows": {"value": 3}}
+            },
+            {"declaration": 1, "flows": {"out": {"node": 2, "socket": "in"}}},
+            {
+              "declaration": 2,
+              "flows": {
+                "0": {"node": 3, "socket": "in"},
+                "1": {"node": 0, "socket": "0"},
+                "2": {"node": 4, "socket": "in"},
+                "3": {"node": 0, "socket": "0"},
+                "4": {"node": 5, "socket": "in"},
+                "5": {"node": 0, "socket": "2"},
+                "6": {"node": 6, "socket": "in"},
+                "7": {"node": 0, "socket": "1"},
+                "8": {"node": 7, "socket": "in"},
+                "9": {"node": 0, "socket": "reset"},
+                "10": {"node": 8, "socket": "in"}
+              }
+            },
+            {"declaration": 3, "configuration": {"variable": {"value": 0}}, "values": {"value": {"node": 0, "socket": "remainingInputs"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 1}}, "values": {"value": {"node": 0, "socket": "remainingInputs"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 2}}, "values": {"value": {"node": 0, "socket": "remainingInputs"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 3}}, "values": {"value": {"node": 0, "socket": "remainingInputs"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 4}}, "values": {"value": {"node": 0, "socket": "remainingInputs"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 5}}, "values": {"value": {"node": 0, "socket": "remainingInputs"}}}
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "waitAll target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
