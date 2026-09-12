@@ -14,6 +14,7 @@ void registerAll(Runner& runner)
     Tests::registerFont(runner);
     Tests::registerInteractivity(runner);
     Tests::registerInteractivityConformance(runner);
+    Tests::registerInteractivityFlowConformance(runner);
     Tests::registerModels(runner);
     Tests::registerGaussianSplat(runner);
     Tests::registerHierarchy(runner);
