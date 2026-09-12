@@ -29,7 +29,7 @@ void build(C_Build *b)
         b,
         "Horse",
         "https://github.com/xt9y/Horse.git",
-        "main"
+        "systems"
     );
     c_dep_cbuild(horse, "Horse", C_TARGET_SHARED_LIBRARY);
     c_dep_include(horse, ".");
