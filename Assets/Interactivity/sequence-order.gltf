@@ -1,0 +1,49 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR sequence lexicographic order",
+          "types": [
+            {"signature": "float3"}
+          ],
+          "declarations": [
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "pointer/set"}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "flows": {"out": {"node": 1, "socket": "in"}}
+            },
+            {
+              "declaration": 1,
+              "flows": {
+                "10": {"node": 2, "socket": "in"},
+                "9": {"node": 3, "socket": "in"}
+              }
+            },
+            {
+              "declaration": 2,
+              "configuration": {"pointer": {"value": "/nodes/0/translation"}},
+              "values": {"value": {"type": 0, "value": [10.0, 0.0, 0.0]}}
+            },
+            {
+              "declaration": 2,
+              "configuration": {"pointer": {"value": "/nodes/0/translation"}},
+              "values": {"value": {"type": 0, "value": [9.0, 0.0, 0.0]}}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "Sequence target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
