@@ -1,0 +1,58 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR for state regression",
+          "types": [{"signature": "int"}],
+          "declarations": [
+            {"op": "flow/for"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"}
+          ],
+          "variables": [
+            {"name": "before", "type": 0, "value": -1},
+            {"name": "after", "type": 0, "value": -1}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "configuration": {"initialIndex": {"value": 7}},
+              "values": {
+                "startIndex": {"type": 0, "value": 2},
+                "endIndex": {"type": 0, "value": 5}
+              }
+            },
+            {"declaration": 1, "flows": {"out": {"node": 2, "socket": "in"}}},
+            {
+              "declaration": 2,
+              "flows": {
+                "0": {"node": 3, "socket": "in"},
+                "1": {"node": 0, "socket": "in"},
+                "2": {"node": 4, "socket": "in"}
+              }
+            },
+            {
+              "declaration": 3,
+              "configuration": {"variable": {"value": 0}},
+              "values": {"value": {"node": 0, "socket": "index"}}
+            },
+            {
+              "declaration": 3,
+              "configuration": {"variable": {"value": 1}},
+              "values": {"value": {"node": 0, "socket": "index"}}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "for target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
