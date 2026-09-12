@@ -118,6 +118,34 @@ public:
     }
 };
 
+class MatrixExtraCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/matrix-transform-decompose"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/matrix-extra.gltf")) { error = fixture.error; return false; }
+
+        std::vector<double> transformed;
+        std::vector<double> translation;
+        std::vector<double> rotation;
+        std::vector<double> scale;
+        return Testing::require(fixture.runtime.variable("transform2", &transformed) && transformed.size() == 2u &&
+                                Testing::near(transformed[0], 2.0) && Testing::near(transformed[1], 6.0),
+                                "float2x2 transform mismatch", error) &&
+            Testing::require(fixture.runtime.variable("translation", &translation) && translation.size() == 3u &&
+                             Testing::near(translation[0], 1.0) && Testing::near(translation[1], 2.0) && Testing::near(translation[2], 3.0),
+                             "matDecompose translation or ignored fourth row mismatch", error) &&
+            Testing::require(fixture.runtime.variable("rotation", &rotation) && rotation.size() == 4u &&
+                             Testing::near(rotation[0], 0.0, 1.0e-5) && Testing::near(rotation[1], 0.0, 1.0e-5) &&
+                             Testing::near(rotation[2], 0.0, 1.0e-5) && Testing::near(std::abs(rotation[3]), 1.0, 1.0e-5),
+                             "matDecompose rotation mismatch", error) &&
+            Testing::require(fixture.runtime.variable("scale", &scale) && scale.size() == 3u &&
+                             Testing::near(scale[0], 2.0) && Testing::near(scale[1], 3.0) && Testing::near(scale[2], 4.0),
+                             "matDecompose scale mismatch", error);
+    }
+};
+
 class MathExtraCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "interactivity/quaternion-color-operations"; }
@@ -185,6 +213,7 @@ void registerInteractivity(Testing::Runner& runner)
     runner.add<PointerCase>();
     runner.add<SequenceOrderCase>();
     runner.add<MatrixCase>();
+    runner.add<MatrixExtraCase>();
     runner.add<MathExtraCase>();
     runner.add<LimitsCase>();
 }
