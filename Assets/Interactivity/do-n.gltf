@@ -1,0 +1,68 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR doN state regression",
+          "types": [{"signature": "int"}],
+          "declarations": [
+            {"op": "flow/doN"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"}
+          ],
+          "variables": [
+            {"name": "countAfterLimit", "type": 0, "value": -1},
+            {"name": "countAfterReset", "type": 0, "value": -1},
+            {"name": "countAfterOne", "type": 0, "value": -1}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "values": {"n": {"type": 0, "value": 2}}
+            },
+            {
+              "declaration": 1,
+              "flows": {"out": {"node": 2, "socket": "in"}}
+            },
+            {
+              "declaration": 2,
+              "flows": {
+                "0": {"node": 0, "socket": "in"},
+                "1": {"node": 0, "socket": "in"},
+                "2": {"node": 0, "socket": "in"},
+                "3": {"node": 3, "socket": "in"},
+                "4": {"node": 0, "socket": "reset"},
+                "5": {"node": 4, "socket": "in"},
+                "6": {"node": 0, "socket": "in"},
+                "7": {"node": 5, "socket": "in"}
+              }
+            },
+            {
+              "declaration": 3,
+              "configuration": {"variable": {"value": 0}},
+              "values": {"value": {"node": 0, "socket": "currentCount"}}
+            },
+            {
+              "declaration": 3,
+              "configuration": {"variable": {"value": 1}},
+              "values": {"value": {"node": 0, "socket": "currentCount"}}
+            },
+            {
+              "declaration": 3,
+              "configuration": {"variable": {"value": 2}},
+              "values": {"value": {"node": 0, "socket": "currentCount"}}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "doN target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
