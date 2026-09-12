@@ -30,6 +30,74 @@ public:
     }
 };
 
+bool loadSceneFormat(const char *path, std::string_view label, std::string& error)
+{
+    Models::clearCache();
+    std::string load_error;
+    const Models::ModelHandle model = Models::load(path, &load_error);
+    if (model == Models::INVALID_MODEL) {
+        error = std::string(label) + " load failed: " + load_error;
+        return false;
+    }
+    return Testing::require(Models::nodeCount(model) == 1u, std::string(label) + " node count mismatch", error) &&
+        Testing::require(Models::sceneCount(model) == 1u, std::string(label) + " scene count mismatch", error) &&
+        Testing::require(Models::defaultScene(model) == 0u, std::string(label) + " default scene mismatch", error);
+}
+
+bool loadMeshFormat(const char *path, std::string_view label, std::string& error)
+{
+    Models::clearCache();
+    std::string load_error;
+    const Models::ModelHandle model = Models::load(path, &load_error);
+    if (model == Models::INVALID_MODEL) {
+        error = std::string(label) + " load failed: " + load_error;
+        return false;
+    }
+    if (!Testing::require(Models::partCount(model) > 0u, std::string(label) + " produced no model parts", error)) return false;
+    const Models::ModelPart *part = Models::part(model, 0u);
+    if (!Testing::require(part != nullptr && part->mesh != Models::INVALID_MESH,
+                          std::string(label) + " first mesh part is invalid", error)) return false;
+    const Models::MeshData *mesh = Models::mesh(part->mesh);
+    return Testing::require(mesh != nullptr && mesh->vertices.size() >= 3u && mesh->indices.size() >= 3u,
+                            std::string(label) + " triangle geometry was not decoded", error);
+}
+
+class GltfLoaderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/formats/gltf"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadSceneFormat("Assets/Models/minimal.gltf", "glTF", error);
+    }
+};
+
+class GlbLoaderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/formats/glb"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadSceneFormat("Assets/Models/minimal.glb", "GLB", error);
+    }
+};
+
+class ObjLoaderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/formats/obj"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadMeshFormat("Assets/Models/minimal.obj", "OBJ", error);
+    }
+};
+
+class FbxLoaderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/formats/fbx"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadMeshFormat("Assets/Models/minimal.fbx", "FBX", error);
+    }
+};
+
 class ImagesCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "models/images"; }
@@ -130,6 +198,10 @@ public:
 void registerModels(Testing::Runner& runner)
 {
     runner.add<FormatsCase>();
+    runner.add<GltfLoaderCase>();
+    runner.add<GlbLoaderCase>();
+    runner.add<ObjLoaderCase>();
+    runner.add<FbxLoaderCase>();
     runner.add<ImagesCase>();
     runner.add<CompressionCase>();
     runner.add<MaterialsCase>();
