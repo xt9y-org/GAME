@@ -162,8 +162,28 @@ args = "--test interactivity/matrix-operations"
 capture = false
 
 [[test]]
+name = "interactivity-matrix-transform-decompose"
+args = "--test interactivity/matrix-transform-decompose"
+capture = false
+
+[[test]]
 name = "interactivity-quaternion-color-operations"
 args = "--test interactivity/quaternion-color-operations"
+capture = false
+
+[[test]]
+name = "interactivity-quaternion-angle-orders"
+args = "--test interactivity/quaternion-angle-orders"
+capture = false
+
+[[test]]
+name = "interactivity-equality-special-values"
+args = "--test interactivity/equality-special-values"
+capture = false
+
+[[test]]
+name = "interactivity-math-socket-semantics"
+args = "--test interactivity/math-socket-semantics"
 capture = false
 
 [[test]]
@@ -174,6 +194,26 @@ capture = false
 [[test]]
 name = "models-formats"
 args = "--test models/formats"
+capture = false
+
+[[test]]
+name = "models-formats-gltf"
+args = "--test models/formats/gltf"
+capture = false
+
+[[test]]
+name = "models-formats-glb"
+args = "--test models/formats/glb"
+capture = false
+
+[[test]]
+name = "models-formats-obj"
+args = "--test models/formats/obj"
+capture = false
+
+[[test]]
+name = "models-formats-fbx"
+args = "--test models/formats/fbx"
 capture = false
 
 [[test]]
