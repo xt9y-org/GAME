@@ -2,6 +2,7 @@
 #include "Dashcam/PostProcess.hpp"
 #include "Sources/Camera.hpp"
 #include "Sources/Ecs/Ecs.hpp"
+#include "Sources/Font.hpp"
 #include "Sources/Models/Models.hpp"
 #include "Sources/Models/Runtime.hpp"
 #include "Sources/Renderer/Environment.hpp"
@@ -20,6 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <limits>
 #include <map>
 #include <string>
@@ -62,14 +64,6 @@ public:
             previous = now;
             frame_seconds_ = delta_seconds;
 
-            if (!game_frozen_ && !debug_camera_enabled_) {
-                if (Renderer::Transform *camera_transform =
-                        world_.get<Renderer::Transform>(camera_))
-                {
-                    dashcam_mount_.beginFrame(*camera_transform);
-                }
-            }
-
             updateDebugMode();
             if (ui_ready_) {
                 const bool ui_visible = ::UI::beginFrame();
@@ -96,10 +90,8 @@ public:
                         dashcam_mount_.update(
                             *camera_transform,
                             delta_seconds,
-                            dashcam_settings_,
                             dashcam_runtime_
                         );
-                        world_.markChanged(Ecs::ChangeKind::Camera);
                     }
                 } else {
                     dashcam_runtime_.delta_seconds = delta_seconds;
@@ -113,6 +105,7 @@ public:
                 dashcam_runtime_.delta_seconds = 0.0f;
             }
 
+            updateDashcamOverlay();
             resizeIfNeeded();
             renderer_manager_.render(world_);
         }
@@ -148,7 +141,8 @@ private:
         rasterizer_->setMinimumShadowResolution(64);
         rasterizer_->setShadowNearPlane(0.05f);
         rasterizer_->setShadowFarScale(1.05f);
-        rasterizer_->setClearColor({0.38f, 0.50f, 0.66f, 1.0f});
+        rasterizer_->setDirectionalShadowDistance(110.0f);
+        rasterizer_->setClearColor({0.12f, 0.28f, 0.55f, 1.0f});
 
         path_tracer_ = &renderer_manager_.add<Renderer::PathTracer>("PathTracer");
         path_tracer_->setEnabled(true);
@@ -259,27 +253,45 @@ private:
             Renderer::EnvironmentComponent{
                 .enabled = true,
                 .texture = Models::INVALID_TEXTURE,
-                .sky_color = {0.38f, 0.50f, 0.66f},
-                .intensity = 1.0f,
+                .sky_color = {0.12f, 0.28f, 0.55f},
+                .intensity = 0.65f,
                 .rotation_degrees = 0.0f,
-                .ambient_color = {1.0f, 1.0f, 1.0f},
-                .ambient_intensity = 0.65f,
-                .fog = Renderer::FogMode::None,
+                .ambient_color = {0.62f, 0.72f, 1.0f},
+                .ambient_intensity = 0.055f,
+                .fog = Renderer::FogMode::Exponential,
+                .fog_color = {0.42f, 0.54f, 0.68f},
+                .fog_density = 0.0012f,
             }
         );
 
         sun_ = world_.createEntity();
         world_.add<Renderer::Transform>(sun_, Renderer::Transform{
             .position = {},
-            .rotation = {-50.0f, -35.0f, 0.0f},
+            .rotation = {-38.0f, -32.0f, 0.0f},
             .scale = {1.0f, 1.0f, 1.0f},
         });
         world_.add<Renderer::LightComponent>(sun_, Renderer::LightComponent{
             .type = Renderer::LightType::Directional,
-            .color = {1.0f, 0.96f, 0.88f},
-            .intensity = 1.0f,
+            .color = {1.0f, 0.88f, 0.72f},
+            .intensity = 3.5f,
             .range = 0.0f,
         });
+
+        Font::configureAtlas("", 16u, 16u, 8.0f);
+        dashcam_rec_ = Font::screen(
+            world_,
+            "REC",
+            {18.0f, 18.0f},
+            2.0f,
+            {1.0f, 0.08f, 0.05f, 1.0f}
+        );
+        dashcam_telemetry_ = Font::screen(
+            world_,
+            "",
+            {18.0f, 44.0f},
+            1.5f,
+            {1.0f, 1.0f, 1.0f, 0.92f}
+        );
 
         global_illumination_ = world_.createEntity();
         world_.add<Renderer::GlobalIlluminationComponent>(
@@ -476,6 +488,42 @@ private:
         world_.markChanged(Ecs::ChangeKind::Camera);
     }
 
+    void updateDashcamOverlay()
+    {
+        Font::TextComponent *rec = world_.get<Font::TextComponent>(dashcam_rec_);
+        Font::TextComponent *telemetry = world_.get<Font::TextComponent>(dashcam_telemetry_);
+        if (!rec || !telemetry) return;
+
+        if (!dashcam_settings_.enabled || debug_camera_enabled_) {
+            rec->text.clear();
+            telemetry->text.clear();
+            return;
+        }
+
+        rec->text = "REC";
+        const std::time_t now = std::time(nullptr);
+        std::tm local_time{};
+#ifdef _WIN32
+        localtime_s(&local_time, &now);
+#else
+        localtime_r(&now, &local_time);
+#endif
+        char timestamp[32]{};
+        std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", &local_time);
+
+        char text[160]{};
+        std::snprintf(
+            text,
+            sizeof(text),
+            "ID DCM-01  %.0fFPS\n%s\n%03.0f KM/H  %.2f G",
+            dashcam_settings_.capture_fps,
+            timestamp,
+            std::max(dashcam_runtime_.speed, 0.0f) * 3.6f,
+            std::max(dashcam_runtime_.g_force, 0.0f)
+        );
+        telemetry->text = text;
+    }
+
     void applyGiPauseState()
     {
         Renderer::GlobalIllumination::setPaused(game_frozen_ || gi_paused_);
@@ -621,7 +669,7 @@ private:
             );
         }
 
-        if (lighting_changed) world_.markChanged();
+        if (lighting_changed) world_.markChanged(Ecs::ChangeKind::Lighting);
 
         ImGui::SeparatorText("Road Loop");
         ImGui::Text("Static tiles: %zu", road_tiles_.size());
@@ -681,6 +729,17 @@ private:
             int shadow_resolution = rasterizer_->shadowResolution();
             if (ImGui::SliderInt("Shadow Resolution", &shadow_resolution, 64, 4096))
                 rasterizer_->setShadowResolution(shadow_resolution);
+
+            float directional_shadow_distance = rasterizer_->directionalShadowDistance();
+            if (ImGui::SliderFloat(
+                    "Sun Shadow Distance",
+                    &directional_shadow_distance,
+                    20.0f,
+                    250.0f,
+                    "%.0f m"))
+            {
+                rasterizer_->setDirectionalShadowDistance(directional_shadow_distance);
+            }
 
             float clear_color[4] {
                 rasterizer_->clearColor().x,
@@ -825,8 +884,8 @@ private:
             ImGui::SliderFloat("Macroblocking", &dashcam_settings_.macroblocking, 0.0f, 1.0f);
             ImGui::SliderFloat("Interlacing", &dashcam_settings_.interlacing, 0.0f, 0.35f);
             ImGui::SliderFloat("G-force Glitch", &dashcam_settings_.glitch, 0.0f, 1.0f);
-            ImGui::SliderFloat("Mount Vibration", &dashcam_settings_.vibration, 0.0f, 1.0f);
-            ImGui::SliderFloat("Mount Inertia", &dashcam_settings_.inertia, 0.0f, 1.0f);
+            ImGui::SliderFloat("Screen Vibration", &dashcam_settings_.vibration, 0.0f, 1.0f);
+            ImGui::SliderFloat("Screen Inertia", &dashcam_settings_.inertia, 0.0f, 1.0f);
         }
 
         ImGui::Text(
@@ -891,6 +950,8 @@ private:
     Ecs::Entity environment_ = Ecs::INVALID_ENTITY;
     Ecs::Entity sun_ = Ecs::INVALID_ENTITY;
     Ecs::Entity global_illumination_ = Ecs::INVALID_ENTITY;
+    Ecs::Entity dashcam_rec_ = Ecs::INVALID_ENTITY;
+    Ecs::Entity dashcam_telemetry_ = Ecs::INVALID_ENTITY;
 
     Models::ModelHandle road_model_ = Models::INVALID_MODEL;
     Models::Runtime::Pose road_pose_{};

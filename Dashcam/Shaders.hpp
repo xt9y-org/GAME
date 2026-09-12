@@ -32,6 +32,22 @@ float hash21(vec2 p)
 void main()
 {
     vec2 centered = vUv * 2.0 - 1.0;
+
+    float vibration = uP3.x * (0.15 + clamp(uP2.y / 35.0, 0.0, 1.0));
+    vec2 frame_shake = vec2(
+        sin(uP2.x * 127.0 + 1.7),
+        sin(uP2.x * 83.0)
+    ) * vibration * 0.0100;
+    frame_shake.x += clamp(-uP1.z * uP3.y * 0.00013, -0.024, 0.024);
+    frame_shake.y += clamp(uP3.z * uP3.y * 0.00010, -0.018, 0.018);
+    float roll =
+        sin(uP2.x * 59.0 + 0.4) * vibration * 0.012 +
+        clamp(-uP1.z * uP3.y * 0.00055, -0.040, 0.040);
+    float roll_c = cos(roll);
+    float roll_s = sin(roll);
+    centered = mat2(roll_c, -roll_s, roll_s, roll_c) * centered;
+    centered = centered * 0.980 + frame_shake;
+
     float radius2 = dot(centered, centered);
     centered *= 1.0 + uP0.x * radius2;
     vec2 uv = centered * 0.5 + 0.5;
@@ -93,10 +109,13 @@ void main()
 
     color *= max(uP0.x, 0.0);
     color = max(color - vec3(max(uP0.y, 0.0)), vec3(0.0));
-    float clip_level = max(uP0.z, 0.05);
-    color = min(color, vec3(clip_level));
-    color /= clip_level;
-    color = smoothstep(vec3(0.0), vec3(1.0), color);
+    color /= max(uP0.z, 0.25);
+    color = clamp(
+        (color * (2.51 * color + 0.03)) /
+        max(color * (2.43 * color + 0.59) + 0.14, vec3(1.0e-5)),
+        vec3(0.0),
+        vec3(1.0)
+    );
 
     float luma = dot(color, vec3(0.299, 0.587, 0.114));
     color = mix(color, vec3(luma), clamp(uP0.w, 0.0, 1.0));
@@ -176,7 +195,9 @@ float hash21(float2 p) { p = fract(p * float2(123.34f,345.45f)); p += dot(p,p+34
 kernel void dashcam_stage(constant Params& p [[buffer(0)]], texture2d<float, access::sample> source [[texture(0)]], texture2d<float, access::write> target [[texture(1)]], sampler s [[sampler(0)]], uint2 id [[thread_position_in_grid]])
 {
     uint2 size = uint2(target.get_width(), target.get_height()); if (id.x >= size.x || id.y >= size.y) return;
-    float2 base = (float2(id)+0.5f)/float2(size); float2 centered = base*2.0f-1.0f; float r2=dot(centered,centered); centered*=1.0f+p.p0.x*r2; float2 uv=centered*0.5f+0.5f;
+    float2 base = (float2(id)+0.5f)/float2(size); float2 centered = base*2.0f-1.0f;
+    float vibration=p.p3.x*(0.15f+clamp(p.p2.y/35.0f,0.0f,1.0f)); float2 frame_shake=float2(sin(p.p2.x*127.0f+1.7f),sin(p.p2.x*83.0f))*vibration*0.0100f; frame_shake.x+=clamp(-p.p1.z*p.p3.y*0.00013f,-0.024f,0.024f); frame_shake.y+=clamp(p.p3.z*p.p3.y*0.00010f,-0.018f,0.018f); float roll=sin(p.p2.x*59.0f+0.4f)*vibration*0.012f+clamp(-p.p1.z*p.p3.y*0.00055f,-0.040f,0.040f); float rc=cos(roll),rs=sin(roll); centered=float2(rc*centered.x-rs*centered.y,rs*centered.x+rc*centered.y); centered=centered*0.980f+frame_shake;
+    float r2=dot(centered,centered); centered*=1.0f+p.p0.x*r2; float2 uv=centered*0.5f+0.5f;
     uv.x += (uv.y-0.5f)*p.p0.w*p.p1.z; uv.x += sin(uv.y*33.0f+p.p2.x*41.0f)*p.p0.w*p.p1.w*0.025f;
     float2 radial=normalize(centered+float2(1.0e-5f)); float2 chroma=radial*p.p0.y*(0.25f+r2); float2 suv=clamp(uv,float2(0.001f),float2(0.999f));
     float r=source.sample(s,clamp(suv+chroma,float2(0.001f),float2(0.999f))).r; float g=source.sample(s,suv).g; float b=source.sample(s,clamp(suv-chroma,float2(0.001f),float2(0.999f))).b; float3 color=float3(r,g,b);
@@ -195,7 +216,7 @@ kernel void dashcam_stage(constant Params& p [[buffer(0)]], texture2d<float, acc
 {
     uint2 size=uint2(target.get_width(),target.get_height()); if(id.x>=size.x||id.y>=size.y)return; float2 uv=(float2(id)+0.5f)/float2(size); float2 texel=max(p.p2.yz,float2(1.0e-6f));
     float3 center=max(source.sample(s,uv).rgb,float3(0.0f)); float3 left=max(source.sample(s,clamp(uv-float2(texel.x*2.0f,0.0f),float2(0.0f),float2(1.0f))).rgb,float3(0.0f)); float3 right=max(source.sample(s,clamp(uv+float2(texel.x*2.0f,0.0f),float2(0.0f),float2(1.0f))).rgb,float3(0.0f)); float3 color=mix(center,float3(left.r,center.g,right.b),clamp(p.p1.w,0.0f,1.0f));
-    color*=max(p.p0.x,0.0f); color=max(color-float3(max(p.p0.y,0.0f)),float3(0.0f)); float clip=max(p.p0.z,0.05f); color=min(color,float3(clip))/clip; color=smoothstep(float3(0.0f),float3(1.0f),color); float luma=dot(color,float3(0.299f,0.587f,0.114f)); color=mix(color,float3(luma),clamp(p.p0.w,0.0f,1.0f)); color.g+=p.p1.x; color.r+=p.p1.y; color.g+=p.p1.y*0.7f;
+    color*=max(p.p0.x,0.0f); color=max(color-float3(max(p.p0.y,0.0f)),float3(0.0f)); color/=max(p.p0.z,0.25f); color=clamp((color*(2.51f*color+0.03f))/max(color*(2.43f*color+0.59f)+0.14f,float3(1.0e-5f)),float3(0.0f),float3(1.0f)); float luma=dot(color,float3(0.299f,0.587f,0.114f)); color=mix(color,float3(luma),clamp(p.p0.w,0.0f,1.0f)); color.g+=p.p1.x; color.r+=p.p1.y; color.g+=p.p1.y*0.7f;
     float grain=hash21(float2(id)+float2(p.p2.x*173.0f,p.p2.x*91.0f))-0.5f; color+=float3(grain)*p.p1.z*(0.30f+(1.0f-clamp(luma,0.0f,1.0f))*1.70f); color=pow(clamp(color,float3(0.0f),float3(1.0f)),float3(1.0f/2.15f)); target.write(float4(color,1.0f),id);
 }
 )MSL";

@@ -454,6 +454,12 @@ Params lensParams(const Settings& settings, const Runtime& runtime, const Render
         1.0f / static_cast<float>(std::max(frame.width, 1)),
         1.0f / static_cast<float>(std::max(frame.height, 1)),
     };
+    p.p3 = {
+        settings.vibration,
+        settings.inertia,
+        runtime.acceleration,
+        0.0f,
+    };
     return p;
 }
 

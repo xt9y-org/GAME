@@ -18,10 +18,10 @@ struct Settings {
     float dirt = 0.14f;
     float windshield_reflection = 0.08f;
 
-    float exposure = 1.0f;
-    float shadow_crush = 0.10f;
-    float highlight_clip = 1.30f;
-    float desaturation = 0.16f;
+    float exposure = 1.08f;
+    float shadow_crush = 0.025f;
+    float highlight_clip = 1.20f;
+    float desaturation = 0.10f;
     float green_tint = 0.025f;
     float yellow_tint = 0.020f;
     float noise = 0.028f;
@@ -31,8 +31,8 @@ struct Settings {
     float interlacing = 0.08f;
     float glitch = 0.28f;
 
-    float vibration = 0.16f;
-    float inertia = 0.22f;
+    float vibration = 0.26f;
+    float inertia = 0.28f;
 };
 
 struct Runtime {
