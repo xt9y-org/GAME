@@ -1,6 +1,7 @@
 #ifndef GAME_TESTS_FIXTURES_RENDERER_FIXTURE_HPP
 #define GAME_TESTS_FIXTURES_RENDERER_FIXTURE_HPP
 
+#include "Camera.hpp"
 #include "Renderer/Manager.hpp"
 #include "Renderer/PathTracer/PathTracer.hpp"
 #include "Renderer/PostProcess.hpp"
