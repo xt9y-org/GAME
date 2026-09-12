@@ -118,6 +118,49 @@ public:
     }
 };
 
+class MathExtraCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/quaternion-color-operations"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/math-extra.gltf")) { error = fixture.error; return false; }
+
+        std::vector<double> direction;
+        std::vector<double> up_forward;
+        std::vector<double> angle;
+        std::vector<double> red_l;
+        std::vector<double> red_c;
+        std::vector<double> red_h;
+        std::vector<double> roundtrip_r;
+        std::vector<double> roundtrip_g;
+        std::vector<double> roundtrip_b;
+
+        return Testing::require(fixture.runtime.variable("directionQuat", &direction) && direction.size() == 4u &&
+                                Testing::near(direction[0], 0.0, 1.0e-5) && Testing::near(direction[1], 0.0, 1.0e-5) &&
+                                Testing::near(direction[2], 0.70710678, 1.0e-5) && Testing::near(direction[3], 0.70710678, 1.0e-5),
+                                "quatFromDirections mismatch", error) &&
+            Testing::require(fixture.runtime.variable("upForwardQuat", &up_forward) && up_forward.size() == 4u &&
+                             Testing::near(up_forward[0], -0.27985, 1.0e-4) && Testing::near(up_forward[1], 0.36471, 1.0e-4) &&
+                             Testing::near(up_forward[2], 0.11592, 1.0e-4) && Testing::near(up_forward[3], 0.88048, 1.0e-4),
+                             "quatFromUpForward mismatch", error) &&
+            Testing::require(fixture.runtime.variable("angleQuat", &angle) && angle.size() == 4u &&
+                             Testing::near(angle[0], 0.70710678, 1.0e-5) && Testing::near(angle[1], 0.0, 1.0e-5) &&
+                             Testing::near(angle[2], 0.0, 1.0e-5) && Testing::near(angle[3], 0.70710678, 1.0e-5),
+                             "quatFromAngles mismatch", error) &&
+            Testing::require(fixture.runtime.variable("redL", &red_l) && red_l.size() == 1u && Testing::near(red_l[0], 0.627955, 1.0e-4),
+                             "rgbToOkLCh lightness mismatch", error) &&
+            Testing::require(fixture.runtime.variable("redC", &red_c) && red_c.size() == 1u && Testing::near(red_c[0], 0.257683, 1.0e-4),
+                             "rgbToOkLCh chroma mismatch", error) &&
+            Testing::require(fixture.runtime.variable("redH", &red_h) && red_h.size() == 1u && Testing::near(red_h[0], 0.510228, 5.0e-3),
+                             "rgbToOkLCh hue mismatch", error) &&
+            Testing::require(fixture.runtime.variable("roundtripR", &roundtrip_r) && roundtrip_r.size() == 1u && Testing::near(roundtrip_r[0], 1.0, 1.0e-5) &&
+                             fixture.runtime.variable("roundtripG", &roundtrip_g) && roundtrip_g.size() == 1u && Testing::near(roundtrip_g[0], 0.0, 1.0e-5) &&
+                             fixture.runtime.variable("roundtripB", &roundtrip_b) && roundtrip_b.size() == 1u && Testing::near(roundtrip_b[0], 0.0, 1.0e-5),
+                             "OkLCh RGB round-trip mismatch", error);
+    }
+};
+
 class LimitsCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "interactivity/limits"; }
@@ -142,6 +185,7 @@ void registerInteractivity(Testing::Runner& runner)
     runner.add<PointerCase>();
     runner.add<SequenceOrderCase>();
     runner.add<MatrixCase>();
+    runner.add<MathExtraCase>();
     runner.add<LimitsCase>();
 }
 
