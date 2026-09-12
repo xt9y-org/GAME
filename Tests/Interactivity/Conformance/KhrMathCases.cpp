@@ -66,11 +66,35 @@ public:
     }
 };
 
+class EqualitySpecialValuesCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/equality-special-values"; }
+
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/eq-special.gltf")) {
+            error = fixture.error;
+            return false;
+        }
+
+        std::vector<double> nan_equals_nan;
+        std::vector<double> inf_equals_inf;
+        return Testing::require(
+                   fixture.runtime.variable("nanEqualsNan", &nan_equals_nan) && nan_equals_nan.size() == 1u && nan_equals_nan[0] == 0.0,
+                   "KHR math/eq must report NaN != NaN", error) &&
+            Testing::require(
+                fixture.runtime.variable("infEqualsInf", &inf_equals_inf) && inf_equals_inf.size() == 1u && inf_equals_inf[0] == 1.0,
+                "KHR math/eq must report +Inf == +Inf", error);
+    }
+};
+
 } // namespace
 
 void registerInteractivityConformance(Testing::Runner& runner)
 {
     runner.add<QuaternionAngleOrdersCase>();
+    runner.add<EqualitySpecialValuesCase>();
 }
 
 } // namespace Tests
