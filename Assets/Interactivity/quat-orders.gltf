@@ -1,0 +1,110 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR quatFromAngles order regression",
+          "types": [
+            {"signature": "float"},
+            {"signature": "float4"}
+          ],
+          "declarations": [
+            {"op": "math/quatFromAngles"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"}
+          ],
+          "variables": [
+            {"name": "xyz", "type": 1, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "xzy", "type": 1, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "yxz", "type": 1, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "yzx", "type": 1, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "zxy", "type": 1, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "zyx", "type": 1, "value": [0.0, 0.0, 0.0, 1.0]}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "configuration": {"order": {"value": "xyz"}},
+              "values": {
+                "x": {"type": 0, "value": 0.5235987755982988},
+                "y": {"type": 0, "value": 0.7853981633974483},
+                "z": {"type": 0, "value": 1.0471975511965976}
+              }
+            },
+            {
+              "declaration": 0,
+              "configuration": {"order": {"value": "xzy"}},
+              "values": {
+                "x": {"type": 0, "value": 0.5235987755982988},
+                "y": {"type": 0, "value": 0.7853981633974483},
+                "z": {"type": 0, "value": 1.0471975511965976}
+              }
+            },
+            {
+              "declaration": 0,
+              "configuration": {"order": {"value": "yxz"}},
+              "values": {
+                "x": {"type": 0, "value": 0.5235987755982988},
+                "y": {"type": 0, "value": 0.7853981633974483},
+                "z": {"type": 0, "value": 1.0471975511965976}
+              }
+            },
+            {
+              "declaration": 0,
+              "configuration": {"order": {"value": "yzx"}},
+              "values": {
+                "x": {"type": 0, "value": 0.5235987755982988},
+                "y": {"type": 0, "value": 0.7853981633974483},
+                "z": {"type": 0, "value": 1.0471975511965976}
+              }
+            },
+            {
+              "declaration": 0,
+              "configuration": {"order": {"value": "zxy"}},
+              "values": {
+                "x": {"type": 0, "value": 0.5235987755982988},
+                "y": {"type": 0, "value": 0.7853981633974483},
+                "z": {"type": 0, "value": 1.0471975511965976}
+              }
+            },
+            {
+              "declaration": 0,
+              "configuration": {"order": {"value": "zyx"}},
+              "values": {
+                "x": {"type": 0, "value": 0.5235987755982988},
+                "y": {"type": 0, "value": 0.7853981633974483},
+                "z": {"type": 0, "value": 1.0471975511965976}
+              }
+            },
+            {"declaration": 1, "flows": {"out": {"node": 7, "socket": "in"}}},
+            {
+              "declaration": 2,
+              "flows": {
+                "0": {"node": 8, "socket": "in"},
+                "1": {"node": 9, "socket": "in"},
+                "2": {"node": 10, "socket": "in"},
+                "3": {"node": 11, "socket": "in"},
+                "4": {"node": 12, "socket": "in"},
+                "5": {"node": 13, "socket": "in"}
+              }
+            },
+            {"declaration": 3, "configuration": {"variable": {"value": 0}}, "values": {"value": {"node": 0, "socket": "value"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 1}}, "values": {"value": {"node": 1, "socket": "value"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 2}}, "values": {"value": {"node": 2, "socket": "value"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 3}}, "values": {"value": {"node": 3, "socket": "value"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 4}}, "values": {"value": {"node": 4, "socket": "value"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 5}}, "values": {"value": {"node": 5, "socket": "value"}}}
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "Quaternion order target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
