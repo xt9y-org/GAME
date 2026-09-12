@@ -20,6 +20,7 @@ void registerPublicRendererSettings(Testing::Runner&);
 void registerRenderingSystems(Testing::Runner&);
 void registerSettings(Testing::Runner&);
 void registerScenes(Testing::Runner&);
+void registerVisualRendering(Testing::Runner&);
 void registerUi(Testing::Runner&);
 } // namespace Tests
 
