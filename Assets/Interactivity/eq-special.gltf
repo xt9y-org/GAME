@@ -1,0 +1,62 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR equality special values regression",
+          "types": [
+            {"signature": "bool"},
+            {"signature": "float"}
+          ],
+          "declarations": [
+            {"op": "math/NaN"},
+            {"op": "math/Inf"},
+            {"op": "math/eq"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"}
+          ],
+          "variables": [
+            {"name": "nanEqualsNan", "type": 0, "value": true},
+            {"name": "infEqualsInf", "type": 0, "value": false}
+          ],
+          "nodes": [
+            {"declaration": 0},
+            {"declaration": 1},
+            {
+              "declaration": 2,
+              "values": {
+                "a": {"node": 0, "socket": "value"},
+                "b": {"node": 0, "socket": "value"}
+              }
+            },
+            {
+              "declaration": 2,
+              "values": {
+                "a": {"node": 1, "socket": "value"},
+                "b": {"node": 1, "socket": "value"}
+              }
+            },
+            {"declaration": 3, "flows": {"out": {"node": 5, "socket": "in"}}},
+            {
+              "declaration": 4,
+              "flows": {
+                "0": {"node": 6, "socket": "in"},
+                "1": {"node": 7, "socket": "in"}
+              }
+            },
+            {"declaration": 5, "configuration": {"variable": {"value": 0}}, "values": {"value": {"node": 2, "socket": "value"}}},
+            {"declaration": 5, "configuration": {"variable": {"value": 1}}, "values": {"value": {"node": 3, "socket": "value"}}}
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "Equality target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
