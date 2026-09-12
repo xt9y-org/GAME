@@ -10,6 +10,7 @@
 #include "Renderer/PostProcess.hpp"
 
 #include <array>
+#include <initializer_list>
 #include <string>
 #include <utility>
 
@@ -49,7 +50,7 @@ Models::MeshHandle registerQuad()
 }
 
 Models::MaterialHandle registerMaterial(
-    Renderer::Vec3 color,
+    Models::Vec3 color,
     float roughness = 0.65f,
     float metallic = 0.0f)
 {
