@@ -1,0 +1,112 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR quaternion color regression",
+          "types": [
+            {"signature": "float"},
+            {"signature": "float3"},
+            {"signature": "float4"}
+          ],
+          "declarations": [
+            {"op": "math/quatFromDirections"},
+            {"op": "math/quatFromUpForward"},
+            {"op": "math/quatFromAngles"},
+            {"op": "math/rgbToOkLCh"},
+            {"op": "math/rgbFromOkLCh"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"}
+          ],
+          "variables": [
+            {"name": "directionQuat", "type": 2, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "upForwardQuat", "type": 2, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "angleQuat", "type": 2, "value": [0.0, 0.0, 0.0, 1.0]},
+            {"name": "redL", "type": 0, "value": 0.0},
+            {"name": "redC", "type": 0, "value": 0.0},
+            {"name": "redH", "type": 0, "value": 0.0},
+            {"name": "roundtripR", "type": 0, "value": 0.0},
+            {"name": "roundtripG", "type": 0, "value": 0.0},
+            {"name": "roundtripB", "type": 0, "value": 0.0}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "values": {
+                "a": {"type": 1, "value": [1.0, 0.0, 0.0]},
+                "b": {"type": 1, "value": [0.0, 1.0, 0.0]}
+              }
+            },
+            {
+              "declaration": 1,
+              "values": {
+                "up": {"type": 1, "value": [0.50, 0.71, 0.50]},
+                "forward": {"type": 1, "value": [0.58, 0.58, 0.58]}
+              }
+            },
+            {
+              "declaration": 2,
+              "configuration": {"order": {"value": "xyz"}},
+              "values": {
+                "x": {"type": 0, "value": 1.5707963267948966},
+                "y": {"type": 0, "value": 0.0},
+                "z": {"type": 0, "value": 0.0}
+              }
+            },
+            {
+              "declaration": 3,
+              "values": {
+                "r": {"type": 0, "value": 1.0},
+                "g": {"type": 0, "value": 0.0},
+                "b": {"type": 0, "value": 0.0}
+              }
+            },
+            {
+              "declaration": 4,
+              "values": {
+                "l": {"node": 3, "socket": "l"},
+                "c": {"node": 3, "socket": "c"},
+                "h": {"node": 3, "socket": "h"}
+              }
+            },
+            {
+              "declaration": 5,
+              "flows": {"out": {"node": 6, "socket": "in"}}
+            },
+            {
+              "declaration": 6,
+              "flows": {
+                "0": {"node": 7, "socket": "in"},
+                "1": {"node": 8, "socket": "in"},
+                "2": {"node": 9, "socket": "in"},
+                "3": {"node": 10, "socket": "in"},
+                "4": {"node": 11, "socket": "in"},
+                "5": {"node": 12, "socket": "in"},
+                "6": {"node": 13, "socket": "in"},
+                "7": {"node": 14, "socket": "in"},
+                "8": {"node": 15, "socket": "in"}
+              }
+            },
+            {"declaration": 7, "configuration": {"variable": {"value": 0}}, "values": {"value": {"node": 0, "socket": "value"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 1}}, "values": {"value": {"node": 1, "socket": "value"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 2}}, "values": {"value": {"node": 2, "socket": "value"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 3}}, "values": {"value": {"node": 3, "socket": "l"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 4}}, "values": {"value": {"node": 3, "socket": "c"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 5}}, "values": {"value": {"node": 3, "socket": "h"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 6}}, "values": {"value": {"node": 4, "socket": "r"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 7}}, "values": {"value": {"node": 4, "socket": "g"}}},
+            {"declaration": 7, "configuration": {"variable": {"value": 8}}, "values": {"value": {"node": 4, "socket": "b"}}}
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "Math target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
