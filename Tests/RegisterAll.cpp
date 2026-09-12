@@ -13,6 +13,7 @@ void registerAll(Runner& runner)
     Tests::registerAnimation(runner);
     Tests::registerFont(runner);
     Tests::registerInteractivity(runner);
+    Tests::registerInteractivityConformance(runner);
     Tests::registerModels(runner);
     Tests::registerGaussianSplat(runner);
     Tests::registerHierarchy(runner);
