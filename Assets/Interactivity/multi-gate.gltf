@@ -1,0 +1,72 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR multiGate state regression",
+          "types": [{"signature": "int"}],
+          "declarations": [
+            {"op": "flow/multiGate"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"},
+            {"op": "variable/get"}
+          ],
+          "variables": [
+            {"name": "route", "type": 0, "value": 0},
+            {"name": "lastAfterThree", "type": 0, "value": -2},
+            {"name": "routeAfterExhausted", "type": 0, "value": -1},
+            {"name": "lastAfterReset", "type": 0, "value": -2},
+            {"name": "routeAfterReset", "type": 0, "value": -1}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "configuration": {
+                "isRandom": {"value": false},
+                "isLoop": {"value": false}
+              },
+              "flows": {
+                "008": {"node": 5, "socket": "in"},
+                "004": {"node": 6, "socket": "in"},
+                "001": {"node": 7, "socket": "in"}
+              }
+            },
+            {"declaration": 4, "configuration": {"variable": {"value": 0}}},
+            {"declaration": 1, "flows": {"out": {"node": 3, "socket": "in"}}},
+            {
+              "declaration": 2,
+              "flows": {
+                "0": {"node": 0, "socket": "in"},
+                "1": {"node": 0, "socket": "in"},
+                "2": {"node": 0, "socket": "in"},
+                "3": {"node": 8, "socket": "in"},
+                "4": {"node": 0, "socket": "in"},
+                "5": {"node": 9, "socket": "in"},
+                "6": {"node": 0, "socket": "reset"},
+                "7": {"node": 10, "socket": "in"},
+                "8": {"node": 0, "socket": "in"},
+                "9": {"node": 11, "socket": "in"}
+              }
+            },
+            {"declaration": 3, "configuration": {"variable": {"value": 0}}, "values": {"value": {"type": 0, "value": 0}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 0}}, "values": {"value": {"type": 0, "value": 8}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 0}}, "values": {"value": {"type": 0, "value": 4}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 0}}, "values": {"value": {"type": 0, "value": 1}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 1}}, "values": {"value": {"node": 0, "socket": "lastIndex"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 2}}, "values": {"value": {"node": 1, "socket": "value"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 3}}, "values": {"value": {"node": 0, "socket": "lastIndex"}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 4}}, "values": {"value": {"node": 1, "socket": "value"}}}
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "multiGate target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
