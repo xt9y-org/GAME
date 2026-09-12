@@ -15,440 +15,553 @@ fail_on_warning = false
 name = "core-ecs"
 args = "--test core/ecs"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "core-lifecycle"
 args = "--test core/lifecycle"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "core-change-revisions"
 args = "--test core/change-revisions"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "input-keyboard"
 args = "--test input/keyboard"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "input-mouse"
 args = "--test input/mouse"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "input-pointer"
 args = "--test input/pointer"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "camera-projection"
 args = "--test camera/projection"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "camera-controller"
 args = "--test camera/controller"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "physics-colliders"
 args = "--test physics/colliders"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "physics-raycast"
 args = "--test physics/raycast"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "physics-sphere-cast"
 args = "--test physics/sphere-cast"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "physics-overlap-sphere"
 args = "--test physics/overlap-sphere"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "physics-overlap-aabb"
 args = "--test physics/overlap-aabb"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "audio-clip"
 args = "--test audio/clip"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "audio-playback"
 args = "--test audio/playback"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "audio-mixer"
 args = "--test audio/mixer"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "audio-spatial"
 args = "--test audio/spatial"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "animation-skeleton"
 args = "--test animation/skeleton"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "animation-animator"
 args = "--test animation/animator"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "animation-blending"
 args = "--test animation/blending"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "animation-state-machine"
 args = "--test animation/state-machine"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "animation-skinning"
 args = "--test animation/skinning"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "font-atlas"
 args = "--test font/atlas"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "font-screen"
 args = "--test font/screen"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "font-world"
 args = "--test font/world"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "interactivity-runtime"
 args = "--test interactivity/runtime"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "interactivity-events"
 args = "--test interactivity/events"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "interactivity-pointers"
 args = "--test interactivity/pointers"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "interactivity-limits"
 args = "--test interactivity/limits"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "models-formats"
 args = "--test models/formats"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "models-images"
 args = "--test models/images"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "models-compression"
 args = "--test models/compression"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "models-materials"
 args = "--test models/materials"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "models-runtime-scene"
 args = "--test models/runtime-scene"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "models-gaussian-splat-sh"
 args = "--test models/gaussian-splat-sh"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-hierarchy"
 args = "--test rendering/hierarchy"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-visibility"
 args = "--test rendering/visibility"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-visibility-override"
 args = "--test rendering/visibility-override"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings"
 args = "--test rendering/settings"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-post-process"
 args = "--test rendering/post-process"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-post-process-failure"
 args = "--test rendering/post-process-failure"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-scene-collection"
 args = "--test rendering/scene-collection"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-scene-state"
 args = "--test rendering/scene-state"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-enabled"
 args = "--test rendering/settings/rasterizer/enabled"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-viewport-culling"
 args = "--test rendering/settings/rasterizer/viewport-culling"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-shadow-resolution"
 args = "--test rendering/settings/rasterizer/shadow-resolution"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-fallback-shadow-resolution"
 args = "--test rendering/settings/rasterizer/fallback-shadow-resolution"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-minimum-shadow-resolution"
 args = "--test rendering/settings/rasterizer/minimum-shadow-resolution"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-shadow-near-plane"
 args = "--test rendering/settings/rasterizer/shadow-near-plane"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-shadow-far-scale"
 args = "--test rendering/settings/rasterizer/shadow-far-scale"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-directional-shadow-distance"
 args = "--test rendering/settings/rasterizer/directional-shadow-distance"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-rasterizer-clear-color"
 args = "--test rendering/settings/rasterizer/clear-color"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-raytracer-enabled"
 args = "--test rendering/settings/raytracer/enabled"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-raytracer-resolution-divisor"
 args = "--test rendering/settings/raytracer/resolution-divisor"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-pathtracer-enabled"
 args = "--test rendering/settings/pathtracer/enabled"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-pathtracer-resolution-divisor"
 args = "--test rendering/settings/pathtracer/resolution-divisor"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-pathtracer-samples-per-frame"
 args = "--test rendering/settings/pathtracer/samples-per-frame"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-pathtracer-stationary-phase-grid"
 args = "--test rendering/settings/pathtracer/stationary-phase-grid"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-pathtracer-reset-phase-grid"
 args = "--test rendering/settings/pathtracer/reset-phase-grid"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-pathtracer-moving-phase-grid"
 args = "--test rendering/settings/pathtracer/moving-phase-grid"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-settings-pathtracer-moving-depth-block"
 args = "--test rendering/settings/pathtracer/moving-depth-block"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-environment-state"
 args = "--test rendering/environment/state"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-fog-linear"
 args = "--test rendering/fog/linear"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-fog-exponential"
 args = "--test rendering/fog/exponential"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-global-illumination-state"
 args = "--test rendering/global-illumination/state"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-photon-mapping-lifecycle"
 args = "--test rendering/photon-mapping/lifecycle"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-lod-data"
 args = "--test rendering/lod/data"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-manager-lifecycle"
 args = "--test rendering/manager/lifecycle"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "rendering-debug-inspector-settings"
 args = "--test rendering/debug/inspector-settings"
 capture = false
-timeout_ms = 30000.0
 
 [[test]]
 name = "render-rasterizer-basic"
 args = "--test rendering/rasterizer --renderer rasterizer"
 capture = true
 warmup_frames = 30
-timeout_ms = 30000.0
 
 [[test]]
 name = "render-raytracer-basic"
 args = "--test rendering/raytracer --renderer raytracer"
 capture = true
 warmup_frames = 30
-timeout_ms = 30000.0
 
 [[test]]
 name = "render-pathtracer-basic"
 args = "--test rendering/pathtracer --renderer pathtracer"
 capture = true
 warmup_frames = 120
-timeout_ms = 30000.0
+
+[[test]]
+name = "visual-light-directional-rasterizer"
+args = "--test rendering/visual/light-directional --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-light-point-rasterizer"
+args = "--test rendering/visual/light-point --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-light-point-raytracer"
+args = "--test rendering/visual/light-point --renderer raytracer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-light-point-pathtracer"
+args = "--test rendering/visual/light-point --renderer pathtracer"
+capture = true
+warmup_frames = 120
+
+[[test]]
+name = "visual-light-spot-rasterizer"
+args = "--test rendering/visual/light-spot --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-shadow-directional-rasterizer"
+args = "--test rendering/visual/shadow-directional --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-shadow-point-rasterizer"
+args = "--test rendering/visual/shadow-point --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-shadow-point-raytracer"
+args = "--test rendering/visual/shadow-point --renderer raytracer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-shadow-point-pathtracer"
+args = "--test rendering/visual/shadow-point --renderer pathtracer"
+capture = true
+warmup_frames = 120
+
+[[test]]
+name = "visual-shadow-spot-rasterizer"
+args = "--test rendering/visual/shadow-spot --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-advanced-materials-rasterizer"
+args = "--test rendering/visual/advanced-materials --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-advanced-materials-raytracer"
+args = "--test rendering/visual/advanced-materials --renderer raytracer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-advanced-materials-pathtracer"
+args = "--test rendering/visual/advanced-materials --renderer pathtracer"
+capture = true
+warmup_frames = 120
+
+[[test]]
+name = "visual-environment-rasterizer"
+args = "--test rendering/visual/environment --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-fog-linear-rasterizer"
+args = "--test rendering/visual/fog-linear --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-fog-exponential-rasterizer"
+args = "--test rendering/visual/fog-exponential --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-global-illumination-rasterizer"
+args = "--test rendering/visual/global-illumination --renderer rasterizer"
+capture = true
+warmup_frames = 60
+
+[[test]]
+name = "visual-global-illumination-raytracer"
+args = "--test rendering/visual/global-illumination --renderer raytracer"
+capture = true
+warmup_frames = 60
+
+[[test]]
+name = "visual-global-illumination-pathtracer"
+args = "--test rendering/visual/global-illumination --renderer pathtracer"
+capture = true
+warmup_frames = 120
+
+[[test]]
+name = "visual-photon-mapping-rasterizer"
+args = "--test rendering/visual/photon-mapping --renderer rasterizer"
+capture = true
+warmup_frames = 60
+
+[[test]]
+name = "visual-photon-mapping-raytracer"
+args = "--test rendering/visual/photon-mapping --renderer raytracer"
+capture = true
+warmup_frames = 60
+
+[[test]]
+name = "visual-photon-mapping-pathtracer"
+args = "--test rendering/visual/photon-mapping --renderer pathtracer"
+capture = true
+warmup_frames = 120
+
+[[test]]
+name = "visual-gaussian-splat-rasterizer"
+args = "--test rendering/visual/gaussian-splat --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-gaussian-splat-raytracer"
+args = "--test rendering/visual/gaussian-splat --renderer raytracer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-gaussian-splat-pathtracer"
+args = "--test rendering/visual/gaussian-splat --renderer pathtracer"
+capture = true
+warmup_frames = 120
+
+[[test]]
+name = "visual-post-process-rasterizer"
+args = "--test rendering/visual/post-process --renderer rasterizer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-post-process-raytracer"
+args = "--test rendering/visual/post-process --renderer raytracer"
+capture = true
+warmup_frames = 30
+
+[[test]]
+name = "visual-post-process-pathtracer"
+args = "--test rendering/visual/post-process --renderer pathtracer"
+capture = true
+warmup_frames = 120
+
+[[test]]
+name = "visual-everything-rasterizer"
+args = "--test rendering/visual/everything --renderer rasterizer"
+capture = true
+warmup_frames = 60
+
+[[test]]
+name = "visual-everything-raytracer"
+args = "--test rendering/visual/everything --renderer raytracer"
+capture = true
+warmup_frames = 60
+
+[[test]]
+name = "visual-everything-pathtracer"
+args = "--test rendering/visual/everything --renderer pathtracer"
+capture = true
+warmup_frames = 120
 
 [[test]]
 name = "ui-frame-rasterizer"
 args = "--test ui/frame --renderer rasterizer"
 capture = true
 warmup_frames = 30
-timeout_ms = 30000.0
