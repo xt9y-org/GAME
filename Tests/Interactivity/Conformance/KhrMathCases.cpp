@@ -89,12 +89,44 @@ public:
     }
 };
 
+class MathSocketSemanticsCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/math-socket-semantics"; }
+
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/math-sockets.gltf")) {
+            error = fixture.error;
+            return false;
+        }
+
+        std::vector<double> clamp_float;
+        std::vector<double> clamp_reverse;
+        std::vector<double> clamp_int;
+        std::vector<double> smooth;
+        return Testing::require(
+                   fixture.runtime.variable("clampFloat", &clamp_float) && clamp_float.size() == 1u && Testing::near(clamp_float[0], 3.0),
+                   "KHR math/clamp a/b/c socket semantics mismatch", error) &&
+            Testing::require(
+                fixture.runtime.variable("clampReverse", &clamp_reverse) && clamp_reverse.size() == 1u && Testing::near(clamp_reverse[0], 3.0),
+                "KHR math/clamp must accept reversed bounds", error) &&
+            Testing::require(
+                fixture.runtime.variable("clampInt", &clamp_int) && clamp_int.size() == 1u && Testing::near(clamp_int[0], 3.0),
+                "KHR integer math/clamp semantics mismatch", error) &&
+            Testing::require(
+                fixture.runtime.variable("smooth", &smooth) && smooth.size() == 1u && Testing::near(smooth[0], 0.15625, 1.0e-6),
+                "KHR math/smoothStep a/b/c socket semantics mismatch", error);
+    }
+};
+
 } // namespace
 
 void registerInteractivityConformance(Testing::Runner& runner)
 {
     runner.add<QuaternionAngleOrdersCase>();
     runner.add<EqualitySpecialValuesCase>();
+    runner.add<MathSocketSemanticsCase>();
 }
 
 } // namespace Tests
