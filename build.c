@@ -89,6 +89,7 @@ void build(C_Build *b)
     c_sources(testing, "Tests/Rendering/Systems/SystemCases.cpp");
     c_sources(testing, "Tests/Rendering/Settings/SettingsCases.cpp");
     c_sources(testing, "Tests/Rendering/Scenes/SceneCases.cpp");
+    c_sources(testing, "Tests/Rendering/Visual/VisualCases.cpp");
     c_sources(testing, "Tests/UI/Integration/UiCases.cpp");
     common(testing, horse, imgui);
 
