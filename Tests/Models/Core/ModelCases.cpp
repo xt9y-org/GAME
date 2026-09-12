@@ -17,19 +17,6 @@
 namespace Tests {
 namespace {
 
-class FormatsCase final : public Testing::Case {
-public:
-    std::string_view name() const override { return "models/formats"; }
-    bool verify(Testing::Context&, std::string& error) override
-    {
-        using Models::Formats::loaderFor;
-        return Testing::require(loaderFor(".gltf") != nullptr, "glTF loader missing", error) &&
-            Testing::require(loaderFor(".glb") != nullptr, "GLB loader missing", error) &&
-            Testing::require(loaderFor(".fbx") != nullptr, "FBX loader missing", error) &&
-            Testing::require(loaderFor(".obj") != nullptr, "OBJ loader missing", error);
-    }
-};
-
 bool loadSceneFormat(const char *path, std::string_view label, std::string& error)
 {
     Models::clearCache();
@@ -61,6 +48,23 @@ bool loadMeshFormat(const char *path, std::string_view label, std::string& error
     return Testing::require(mesh != nullptr && mesh->vertices.size() >= 3u && mesh->indices.size() >= 3u,
                             std::string(label) + " triangle geometry was not decoded", error);
 }
+
+class FormatsCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/formats"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        using Models::Formats::loaderFor;
+        return Testing::require(loaderFor(".gltf") != nullptr, "glTF loader missing", error) &&
+            Testing::require(loaderFor(".glb") != nullptr, "GLB loader missing", error) &&
+            Testing::require(loaderFor(".fbx") != nullptr, "FBX loader missing", error) &&
+            Testing::require(loaderFor(".obj") != nullptr, "OBJ loader missing", error) &&
+            loadSceneFormat("Assets/Models/minimal.gltf", "glTF", error) &&
+            loadSceneFormat("Assets/Models/minimal.glb", "GLB", error) &&
+            loadMeshFormat("Assets/Models/minimal.obj", "OBJ", error) &&
+            loadMeshFormat("Assets/Models/minimal.fbx", "FBX", error);
+    }
+};
 
 class GltfLoaderCase final : public Testing::Case {
 public:
