@@ -1,6 +1,6 @@
 [project]
 name = "GAME"
-command = "./build/debug/game"
+command = "c build run"
 cwd = "."
 headless = "auto"
 renderer = "auto"
