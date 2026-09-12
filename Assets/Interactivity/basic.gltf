@@ -1,0 +1,77 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "GAME regression",
+          "types": [
+            {"signature": "float"},
+            {"signature": "float3"}
+          ],
+          "declarations": [
+            {"op": "math/add"},
+            {"op": "event/onStart"},
+            {"op": "variable/set"},
+            {"op": "event/receive"},
+            {"op": "pointer/set"},
+            {"op": "flow/sequence"}
+          ],
+          "variables": [
+            {"name": "answer", "type": 0, "value": 1.0},
+            {"name": "eventValue", "type": 0, "value": 0.0}
+          ],
+          "events": [
+            {"id": "set-event", "values": {"value": 0}}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "values": {
+                "a": {"type": 0, "value": 40.0},
+                "b": {"type": 0, "value": 2.0}
+              }
+            },
+            {
+              "declaration": 1,
+              "flows": {"out": {"node": 2, "socket": "in"}}
+            },
+            {
+              "declaration": 5,
+              "flows": {
+                "0": {"node": 3, "socket": "in"},
+                "1": {"node": 5, "socket": "in"}
+              }
+            },
+            {
+              "declaration": 2,
+              "configuration": {"variable": {"value": 0}},
+              "values": {"value": {"node": 0, "socket": "value"}}
+            },
+            {
+              "declaration": 3,
+              "configuration": {"event": {"value": 0}},
+              "flows": {"out": {"node": 6, "socket": "in"}}
+            },
+            {
+              "declaration": 4,
+              "configuration": {"pointer": {"value": "/nodes/0/translation"}},
+              "values": {"value": {"type": 1, "value": [1.0, 2.0, 3.0]}}
+            },
+            {
+              "declaration": 2,
+              "configuration": {"variable": {"value": 1}},
+              "values": {"value": {"node": 4, "socket": "value"}}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "Interactive node"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
