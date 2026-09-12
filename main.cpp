@@ -99,7 +99,7 @@ public:
                             dashcam_settings_,
                             dashcam_runtime_
                         );
-                        world_.markChanged(Ecs::ChangeKind::Transform);
+                        world_.markChanged(Ecs::ChangeKind::Camera);
                     }
                 } else {
                     dashcam_runtime_.delta_seconds = delta_seconds;
@@ -453,7 +453,7 @@ private:
             changed = true;
         }
 
-        if (changed) world_.markChanged(Ecs::ChangeKind::Transform);
+        if (changed) world_.markChanged(Ecs::ChangeKind::Camera);
     }
 
     const char *activeRendererName() const
@@ -473,7 +473,7 @@ private:
         Camera::CameraComponent *camera = world_.get<Camera::CameraComponent>(camera_);
         if (!camera || camera->fov_degrees == dashcam_settings_.fov_degrees) return;
         camera->fov_degrees = dashcam_settings_.fov_degrees;
-        world_.markChanged();
+        world_.markChanged(Ecs::ChangeKind::Camera);
     }
 
     void applyGiPauseState()
@@ -505,7 +505,7 @@ private:
         game_camera->active = !enabled;
         debug_camera->active = enabled;
         debug_camera_enabled_ = enabled;
-        world_.markChanged(Ecs::ChangeKind::Transform);
+        world_.markChanged(Ecs::ChangeKind::Camera);
     }
 
     void updateDebugMode()
