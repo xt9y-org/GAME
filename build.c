@@ -82,6 +82,7 @@ void build(C_Build *b)
     c_sources(testing, "Tests/Font/Text/FontCases.cpp");
     c_sources(testing, "Tests/Interactivity/Runtime/InteractivityCases.cpp");
     c_sources(testing, "Tests/Interactivity/Conformance/KhrMathCases.cpp");
+    c_sources(testing, "Tests/Interactivity/Conformance/KhrFlowCases.cpp");
     c_sources(testing, "Tests/Models/Core/ModelCases.cpp");
     c_sources(testing, "Tests/Models/GaussianSplat/GaussianSplatCases.cpp");
     c_sources(testing, "Tests/Rendering/Hierarchy/HierarchyCases.cpp");
