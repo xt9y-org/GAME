@@ -95,6 +95,29 @@ public:
     }
 };
 
+class MatrixCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/matrix-operations"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/matrix.gltf")) { error = fixture.error; return false; }
+
+        std::vector<double> det2;
+        std::vector<double> det3;
+        std::vector<double> combine2;
+        std::vector<double> inverse2;
+        return Testing::require(fixture.runtime.variable("det2", &det2) && det2.size() == 1u && Testing::near(det2[0], -2.0),
+                                "float2x2 determinant mismatch", error) &&
+            Testing::require(fixture.runtime.variable("det3", &det3) && det3.size() == 1u && Testing::near(det3[0], 24.0),
+                             "float3x3 determinant mismatch", error) &&
+            Testing::require(fixture.runtime.variable("combine2", &combine2) && combine2.size() == 1u && Testing::near(combine2[0], 3.0),
+                             "combine2x2/extract2x2 socket mismatch", error) &&
+            Testing::require(fixture.runtime.variable("inverse2", &inverse2) && inverse2.size() == 1u && Testing::near(inverse2[0], 0.6, 1.0e-5),
+                             "float2x2 inverse mismatch", error);
+    }
+};
+
 class LimitsCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "interactivity/limits"; }
@@ -118,6 +141,7 @@ void registerInteractivity(Testing::Runner& runner)
     runner.add<EventCase>();
     runner.add<PointerCase>();
     runner.add<SequenceOrderCase>();
+    runner.add<MatrixCase>();
     runner.add<LimitsCase>();
 }
 
