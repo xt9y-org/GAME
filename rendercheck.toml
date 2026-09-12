@@ -152,6 +152,21 @@ args = "--test interactivity/pointers"
 capture = false
 
 [[test]]
+name = "interactivity-sequence-order"
+args = "--test interactivity/sequence-order"
+capture = false
+
+[[test]]
+name = "interactivity-matrix-operations"
+args = "--test interactivity/matrix-operations"
+capture = false
+
+[[test]]
+name = "interactivity-quaternion-color-operations"
+args = "--test interactivity/quaternion-color-operations"
+capture = false
+
+[[test]]
 name = "interactivity-limits"
 args = "--test interactivity/limits"
 capture = false
