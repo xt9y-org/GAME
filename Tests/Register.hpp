@@ -16,6 +16,8 @@ void registerModels(Testing::Runner&);
 void registerGaussianSplat(Testing::Runner&);
 void registerHierarchy(Testing::Runner&);
 void registerVisibility(Testing::Runner&);
+void registerPublicRendererSettings(Testing::Runner&);
+void registerRenderingSystems(Testing::Runner&);
 void registerSettings(Testing::Runner&);
 void registerScenes(Testing::Runner&);
 void registerUi(Testing::Runner&);

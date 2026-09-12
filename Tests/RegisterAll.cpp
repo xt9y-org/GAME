@@ -17,6 +17,8 @@ void registerAll(Runner& runner)
     Tests::registerGaussianSplat(runner);
     Tests::registerHierarchy(runner);
     Tests::registerVisibility(runner);
+    Tests::registerPublicRendererSettings(runner);
+    Tests::registerRenderingSystems(runner);
     Tests::registerSettings(runner);
     Tests::registerScenes(runner);
     Tests::registerUi(runner);
