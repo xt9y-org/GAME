@@ -1,0 +1,102 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_interactivity"],
+  "extensionsRequired": ["KHR_interactivity"],
+  "extensions": {
+    "KHR_interactivity": {
+      "graph": 0,
+      "graphs": [
+        {
+          "name": "KHR matrix regression",
+          "types": [
+            {"signature": "float"},
+            {"signature": "float2x2"},
+            {"signature": "float3x3"}
+          ],
+          "declarations": [
+            {"op": "math/determinant"},
+            {"op": "math/combine2x2"},
+            {"op": "math/extract2x2"},
+            {"op": "math/inverse"},
+            {"op": "event/onStart"},
+            {"op": "flow/sequence"},
+            {"op": "variable/set"}
+          ],
+          "variables": [
+            {"name": "det2", "type": 0, "value": 0.0},
+            {"name": "det3", "type": 0, "value": 0.0},
+            {"name": "combine2", "type": 0, "value": 0.0},
+            {"name": "inverse2", "type": 0, "value": 0.0}
+          ],
+          "nodes": [
+            {
+              "declaration": 0,
+              "values": {"a": {"type": 1, "value": [1.0, 2.0, 3.0, 4.0]}}
+            },
+            {
+              "declaration": 0,
+              "values": {"a": {"type": 2, "value": [2.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 4.0]}}
+            },
+            {
+              "declaration": 1,
+              "values": {
+                "a": {"type": 0, "value": 1.0},
+                "b": {"type": 0, "value": 2.0},
+                "c": {"type": 0, "value": 3.0},
+                "d": {"type": 0, "value": 4.0}
+              }
+            },
+            {
+              "declaration": 2,
+              "values": {"a": {"node": 2, "socket": "value"}}
+            },
+            {
+              "declaration": 3,
+              "values": {"a": {"type": 1, "value": [4.0, 2.0, 7.0, 6.0]}}
+            },
+            {
+              "declaration": 2,
+              "values": {"a": {"node": 4, "socket": "value"}}
+            },
+            {
+              "declaration": 4,
+              "flows": {"out": {"node": 7, "socket": "in"}}
+            },
+            {
+              "declaration": 5,
+              "flows": {
+                "0": {"node": 8, "socket": "in"},
+                "1": {"node": 9, "socket": "in"},
+                "2": {"node": 10, "socket": "in"},
+                "3": {"node": 11, "socket": "in"}
+              }
+            },
+            {
+              "declaration": 6,
+              "configuration": {"variable": {"value": 0}},
+              "values": {"value": {"node": 0, "socket": "value"}}
+            },
+            {
+              "declaration": 6,
+              "configuration": {"variable": {"value": 1}},
+              "values": {"value": {"node": 1, "socket": "value"}}
+            },
+            {
+              "declaration": 6,
+              "configuration": {"variable": {"value": 2}},
+              "values": {"value": {"node": 3, "socket": "2"}}
+            },
+            {
+              "declaration": 6,
+              "configuration": {"variable": {"value": 3}},
+              "values": {"value": {"node": 5, "socket": "0"}}
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "nodes": [{"name": "Matrix target"}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}
