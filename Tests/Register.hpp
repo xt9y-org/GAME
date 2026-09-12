@@ -12,6 +12,7 @@ void registerAudio(Testing::Runner&);
 void registerAnimation(Testing::Runner&);
 void registerFont(Testing::Runner&);
 void registerInteractivity(Testing::Runner&);
+void registerInteractivityConformance(Testing::Runner&);
 void registerModels(Testing::Runner&);
 void registerGaussianSplat(Testing::Runner&);
 void registerHierarchy(Testing::Runner&);
