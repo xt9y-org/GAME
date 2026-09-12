@@ -21,6 +21,7 @@ void registerAll(Runner& runner)
     Tests::registerRenderingSystems(runner);
     Tests::registerSettings(runner);
     Tests::registerScenes(runner);
+    Tests::registerVisualRendering(runner);
     Tests::registerUi(runner);
 }
 
