@@ -1,6 +1,6 @@
 #include <cbuild.h>
 
-static void configurePlatform(C_Target *target)
+static void platform(C_Target *target)
 {
 #ifdef __APPLE__
     c_define(target, "GL_SILENCE_DEPRECATION");
@@ -21,31 +21,6 @@ static void configurePlatform(C_Target *target)
     c_link_system(target, "stdc++");
 #endif
     c_link_system(target, "glfw");
-}
-
-static void configureGame(
-    C_Target *target,
-    C_Dependency *horse,
-    C_Dependency *imgui)
-{
-    c_sources(target, "main.cpp");
-    c_sources(target, "Tests/*.cpp");
-    c_sources(target, "UI/*.cpp");
-    c_include(target, ".");
-    c_include(target, "/usr/local/include/lwcgl-2.9.3");
-    c_flag(target, "-std=c++20");
-    c_warnings_strict(target);
-
-    c_use(target, horse);
-    c_use(target, imgui);
-
-    configurePlatform(target);
-    c_link_flag(target, "-L/usr/local/lib");
-    c_link_flag(target, "-llwcgl");
-#ifdef __APPLE__
-    c_link_flag(target, "-llwmgl");
-#endif
-    c_link_flag(target, "-Wl,-rpath,/usr/local/lib");
 }
 
 void build(C_Build *b)
@@ -70,6 +45,18 @@ void build(C_Build *b)
     c_dep_include(imgui, ".");
 
     C_Target *game = c_executable(b, "game");
-    configureGame(game, horse, imgui);
+    c_sources(game, "main.cpp");
+    c_include(game, "/usr/local/include/lwcgl-2.9.3");
+    c_flag(game, "-std=c++20");
+    c_warnings_strict(game);
+    c_use(game, horse);
+    c_use(game, imgui);
+    platform(game);
+    c_link_flag(game, "-L/usr/local/lib");
+    c_link_flag(game, "-llwcgl");
+#ifdef __APPLE__
+    c_link_flag(game, "-llwmgl");
+#endif
+    c_link_flag(game, "-Wl,-rpath,/usr/local/lib");
     c_default_target(b, game);
 }
