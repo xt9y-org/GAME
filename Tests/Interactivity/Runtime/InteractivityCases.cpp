@@ -17,10 +17,10 @@ struct RuntimeFixture {
     Interactivity::Runtime runtime;
     std::string error;
 
-    bool load()
+    bool load(const char *path = "Assets/Interactivity/basic.gltf")
     {
         Models::clearCache();
-        const Models::ModelHandle model = Models::load("Assets/Interactivity/basic.gltf", &error);
+        const Models::ModelHandle model = Models::load(path, &error);
         if (model == Models::INVALID_MODEL) return false;
         if (!Renderer::ModelScene::instantiate(world, model, &instance, {}, &error)) return false;
         return runtime.load(world, instance, &error);
@@ -78,6 +78,23 @@ public:
     }
 };
 
+class SequenceOrderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/sequence-order"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/sequence-order.gltf")) { error = fixture.error; return false; }
+        if (!Testing::require(!fixture.instance.nodes.empty(), "sequence-order scene has no node bindings", error)) return false;
+        const Ecs::Entity entity = fixture.instance.nodes.front().entity;
+        const Renderer::Transform *transform = fixture.world.get<Renderer::Transform>(entity);
+        return Testing::require(transform != nullptr, "sequence-order pointer target missing", error) &&
+            Testing::require(Testing::near(transform->position.x, 9.0f) && Testing::near(transform->position.y, 0.0f) &&
+                             Testing::near(transform->position.z, 0.0f),
+                             "flow/sequence sockets were not executed in lexicographic order", error);
+    }
+};
+
 class LimitsCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "interactivity/limits"; }
@@ -100,6 +117,7 @@ void registerInteractivity(Testing::Runner& runner)
     runner.add<RuntimeCase>();
     runner.add<EventCase>();
     runner.add<PointerCase>();
+    runner.add<SequenceOrderCase>();
     runner.add<LimitsCase>();
 }
 
