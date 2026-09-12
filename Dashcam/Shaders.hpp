@@ -78,8 +78,6 @@ void main()
     float glass = smoothstep(0.58, 0.98, vUv.y) * 0.45 + dash * 0.20;
     color += vec3(0.055, 0.06, 0.05) * glass * uP1.y;
 
-    float outside = step(0.0, -uv.x) + step(1.0, uv.x) + step(0.0, -uv.y) + step(1.0, uv.y);
-    color *= 1.0 - clamp(outside, 0.0, 1.0);
     gl_FragColor = vec4(max(color, vec3(0.0)), 1.0);
 }
 )GLSL";
@@ -203,7 +201,7 @@ kernel void dashcam_stage(constant Params& p [[buffer(0)]], texture2d<float, acc
     float r=source.sample(s,clamp(suv+chroma,float2(0.001f),float2(0.999f))).r; float g=source.sample(s,suv).g; float b=source.sample(s,clamp(suv-chroma,float2(0.001f),float2(0.999f))).b; float3 color=float3(r,g,b);
     float edge=smoothstep(0.32f,1.16f,r2); color*=1.0f-edge*p.p0.z; float dust=hash21(floor(base*float2(91.0f,57.0f))); float speck=smoothstep(0.965f,0.995f,dust); float streak=pow(max(0.0f,sin(base.x*24.0f+sin(base.y*7.0f))),18.0f); float bright=max(max(color.r,color.g),color.b); color*=1.0f-(speck*0.55f+streak*0.12f)*p.p1.x*smoothstep(0.35f,1.1f,bright);
     float dash=smoothstep(0.68f,1.0f,base.y)*(0.5f+0.5f*sin(base.x*31.0f)); float glass=smoothstep(0.58f,0.98f,base.y)*0.45f+dash*0.20f; color+=float3(0.055f,0.06f,0.05f)*glass*p.p1.y;
-    bool outside=uv.x<0.0f||uv.x>1.0f||uv.y<0.0f||uv.y>1.0f; target.write(float4(outside?float3(0.0f):max(color,float3(0.0f)),1.0f),id);
+    target.write(float4(max(color,float3(0.0f)),1.0f),id);
 }
 )MSL";
 

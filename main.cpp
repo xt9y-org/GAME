@@ -281,15 +281,15 @@ private:
         dashcam_rec_ = Font::screen(
             world_,
             "REC",
-            {18.0f, 18.0f},
-            2.0f,
+            {30.0f, 28.0f},
+            3.5f,
             {1.0f, 0.08f, 0.05f, 1.0f}
         );
         dashcam_telemetry_ = Font::screen(
             world_,
             "",
-            {18.0f, 44.0f},
-            1.5f,
+            {30.0f, 0.0f},
+            3.0f,
             {1.0f, 1.0f, 1.0f, 0.92f}
         );
 
@@ -501,6 +501,11 @@ private:
         }
 
         rec->text = "REC";
+        rec->position = {30.0f, 28.0f};
+        telemetry->position = {
+            30.0f,
+            std::max(static_cast<float>(framebuffer_height_) - 92.0f, 30.0f)
+        };
         const std::time_t now = std::time(nullptr);
         std::tm local_time{};
 #ifdef _WIN32
@@ -515,11 +520,11 @@ private:
         std::snprintf(
             text,
             sizeof(text),
-            "ID DCM-01  %.0fFPS\n%s\n%03.0f KM/H  %.2f G",
-            dashcam_settings_.capture_fps,
+            "%s  DCM-01  %03.0f KM/H  %.2f G  %.0fFPS",
             timestamp,
             std::max(dashcam_runtime_.speed, 0.0f) * 3.6f,
-            std::max(dashcam_runtime_.g_force, 0.0f)
+            std::max(dashcam_runtime_.g_force, 0.0f),
+            dashcam_settings_.capture_fps
         );
         telemetry->text = text;
     }
