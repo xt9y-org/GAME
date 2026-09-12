@@ -10,45 +10,84 @@
 namespace Tests {
 namespace {
 
+struct RuntimeFixture {
+    Ecs::World world;
+    Renderer::ModelScene::Instance instance;
+    Interactivity::Runtime runtime;
+    std::string error;
+
+    bool load(const char *path)
+    {
+        Models::clearCache();
+        const Models::ModelHandle model = Models::load(path, &error);
+        if (model == Models::INVALID_MODEL) return false;
+        if (!Renderer::ModelScene::instantiate(world, model, &instance, {}, &error)) return false;
+        return runtime.load(world, instance, &error);
+    }
+};
+
+bool requireInt(Interactivity::Runtime& runtime, const char *name, double expected, const char *message, std::string& error)
+{
+    std::vector<double> value;
+    return Testing::require(runtime.variable(name, &value) && value.size() == 1u && value[0] == expected, message, error);
+}
+
 class DoNStateCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "interactivity/flow-do-n-state"; }
 
     bool verify(Testing::Context&, std::string& error) override
     {
-        Models::clearCache();
-        std::string runtime_error;
-        const Models::ModelHandle model = Models::load("Assets/Interactivity/do-n.gltf", &runtime_error);
-        if (model == Models::INVALID_MODEL) {
-            error = runtime_error;
-            return false;
-        }
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/do-n.gltf")) { error = fixture.error; return false; }
+        return requireInt(fixture.runtime, "countAfterLimit", 2.0, "KHR flow/doN must stop currentCount at n", error) &&
+            requireInt(fixture.runtime, "countAfterReset", 0.0, "KHR flow/doN reset must restore currentCount to zero", error) &&
+            requireInt(fixture.runtime, "countAfterOne", 1.0, "KHR flow/doN must increment once per in activation", error);
+    }
+};
 
-        Ecs::World world;
-        Renderer::ModelScene::Instance instance;
-        if (!Renderer::ModelScene::instantiate(world, model, &instance, {}, &runtime_error)) {
-            error = runtime_error;
-            return false;
-        }
+class ForStateCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/flow-for-state"; }
 
-        Interactivity::Runtime runtime;
-        if (!runtime.load(world, instance, &runtime_error)) {
-            error = runtime_error;
-            return false;
-        }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/for-state.gltf")) { error = fixture.error; return false; }
+        return requireInt(fixture.runtime, "before", 7.0, "KHR flow/for initialIndex configuration mismatch", error) &&
+            requireInt(fixture.runtime, "after", 5.0, "KHR flow/for must retain end index after completion", error);
+    }
+};
 
-        std::vector<double> after_limit;
-        std::vector<double> after_reset;
-        std::vector<double> after_one;
-        return Testing::require(
-                   runtime.variable("countAfterLimit", &after_limit) && after_limit.size() == 1u && after_limit[0] == 2.0,
-                   "KHR flow/doN must stop currentCount at n", error) &&
-            Testing::require(
-                runtime.variable("countAfterReset", &after_reset) && after_reset.size() == 1u && after_reset[0] == 0.0,
-                "KHR flow/doN reset must restore currentCount to zero", error) &&
-            Testing::require(
-                runtime.variable("countAfterOne", &after_one) && after_one.size() == 1u && after_one[0] == 1.0,
-                "KHR flow/doN must increment once per in activation", error);
+class WaitAllStateCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/flow-wait-all-state"; }
+
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/wait-all.gltf")) { error = fixture.error; return false; }
+        return requireInt(fixture.runtime, "initial", 3.0, "KHR flow/waitAll initial remainingInputs mismatch", error) &&
+            requireInt(fixture.runtime, "afterFirst", 2.0, "KHR flow/waitAll first input mismatch", error) &&
+            requireInt(fixture.runtime, "afterDuplicate", 2.0, "KHR flow/waitAll duplicate input changed remainingInputs", error) &&
+            requireInt(fixture.runtime, "afterSecondUnique", 1.0, "KHR flow/waitAll second unique input mismatch", error) &&
+            requireInt(fixture.runtime, "afterComplete", 0.0, "KHR flow/waitAll completion mismatch", error) &&
+            requireInt(fixture.runtime, "afterReset", 3.0, "KHR flow/waitAll reset mismatch", error);
+    }
+};
+
+class MultiGateStateCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/flow-multi-gate-state"; }
+
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/multi-gate.gltf")) { error = fixture.error; return false; }
+        return requireInt(fixture.runtime, "lastAfterThree", 2.0, "KHR flow/multiGate lastIndex mismatch", error) &&
+            requireInt(fixture.runtime, "routeAfterExhausted", 8.0, "KHR flow/multiGate did not stop after exhausting outputs", error) &&
+            requireInt(fixture.runtime, "lastAfterReset", -1.0, "KHR flow/multiGate reset did not restore lastIndex", error) &&
+            requireInt(fixture.runtime, "routeAfterReset", 1.0, "KHR flow/multiGate lexicographic/reset routing mismatch", error);
     }
 };
 
@@ -57,6 +96,9 @@ public:
 void registerInteractivityFlowConformance(Testing::Runner& runner)
 {
     runner.add<DoNStateCase>();
+    runner.add<ForStateCase>();
+    runner.add<WaitAllStateCase>();
+    runner.add<MultiGateStateCase>();
 }
 
 } // namespace Tests
