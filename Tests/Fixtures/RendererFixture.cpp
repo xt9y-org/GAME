@@ -1,6 +1,7 @@
 #include "Tests/Fixtures/RendererFixture.hpp"
 
 #include "Input.hpp"
+#include "Renderer/Systems/SceneCache.hpp"
 #include "UI/UI.hpp"
 
 #include <lwcgl/context.h>
@@ -37,6 +38,9 @@ bool RendererFixture::initialize(std::string_view renderer, std::string *error)
     keyboard_created_ = Keyboard.isCreated() != LWCGL_FALSE;
     Mouse.create();
     mouse_created_ = Mouse.isCreated() != LWCGL_FALSE;
+
+    Renderer::Systems::SceneCache::setLeafSize(8u);
+    Renderer::Systems::SceneCache::setMaximumTriangles(1000000u);
 
     manager_.setPostProcessPipeline(&post_process_);
     rasterizer_ = &manager_.add<Renderer::Rasterizer>("rasterizer");
