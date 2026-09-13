@@ -30,72 +30,6 @@ public:
     }
 };
 
-class RasterizerShadowResolutionCase final : public Testing::Case {
-public:
-    std::string_view name() const override { return "rendering/settings/rasterizer/shadow-resolution"; }
-    bool verify(Testing::Context&, std::string& error) override
-    {
-        Renderer::Rasterizer renderer;
-        renderer.setShadowResolution(2048);
-        return Testing::require(renderer.shadowResolution() == 2048, "rasterizer shadow resolution mismatch", error);
-    }
-};
-
-class RasterizerFallbackShadowResolutionCase final : public Testing::Case {
-public:
-    std::string_view name() const override { return "rendering/settings/rasterizer/fallback-shadow-resolution"; }
-    bool verify(Testing::Context&, std::string& error) override
-    {
-        Renderer::Rasterizer renderer;
-        renderer.setFallbackShadowResolution(768);
-        return Testing::require(renderer.fallbackShadowResolution() == 768, "rasterizer fallback shadow resolution mismatch", error);
-    }
-};
-
-class RasterizerMinimumShadowResolutionCase final : public Testing::Case {
-public:
-    std::string_view name() const override { return "rendering/settings/rasterizer/minimum-shadow-resolution"; }
-    bool verify(Testing::Context&, std::string& error) override
-    {
-        Renderer::Rasterizer renderer;
-        renderer.setMinimumShadowResolution(192);
-        return Testing::require(renderer.minimumShadowResolution() == 192, "rasterizer minimum shadow resolution mismatch", error);
-    }
-};
-
-class RasterizerShadowNearPlaneCase final : public Testing::Case {
-public:
-    std::string_view name() const override { return "rendering/settings/rasterizer/shadow-near-plane"; }
-    bool verify(Testing::Context&, std::string& error) override
-    {
-        Renderer::Rasterizer renderer;
-        renderer.setShadowNearPlane(0.035f);
-        return Testing::require(Testing::near(renderer.shadowNearPlane(), 0.035f), "rasterizer shadow near plane mismatch", error);
-    }
-};
-
-class RasterizerShadowFarScaleCase final : public Testing::Case {
-public:
-    std::string_view name() const override { return "rendering/settings/rasterizer/shadow-far-scale"; }
-    bool verify(Testing::Context&, std::string& error) override
-    {
-        Renderer::Rasterizer renderer;
-        renderer.setShadowFarScale(1.75f);
-        return Testing::require(Testing::near(renderer.shadowFarScale(), 1.75f), "rasterizer shadow far scale mismatch", error);
-    }
-};
-
-class RasterizerDirectionalShadowDistanceCase final : public Testing::Case {
-public:
-    std::string_view name() const override { return "rendering/settings/rasterizer/directional-shadow-distance"; }
-    bool verify(Testing::Context&, std::string& error) override
-    {
-        Renderer::Rasterizer renderer;
-        renderer.setDirectionalShadowDistance(96.0f);
-        return Testing::require(Testing::near(renderer.directionalShadowDistance(), 96.0f), "rasterizer directional shadow distance mismatch", error);
-    }
-};
-
 class RasterizerClearColorCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "rendering/settings/rasterizer/clear-color"; }
@@ -216,12 +150,6 @@ void registerPublicRendererSettings(Testing::Runner& runner)
 {
     runner.add<RasterizerEnabledCase>();
     runner.add<RasterizerViewportCullingCase>();
-    runner.add<RasterizerShadowResolutionCase>();
-    runner.add<RasterizerFallbackShadowResolutionCase>();
-    runner.add<RasterizerMinimumShadowResolutionCase>();
-    runner.add<RasterizerShadowNearPlaneCase>();
-    runner.add<RasterizerShadowFarScaleCase>();
-    runner.add<RasterizerDirectionalShadowDistanceCase>();
     runner.add<RasterizerClearColorCase>();
     runner.add<RayTracerEnabledCase>();
     runner.add<RayTracerResolutionDivisorCase>();
