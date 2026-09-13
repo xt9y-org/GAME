@@ -1,5 +1,8 @@
 build/
 compile_commands.json
 imgui.ini
-.rendercheck/
+.rendercheck/*
+!.rendercheck/run-performance/
+.rendercheck/run-performance/*
+!.rendercheck/run-performance/baseline.tsv
 .DS_Store
