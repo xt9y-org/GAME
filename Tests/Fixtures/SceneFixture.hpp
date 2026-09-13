@@ -19,9 +19,9 @@ inline SceneAssets triangleAssets()
 {
     Models::MeshData mesh;
     mesh.vertices = {
-        Models::Vertex{.position = {-0.75f, -0.5f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}},
-        Models::Vertex{.position = { 0.75f, -0.5f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}},
-        Models::Vertex{.position = { 0.0f,   0.75f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}},
+        Models::Vertex{.position = {-0.75f, -0.5f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {}, .skin = {}},
+        Models::Vertex{.position = { 0.75f, -0.5f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {}, .skin = {}},
+        Models::Vertex{.position = { 0.0f,   0.75f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {}, .skin = {}},
     };
     mesh.indices = {0u, 1u, 2u};
     mesh.bounds = {{-0.75f, -0.5f, -0.01f}, {0.75f, 0.75f, 0.01f}};
