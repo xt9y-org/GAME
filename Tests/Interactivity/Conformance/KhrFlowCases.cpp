@@ -72,7 +72,10 @@ public:
             requireInt(fixture.runtime, "afterDuplicate", 2.0, "KHR flow/waitAll duplicate input changed remainingInputs", error) &&
             requireInt(fixture.runtime, "afterSecondUnique", 1.0, "KHR flow/waitAll second unique input mismatch", error) &&
             requireInt(fixture.runtime, "afterComplete", 0.0, "KHR flow/waitAll completion mismatch", error) &&
-            requireInt(fixture.runtime, "afterReset", 3.0, "KHR flow/waitAll reset mismatch", error);
+            requireInt(fixture.runtime, "afterReset", 3.0, "KHR flow/waitAll reset mismatch", error) &&
+            requireInt(fixture.runtime, "outSeen", 1.0, "KHR flow/waitAll out flow mismatch", error) &&
+            requireInt(fixture.runtime, "completedSeen", 1.0, "KHR flow/waitAll completed flow mismatch", error) &&
+            requireInt(fixture.runtime, "defaultRemaining", 0.0, "KHR flow/waitAll default inputFlows mismatch", error);
     }
 };
 

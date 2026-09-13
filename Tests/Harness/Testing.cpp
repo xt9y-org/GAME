@@ -75,11 +75,14 @@ int Runner::run(int argc, char **argv)
     std::string renderer = "rasterizer";
     bool renderer_explicit = false;
     bool list = false;
+    bool all = false;
 
     for (int index = 1; index < argc; ++index) {
         const char *argument = argv[index];
         if (std::strcmp(argument, "--list") == 0) {
             list = true;
+        } else if (std::strcmp(argument, "--all") == 0) {
+            all = true;
         } else if (std::strcmp(argument, "--test") == 0 && index + 1 < argc) {
             selected = argv[++index];
         } else if (std::strcmp(argument, "--renderer") == 0 && index + 1 < argc) {
@@ -95,6 +98,53 @@ int Runner::run(int argc, char **argv)
         for (const auto& test : cases_)
             std::printf("%.*s\n", static_cast<int>(test->name().size()), test->name().data());
         return 0;
+    }
+
+    if (all) {
+        if (!selected.empty()) {
+            std::fprintf(stderr, "--all cannot be combined with --test.\n");
+            return 2;
+        }
+
+        std::size_t passed = 0u;
+        std::size_t failed = 0u;
+        for (const auto& candidate : cases_) {
+            if (candidate->kind() != Kind::Functional) continue;
+
+            Context context;
+            context.renderer = renderer;
+            std::string error;
+            const std::string name(candidate->name());
+
+            bool ok = candidate->setup(context, error);
+            if (ok) {
+                const std::size_t frame_count = rendererCheckFrameLimit(candidate->frameCount());
+                for (std::size_t frame = 0u; frame < frame_count; ++frame) {
+                    const auto started = Clock::now();
+                    if (!candidate->update(context, 1.0 / 60.0, error)) {
+                        ok = false;
+                        break;
+                    }
+                    const double frame_ms = std::chrono::duration<double, std::milli>(Clock::now() - started).count();
+                    metric("frame_ms", frame_ms);
+                }
+            }
+            if (ok) ok = candidate->verify(context, error);
+
+            candidate->shutdown(context);
+            cleanup(context);
+
+            if (ok) {
+                ++passed;
+                std::printf("PASS %s\n", name.c_str());
+            } else {
+                ++failed;
+                std::fprintf(stderr, "FAIL %s: %s\n", name.c_str(), error.c_str());
+            }
+        }
+
+        std::printf("SUMMARY passed=%zu failed=%zu\n", passed, failed);
+        return failed == 0u ? 0 : 1;
     }
 
     if (selected.empty()) {
