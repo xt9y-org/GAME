@@ -1,6 +1,6 @@
 [project]
-name = "GAME-systems"
-command = "./build/debug/testing"
+name = "test"
+command = "c build run"
 cwd = "."
 headless = "auto"
 renderer = "auto"
@@ -13,655 +13,664 @@ fail_on_warning = false
 
 [[test]]
 name = "core-ecs"
-args = "--test core/ecs"
+args = "-- --test core/ecs"
 capture = false
 
 [[test]]
 name = "core-lifecycle"
-args = "--test core/lifecycle"
+args = "-- --test core/lifecycle"
 capture = false
 
 [[test]]
 name = "core-change-revisions"
-args = "--test core/change-revisions"
+args = "-- --test core/change-revisions"
 capture = false
 
 [[test]]
 name = "input-keyboard"
-args = "--test input/keyboard"
+args = "-- --test input/keyboard"
 capture = false
 
 [[test]]
 name = "input-mouse"
-args = "--test input/mouse"
+args = "-- --test input/mouse"
 capture = false
 
 [[test]]
 name = "input-pointer"
-args = "--test input/pointer"
+args = "-- --test input/pointer"
 capture = false
 
 [[test]]
 name = "camera-projection"
-args = "--test camera/projection"
+args = "-- --test camera/projection"
 capture = false
 
 [[test]]
 name = "camera-controller"
-args = "--test camera/controller"
+args = "-- --test camera/controller"
 capture = false
 
 [[test]]
 name = "physics-colliders"
-args = "--test physics/colliders"
+args = "-- --test physics/colliders"
 capture = false
 
 [[test]]
 name = "physics-raycast"
-args = "--test physics/raycast"
+args = "-- --test physics/raycast"
 capture = false
 
 [[test]]
 name = "physics-sphere-cast"
-args = "--test physics/sphere-cast"
+args = "-- --test physics/sphere-cast"
 capture = false
 
 [[test]]
 name = "physics-overlap-sphere"
-args = "--test physics/overlap-sphere"
+args = "-- --test physics/overlap-sphere"
 capture = false
 
 [[test]]
 name = "physics-overlap-aabb"
-args = "--test physics/overlap-aabb"
+args = "-- --test physics/overlap-aabb"
 capture = false
 
 [[test]]
 name = "audio-clip"
-args = "--test audio/clip"
+args = "-- --test audio/clip"
 capture = false
 
 [[test]]
 name = "audio-playback"
-args = "--test audio/playback"
+args = "-- --test audio/playback"
 capture = false
 
 [[test]]
 name = "audio-mixer"
-args = "--test audio/mixer"
+args = "-- --test audio/mixer"
 capture = false
 
 [[test]]
 name = "audio-spatial"
-args = "--test audio/spatial"
+args = "-- --test audio/spatial"
 capture = false
 
 [[test]]
 name = "animation-skeleton"
-args = "--test animation/skeleton"
+args = "-- --test animation/skeleton"
 capture = false
 
 [[test]]
 name = "animation-animator"
-args = "--test animation/animator"
+args = "-- --test animation/animator"
 capture = false
 
 [[test]]
 name = "animation-blending"
-args = "--test animation/blending"
+args = "-- --test animation/blending"
 capture = false
 
 [[test]]
 name = "animation-state-machine"
-args = "--test animation/state-machine"
+args = "-- --test animation/state-machine"
 capture = false
 
 [[test]]
 name = "animation-skinning"
-args = "--test animation/skinning"
+args = "-- --test animation/skinning"
 capture = false
 
 [[test]]
 name = "font-atlas"
-args = "--test font/atlas"
+args = "-- --test font/atlas"
 capture = false
 
 [[test]]
 name = "font-screen"
-args = "--test font/screen"
+args = "-- --test font/screen"
 capture = false
 
 [[test]]
 name = "font-world"
-args = "--test font/world"
+args = "-- --test font/world"
 capture = false
 
 [[test]]
 name = "interactivity-runtime"
-args = "--test interactivity/runtime"
+args = "-- --test interactivity/runtime"
 capture = false
 
 [[test]]
 name = "interactivity-events"
-args = "--test interactivity/events"
+args = "-- --test interactivity/events"
 capture = false
 
 [[test]]
 name = "interactivity-pointers"
-args = "--test interactivity/pointers"
+args = "-- --test interactivity/pointers"
 capture = false
 
 [[test]]
 name = "interactivity-sequence-order"
-args = "--test interactivity/sequence-order"
+args = "-- --test interactivity/sequence-order"
 capture = false
 
 [[test]]
 name = "interactivity-matrix-operations"
-args = "--test interactivity/matrix-operations"
+args = "-- --test interactivity/matrix-operations"
 capture = false
 
 [[test]]
 name = "interactivity-matrix-transform-decompose"
-args = "--test interactivity/matrix-transform-decompose"
+args = "-- --test interactivity/matrix-transform-decompose"
 capture = false
 
 [[test]]
 name = "interactivity-quaternion-color-operations"
-args = "--test interactivity/quaternion-color-operations"
+args = "-- --test interactivity/quaternion-color-operations"
 capture = false
 
 [[test]]
 name = "interactivity-quaternion-angle-orders"
-args = "--test interactivity/quaternion-angle-orders"
+args = "-- --test interactivity/quaternion-angle-orders"
 capture = false
 
 [[test]]
 name = "interactivity-equality-special-values"
-args = "--test interactivity/equality-special-values"
+args = "-- --test interactivity/equality-special-values"
 capture = false
 
 [[test]]
 name = "interactivity-math-socket-semantics"
-args = "--test interactivity/math-socket-semantics"
+args = "-- --test interactivity/math-socket-semantics"
 capture = false
 
 [[test]]
 name = "interactivity-flow-do-n-state"
-args = "--test interactivity/flow-do-n-state"
+args = "-- --test interactivity/flow-do-n-state"
 capture = false
 
 [[test]]
 name = "interactivity-flow-for-state"
-args = "--test interactivity/flow-for-state"
+args = "-- --test interactivity/flow-for-state"
 capture = false
 
 [[test]]
 name = "interactivity-flow-wait-all-state"
-args = "--test interactivity/flow-wait-all-state"
+args = "-- --test interactivity/flow-wait-all-state"
 capture = false
 
 [[test]]
 name = "interactivity-flow-multi-gate-state"
-args = "--test interactivity/flow-multi-gate-state"
+args = "-- --test interactivity/flow-multi-gate-state"
 capture = false
 
 [[test]]
 name = "interactivity-limits"
-args = "--test interactivity/limits"
+args = "-- --test interactivity/limits"
 capture = false
 
 [[test]]
 name = "models-formats"
-args = "--test models/formats"
+args = "-- --test models/formats"
 capture = false
 
 [[test]]
 name = "models-formats-gltf"
-args = "--test models/formats/gltf"
+args = "-- --test models/formats/gltf"
 capture = false
 
 [[test]]
 name = "models-formats-glb"
-args = "--test models/formats/glb"
+args = "-- --test models/formats/glb"
 capture = false
 
 [[test]]
 name = "models-formats-obj"
-args = "--test models/formats/obj"
+args = "-- --test models/formats/obj"
 capture = false
 
 [[test]]
 name = "models-formats-fbx"
-args = "--test models/formats/fbx"
+args = "-- --test models/formats/fbx"
 capture = false
 
 [[test]]
 name = "models-images"
-args = "--test models/images"
+args = "-- --test models/images"
 capture = false
 
 [[test]]
 name = "models-images-png"
-args = "--test models/images/png"
+args = "-- --test models/images/png"
 capture = false
 
 [[test]]
 name = "models-images-jpeg"
-args = "--test models/images/jpeg"
+args = "-- --test models/images/jpeg"
 capture = false
 
 [[test]]
 name = "models-images-tga"
-args = "--test models/images/tga"
+args = "-- --test models/images/tga"
 capture = false
 
 [[test]]
 name = "models-images-webp"
-args = "--test models/images/webp"
+args = "-- --test models/images/webp"
 capture = false
 
 [[test]]
 name = "models-images-ktx2"
-args = "--test models/images/ktx2"
+args = "-- --test models/images/ktx2"
 capture = false
 
 [[test]]
 name = "models-compression"
-args = "--test models/compression"
+args = "-- --test models/compression"
 capture = false
 
 [[test]]
 name = "models-materials"
-args = "--test models/materials"
+args = "-- --test models/materials"
 capture = false
 
 [[test]]
 name = "models-runtime-scene"
-args = "--test models/runtime-scene"
+args = "-- --test models/runtime-scene"
 capture = false
 
 [[test]]
 name = "models-gaussian-splat-sh"
-args = "--test models/gaussian-splat-sh"
+args = "-- --test models/gaussian-splat-sh"
 capture = false
 
 [[test]]
 name = "rendering-hierarchy"
-args = "--test rendering/hierarchy"
+args = "-- --test rendering/hierarchy"
 capture = false
 
 [[test]]
 name = "rendering-visibility"
-args = "--test rendering/visibility"
+args = "-- --test rendering/visibility"
 capture = false
 
 [[test]]
 name = "rendering-visibility-override"
-args = "--test rendering/visibility-override"
+args = "-- --test rendering/visibility-override"
 capture = false
 
 [[test]]
 name = "rendering-settings"
-args = "--test rendering/settings"
+args = "-- --test rendering/settings"
 capture = false
 
 [[test]]
 name = "rendering-post-process"
-args = "--test rendering/post-process"
+args = "-- --test rendering/post-process"
 capture = false
 
 [[test]]
 name = "rendering-post-process-failure"
-args = "--test rendering/post-process-failure"
+args = "-- --test rendering/post-process-failure"
 capture = false
 
 [[test]]
 name = "rendering-scene-collection"
-args = "--test rendering/scene-collection"
+args = "-- --test rendering/scene-collection"
 capture = false
 
 [[test]]
 name = "rendering-scene-state"
-args = "--test rendering/scene-state"
+args = "-- --test rendering/scene-state"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-enabled"
-args = "--test rendering/settings/rasterizer/enabled"
+args = "-- --test rendering/settings/rasterizer/enabled"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-viewport-culling"
-args = "--test rendering/settings/rasterizer/viewport-culling"
+args = "-- --test rendering/settings/rasterizer/viewport-culling"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-shadow-resolution"
-args = "--test rendering/settings/rasterizer/shadow-resolution"
+args = "-- --test rendering/settings/rasterizer/shadow-resolution"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-fallback-shadow-resolution"
-args = "--test rendering/settings/rasterizer/fallback-shadow-resolution"
+args = "-- --test rendering/settings/rasterizer/fallback-shadow-resolution"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-minimum-shadow-resolution"
-args = "--test rendering/settings/rasterizer/minimum-shadow-resolution"
+args = "-- --test rendering/settings/rasterizer/minimum-shadow-resolution"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-shadow-near-plane"
-args = "--test rendering/settings/rasterizer/shadow-near-plane"
+args = "-- --test rendering/settings/rasterizer/shadow-near-plane"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-shadow-far-scale"
-args = "--test rendering/settings/rasterizer/shadow-far-scale"
+args = "-- --test rendering/settings/rasterizer/shadow-far-scale"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-directional-shadow-distance"
-args = "--test rendering/settings/rasterizer/directional-shadow-distance"
+args = "-- --test rendering/settings/rasterizer/directional-shadow-distance"
 capture = false
 
 [[test]]
 name = "rendering-settings-rasterizer-clear-color"
-args = "--test rendering/settings/rasterizer/clear-color"
+args = "-- --test rendering/settings/rasterizer/clear-color"
 capture = false
 
 [[test]]
 name = "rendering-settings-raytracer-enabled"
-args = "--test rendering/settings/raytracer/enabled"
+args = "-- --test rendering/settings/raytracer/enabled"
 capture = false
 
 [[test]]
 name = "rendering-settings-raytracer-resolution-divisor"
-args = "--test rendering/settings/raytracer/resolution-divisor"
+args = "-- --test rendering/settings/raytracer/resolution-divisor"
 capture = false
 
 [[test]]
 name = "rendering-settings-pathtracer-enabled"
-args = "--test rendering/settings/pathtracer/enabled"
+args = "-- --test rendering/settings/pathtracer/enabled"
 capture = false
 
 [[test]]
 name = "rendering-settings-pathtracer-resolution-divisor"
-args = "--test rendering/settings/pathtracer/resolution-divisor"
+args = "-- --test rendering/settings/pathtracer/resolution-divisor"
 capture = false
 
 [[test]]
 name = "rendering-settings-pathtracer-samples-per-frame"
-args = "--test rendering/settings/pathtracer/samples-per-frame"
+args = "-- --test rendering/settings/pathtracer/samples-per-frame"
 capture = false
 
 [[test]]
 name = "rendering-settings-pathtracer-stationary-phase-grid"
-args = "--test rendering/settings/pathtracer/stationary-phase-grid"
+args = "-- --test rendering/settings/pathtracer/stationary-phase-grid"
 capture = false
 
 [[test]]
 name = "rendering-settings-pathtracer-reset-phase-grid"
-args = "--test rendering/settings/pathtracer/reset-phase-grid"
+args = "-- --test rendering/settings/pathtracer/reset-phase-grid"
 capture = false
 
 [[test]]
 name = "rendering-settings-pathtracer-moving-phase-grid"
-args = "--test rendering/settings/pathtracer/moving-phase-grid"
+args = "-- --test rendering/settings/pathtracer/moving-phase-grid"
 capture = false
 
 [[test]]
 name = "rendering-settings-pathtracer-moving-depth-block"
-args = "--test rendering/settings/pathtracer/moving-depth-block"
+args = "-- --test rendering/settings/pathtracer/moving-depth-block"
 capture = false
 
 [[test]]
 name = "rendering-environment-state"
-args = "--test rendering/environment/state"
+args = "-- --test rendering/environment/state"
 capture = false
 
 [[test]]
 name = "rendering-fog-linear"
-args = "--test rendering/fog/linear"
+args = "-- --test rendering/fog/linear"
 capture = false
 
 [[test]]
 name = "rendering-fog-exponential"
-args = "--test rendering/fog/exponential"
+args = "-- --test rendering/fog/exponential"
 capture = false
 
 [[test]]
 name = "rendering-global-illumination-state"
-args = "--test rendering/global-illumination/state"
+args = "-- --test rendering/global-illumination/state"
 capture = false
 
 [[test]]
 name = "rendering-photon-mapping-lifecycle"
-args = "--test rendering/photon-mapping/lifecycle"
+args = "-- --test rendering/photon-mapping/lifecycle"
 capture = false
 
 [[test]]
 name = "rendering-lod-data"
-args = "--test rendering/lod/data"
+args = "-- --test rendering/lod/data"
 capture = false
 
 [[test]]
 name = "rendering-manager-lifecycle"
-args = "--test rendering/manager/lifecycle"
+args = "-- --test rendering/manager/lifecycle"
 capture = false
 
 [[test]]
 name = "rendering-debug-inspector-settings"
-args = "--test rendering/debug/inspector-settings"
+args = "-- --test rendering/debug/inspector-settings"
 capture = false
 
 [[test]]
 name = "render-rasterizer-basic"
-args = "--test rendering/rasterizer --renderer rasterizer"
+args = "-- --test rendering/rasterizer --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "render-raytracer-basic"
-args = "--test rendering/raytracer --renderer raytracer"
+args = "-- --test rendering/raytracer --renderer raytracer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "render-pathtracer-basic"
-args = "--test rendering/pathtracer --renderer pathtracer"
+args = "-- --test rendering/pathtracer --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-light-directional-rasterizer"
-args = "--test rendering/visual/light-directional --renderer rasterizer"
+args = "-- --test rendering/visual/light-directional --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-light-point-rasterizer"
-args = "--test rendering/visual/light-point --renderer rasterizer"
+args = "-- --test rendering/visual/light-point --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-light-point-raytracer"
-args = "--test rendering/visual/light-point --renderer raytracer"
+args = "-- --test rendering/visual/light-point --renderer raytracer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-light-point-pathtracer"
-args = "--test rendering/visual/light-point --renderer pathtracer"
+args = "-- --test rendering/visual/light-point --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-light-spot-rasterizer"
-args = "--test rendering/visual/light-spot --renderer rasterizer"
+args = "-- --test rendering/visual/light-spot --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-shadow-directional-rasterizer"
-args = "--test rendering/visual/shadow-directional --renderer rasterizer"
+args = "-- --test rendering/visual/shadow-directional --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-shadow-point-rasterizer"
-args = "--test rendering/visual/shadow-point --renderer rasterizer"
+args = "-- --test rendering/visual/shadow-point --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-shadow-point-raytracer"
-args = "--test rendering/visual/shadow-point --renderer raytracer"
+args = "-- --test rendering/visual/shadow-point --renderer raytracer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-shadow-point-pathtracer"
-args = "--test rendering/visual/shadow-point --renderer pathtracer"
+args = "-- --test rendering/visual/shadow-point --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-shadow-spot-rasterizer"
-args = "--test rendering/visual/shadow-spot --renderer rasterizer"
+args = "-- --test rendering/visual/shadow-spot --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-advanced-materials-rasterizer"
-args = "--test rendering/visual/advanced-materials --renderer rasterizer"
+args = "-- --test rendering/visual/advanced-materials --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-advanced-materials-raytracer"
-args = "--test rendering/visual/advanced-materials --renderer raytracer"
+args = "-- --test rendering/visual/advanced-materials --renderer raytracer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-advanced-materials-pathtracer"
-args = "--test rendering/visual/advanced-materials --renderer pathtracer"
+args = "-- --test rendering/visual/advanced-materials --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-environment-rasterizer"
-args = "--test rendering/visual/environment --renderer rasterizer"
+args = "-- --test rendering/visual/environment --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-fog-linear-rasterizer"
-args = "--test rendering/visual/fog-linear --renderer rasterizer"
+args = "-- --test rendering/visual/fog-linear --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-fog-exponential-rasterizer"
-args = "--test rendering/visual/fog-exponential --renderer rasterizer"
+args = "-- --test rendering/visual/fog-exponential --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-global-illumination-rasterizer"
-args = "--test rendering/visual/global-illumination --renderer rasterizer"
+args = "-- --test rendering/visual/global-illumination --renderer rasterizer"
 capture = true
 warmup_frames = 60
 
 [[test]]
 name = "visual-global-illumination-raytracer"
-args = "--test rendering/visual/global-illumination --renderer raytracer"
+args = "-- --test rendering/visual/global-illumination --renderer raytracer"
 capture = true
 warmup_frames = 60
 
 [[test]]
 name = "visual-global-illumination-pathtracer"
-args = "--test rendering/visual/global-illumination --renderer pathtracer"
+args = "-- --test rendering/visual/global-illumination --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-photon-mapping-rasterizer"
-args = "--test rendering/visual/photon-mapping --renderer rasterizer"
+args = "-- --test rendering/visual/photon-mapping --renderer rasterizer"
 capture = true
 warmup_frames = 60
 
 [[test]]
 name = "visual-photon-mapping-raytracer"
-args = "--test rendering/visual/photon-mapping --renderer raytracer"
+args = "-- --test rendering/visual/photon-mapping --renderer raytracer"
 capture = true
 warmup_frames = 60
 
 [[test]]
 name = "visual-photon-mapping-pathtracer"
-args = "--test rendering/visual/photon-mapping --renderer pathtracer"
+args = "-- --test rendering/visual/photon-mapping --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-gaussian-splat-rasterizer"
-args = "--test rendering/visual/gaussian-splat --renderer rasterizer"
+args = "-- --test rendering/visual/gaussian-splat --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-gaussian-splat-raytracer"
-args = "--test rendering/visual/gaussian-splat --renderer raytracer"
+args = "-- --test rendering/visual/gaussian-splat --renderer raytracer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-gaussian-splat-pathtracer"
-args = "--test rendering/visual/gaussian-splat --renderer pathtracer"
+args = "-- --test rendering/visual/gaussian-splat --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-post-process-rasterizer"
-args = "--test rendering/visual/post-process --renderer rasterizer"
+args = "-- --test rendering/visual/post-process --renderer rasterizer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-post-process-raytracer"
-args = "--test rendering/visual/post-process --renderer raytracer"
+args = "-- --test rendering/visual/post-process --renderer raytracer"
 capture = true
 warmup_frames = 30
 
 [[test]]
 name = "visual-post-process-pathtracer"
-args = "--test rendering/visual/post-process --renderer pathtracer"
+args = "-- --test rendering/visual/post-process --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "visual-everything-rasterizer"
-args = "--test rendering/visual/everything --renderer rasterizer"
+args = "-- --test rendering/visual/everything --renderer rasterizer"
 capture = true
 warmup_frames = 60
 
 [[test]]
 name = "visual-everything-raytracer"
-args = "--test rendering/visual/everything --renderer raytracer"
+args = "-- --test rendering/visual/everything --renderer raytracer"
 capture = true
 warmup_frames = 60
 
 [[test]]
 name = "visual-everything-pathtracer"
-args = "--test rendering/visual/everything --renderer pathtracer"
+args = "-- --test rendering/visual/everything --renderer pathtracer"
 capture = true
 warmup_frames = 120
+max_changed_percent = 1.5
 
 [[test]]
 name = "ui-frame-rasterizer"
-args = "--test ui/frame --renderer rasterizer"
+args = "-- --test ui/frame --renderer rasterizer"
 capture = true
 warmup_frames = 30

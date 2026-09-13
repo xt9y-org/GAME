@@ -2,7 +2,6 @@
 #include "Tests/Register.hpp"
 
 #include "Input.hpp"
-#include <lwcgl/lwcgl.h>
 
 namespace Tests {
 namespace {
@@ -14,7 +13,8 @@ public:
     {
         Input::reset();
         return Testing::require(Input::key(nullptr) == Input::InvalidKey, "null key name accepted", error) &&
-            Testing::require(Input::key("W") == Keyboard.KEY_W, "W key mapping mismatch", error) &&
+            Testing::require(Input::key("W") != Input::InvalidKey, "W key mapping missing", error) &&
+            Testing::require(Input::key("W") == Input::key("w"), "W key mapping is case-sensitive", error) &&
             Testing::require(!Input::keyDown(Input::InvalidKey), "invalid key reported down", error) &&
             Testing::require(!Input::keyPressed(Input::InvalidKey), "invalid key reported pressed", error) &&
             Testing::require(!Input::keyReleased(Input::InvalidKey), "invalid key reported released", error);

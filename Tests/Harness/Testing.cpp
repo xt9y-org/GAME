@@ -203,7 +203,12 @@ int Runner::run(int argc, char **argv)
             cleanup(context);
             return 1;
         }
-        if (context.graphics) context.graphics->render(context.world);
+        if (context.graphics && !context.graphics->render(context.world, &error)) {
+            std::fprintf(stderr, "[%s] render failed: %s\n", selected.c_str(), error.c_str());
+            test->shutdown(context);
+            cleanup(context);
+            return 1;
+        }
         const double frame_ms = std::chrono::duration<double, std::milli>(Clock::now() - started).count();
         metric("frame_ms", frame_ms);
     }

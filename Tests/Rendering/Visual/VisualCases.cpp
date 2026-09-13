@@ -287,6 +287,8 @@ public:
         width = frame.width;
         height = frame.height;
         saw_color = saw_color || frame.color_texture != nullptr;
+        if (calls == 1) first_color = frame.color_texture;
+        else color_changed = color_changed || frame.color_texture != first_color;
         return true;
     }
 
@@ -294,6 +296,8 @@ public:
     int width = 0;
     int height = 0;
     bool saw_color = false;
+    bool color_changed = false;
+    void *first_color = nullptr;
 };
 
 class VisualFeatureCase final : public Testing::Case {
@@ -347,7 +351,11 @@ public:
             case Feature::GaussianSplat:
                 addCamera(context.world);
                 addEnvironment(context.world);
-                addGaussianSplats(context.world);
+                if (!context.graphics) {
+                    error = "gaussian visual test has no graphics fixture";
+                    return false;
+                }
+                probe_ = &context.graphics->postProcess().add<ProbePass>();
                 break;
             case Feature::PostProcess:
                 addBaseScene(context.world, Renderer::LightType::Point);
@@ -372,6 +380,14 @@ public:
         return true;
     }
 
+    bool update(Testing::Context& context, double, std::string&) override
+    {
+        if (feature_ == Feature::GaussianSplat && updates_ == 1u)
+            addGaussianSplats(context.world);
+        ++updates_;
+        return true;
+    }
+
     bool verify(Testing::Context& context, std::string& error) override
     {
         if (!Testing::require(context.graphics && context.graphics->manager().active() != nullptr,
@@ -382,6 +398,10 @@ public:
             if (!Testing::require(probe_->calls > 0, "post-process pass was never invoked", error)) return false;
             if (!Testing::require(probe_->width > 0 && probe_->height > 0, "post-process frame dimensions invalid", error)) return false;
             if (!Testing::require(probe_->saw_color, "post-process pass never received a color target", error)) return false;
+            if (feature_ == Feature::GaussianSplat &&
+                !Testing::require(probe_->color_changed,
+                                  "post-process did not receive gaussian composited color", error))
+                return false;
         }
 
         return true;
@@ -392,12 +412,14 @@ public:
         if (feature_ == Feature::GlobalIllumination || feature_ == Feature::PhotonMapping || feature_ == Feature::Everything)
             Renderer::GlobalIllumination::reset();
         probe_ = nullptr;
+        updates_ = 0u;
     }
 
 private:
     std::string name_;
     Feature feature_;
     ProbePass *probe_ = nullptr;
+    std::size_t updates_ = 0u;
 };
 
 } // namespace

@@ -8,6 +8,7 @@
 #include "Renderer/Rasterizer/Rasterizer.hpp"
 #include "Renderer/RayTracer/RayTracer.hpp"
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
@@ -17,7 +18,7 @@ class RendererFixture {
 public:
     bool initialize(std::string_view renderer, std::string *error = nullptr);
     void processEvents();
-    void render(const Ecs::World& world);
+    bool render(const Ecs::World& world, std::string *error = nullptr);
     void resize(int width, int height);
     void shutdown();
 
@@ -38,10 +39,13 @@ private:
     Renderer::PathTracer *path_tracer_ = nullptr;
     int width_ = 640;
     int height_ = 360;
-    bool display_created_ = false;
-    bool keyboard_created_ = false;
-    bool mouse_created_ = false;
+    bool window_created_ = false;
     bool initialized_ = false;
+    bool capture_probe_added_ = false;
+    std::uint64_t frame_index_ = 0u;
+    void *capture_texture_ = nullptr;
+    int capture_width_ = 0;
+    int capture_height_ = 0;
 };
 
 } // namespace Testing

@@ -9,6 +9,6 @@ resolved = "f1cc2ae15e53a861a874c3034aae6798fde194ab"
 [[dependency]]
 name = "Horse"
 url = "https://github.com/xt9y/Horse.git"
-requested = "systems"
-resolved = "1eb72de99aff203563310b28c4de5a39c510352a"
+requested = "main"
+resolved = "847542dfeb4db82ad159a4c9971d4240ab35d065"
 
