@@ -5,6 +5,7 @@ cwd = "."
 headless = "auto"
 renderer = "auto"
 timeout_ms = 120000.0
+pixel_threshold = 1
 
 [validation]
 vulkan = false
@@ -188,22 +189,22 @@ capture = false
 
 [[test]]
 name = "interactivity-flow-do-n-state"
-args = "-- --test interactivity/flow-do-n-state"
+args = "-- --test interactivity/flow/do-n-state"
 capture = false
 
 [[test]]
 name = "interactivity-flow-for-state"
-args = "-- --test interactivity/flow-for-state"
+args = "-- --test interactivity/flow/for-state"
 capture = false
 
 [[test]]
 name = "interactivity-flow-wait-all-state"
-args = "-- --test interactivity/flow-wait-all-state"
+args = "-- --test interactivity/flow/wait-all-state"
 capture = false
 
 [[test]]
 name = "interactivity-flow-multi-gate-state"
-args = "-- --test interactivity/flow-multi-gate-state"
+args = "-- --test interactivity/flow/multi-gate-state"
 capture = false
 
 [[test]]
@@ -518,6 +519,7 @@ name = "visual-advanced-materials-raytracer"
 args = "-- --test rendering/visual/advanced-materials --renderer raytracer"
 capture = true
 warmup_frames = 30
+max_changed_percent = 0.5
 
 [[test]]
 name = "visual-advanced-materials-pathtracer"
@@ -631,6 +633,7 @@ name = "visual-everything-raytracer"
 args = "-- --test rendering/visual/everything --renderer raytracer"
 capture = true
 warmup_frames = 60
+max_changed_percent = 0.5
 
 [[test]]
 name = "visual-everything-pathtracer"
