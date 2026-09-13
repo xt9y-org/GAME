@@ -106,7 +106,7 @@ void addEnvironment(Ecs::World& world, Renderer::FogMode fog = Renderer::FogMode
     world.add<Renderer::EnvironmentComponent>(environment, component);
 }
 
-void addLight(Ecs::World& world, Renderer::LightType type)
+void addLight(Ecs::World& world, Renderer::LightType type, bool shadows = false)
 {
     const Ecs::Entity light = world.createEntity();
     Renderer::Transform transform;
@@ -132,14 +132,15 @@ void addLight(Ecs::World& world, Renderer::LightType type)
 
     world.add<Renderer::Transform>(light, transform);
     world.add<Renderer::LightComponent>(light, component);
-    world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{});
+    if (shadows)
+        world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{});
 }
 
-void addBaseScene(Ecs::World& world, Renderer::LightType light)
+void addBaseScene(Ecs::World& world, Renderer::LightType light, bool shadows = false)
 {
     addCamera(world);
     addEnvironment(world);
-    addLight(world, light);
+    addLight(world, light, shadows);
 
     const Models::MeshHandle quad = registerQuad();
     const Models::MaterialHandle receiver = registerMaterial({0.42f, 0.46f, 0.52f}, 0.85f, 0.0f);
@@ -315,16 +316,22 @@ public:
 
         switch (feature_) {
             case Feature::DirectionalLight:
-            case Feature::DirectionalShadow:
                 addBaseScene(context.world, Renderer::LightType::Directional);
                 break;
+            case Feature::DirectionalShadow:
+                addBaseScene(context.world, Renderer::LightType::Directional, true);
+                break;
             case Feature::PointLight:
-            case Feature::PointShadow:
                 addBaseScene(context.world, Renderer::LightType::Point);
                 break;
+            case Feature::PointShadow:
+                addBaseScene(context.world, Renderer::LightType::Point, true);
+                break;
             case Feature::SpotLight:
-            case Feature::SpotShadow:
                 addBaseScene(context.world, Renderer::LightType::Spot);
+                break;
+            case Feature::SpotShadow:
+                addBaseScene(context.world, Renderer::LightType::Spot, true);
                 break;
             case Feature::AdvancedMaterials:
                 addAdvancedMaterials(context.world);
