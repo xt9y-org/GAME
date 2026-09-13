@@ -1,7 +1,7 @@
 #include "Tests/Harness/Testing.hpp"
 #include "Tests/Register.hpp"
 
-#include "Font.hpp"
+#include "Font/Font.hpp"
 
 namespace Tests {
 namespace {
