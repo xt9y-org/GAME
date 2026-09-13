@@ -1,10 +1,10 @@
 #include "Tests/Fixtures/RendererFixture.hpp"
 
-#include "Input.hpp"
+#include "Input/Input.hpp"
 #include "Renderer/SDLGPU/Context.hpp"
 #include "Renderer/Systems/SceneCache.hpp"
 #include "UI/UI.hpp"
-#include "Window.hpp"
+#include "Window/Window.hpp"
 
 #include <SDL3/SDL_gpu.h>
 
