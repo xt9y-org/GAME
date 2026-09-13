@@ -2,7 +2,7 @@
 
 #include "Animation/Animation.hpp"
 #include "Audio/Audio.hpp"
-#include "Input.hpp"
+#include "Input/Input.hpp"
 #include "Models/Models.hpp"
 #include "Renderer/Debug/Debug.hpp"
 #include "Tests/Fixtures/RendererFixture.hpp"
