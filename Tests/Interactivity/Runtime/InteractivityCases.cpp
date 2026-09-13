@@ -189,6 +189,40 @@ public:
     }
 };
 
+class QuaternionOrderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "interactivity/quaternion-angle-orders"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        RuntimeFixture fixture;
+        if (!fixture.load("Assets/Interactivity/quat-orders.gltf")) { error = fixture.error; return false; }
+
+        struct Expected {
+            const char *name;
+            std::array<double, 4> value;
+        };
+        constexpr std::array<Expected, 6> expected{{
+            {"xyz", {0.391903847, 0.200562121, 0.531975695, 0.723317411}},
+            {"xzy", {0.022260027, 0.200562121, 0.531975695, 0.822363172}},
+            {"yxz", {0.391903847, 0.200562121, 0.360423406, 0.822363172}},
+            {"yzx", {0.391903847, 0.439679740, 0.360423406, 0.723317411}},
+            {"zxy", {0.022260027, 0.439679740, 0.531975695, 0.723317411}},
+            {"zyx", {0.022260027, 0.439679740, 0.360423406, 0.822363172}},
+        }};
+
+        for (const Expected& item : expected) {
+            std::vector<double> actual;
+            if (!Testing::require(fixture.runtime.variable(item.name, &actual) && actual.size() == 4u,
+                                  std::string("missing quatFromAngles result for ") + item.name, error)) return false;
+            for (std::size_t component = 0u; component < 4u; ++component) {
+                if (!Testing::require(Testing::near(actual[component], item.value[component], 1.0e-5),
+                                      std::string("quatFromAngles order mismatch for ") + item.name, error)) return false;
+            }
+        }
+        return true;
+    }
+};
+
 class LimitsCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "interactivity/limits"; }
@@ -215,6 +249,7 @@ void registerInteractivity(Testing::Runner& runner)
     runner.add<MatrixCase>();
     runner.add<MatrixExtraCase>();
     runner.add<MathExtraCase>();
+    runner.add<QuaternionOrderCase>();
     runner.add<LimitsCase>();
 }
 
