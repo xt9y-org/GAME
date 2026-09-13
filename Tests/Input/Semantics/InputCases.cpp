@@ -1,7 +1,7 @@
 #include "Tests/Harness/Testing.hpp"
 #include "Tests/Register.hpp"
 
-#include "Input.hpp"
+#include "Input/Input.hpp"
 
 namespace Tests {
 namespace {
