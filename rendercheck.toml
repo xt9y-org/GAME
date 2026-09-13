@@ -1,6 +1,6 @@
 [project]
 name = "test"
-command = "c build run"
+command = "c update build run"
 cwd = "."
 headless = "auto"
 renderer = "auto"
