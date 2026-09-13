@@ -1,7 +1,7 @@
 #ifndef GAME_TESTS_FIXTURES_SCENE_FIXTURE_HPP
 #define GAME_TESTS_FIXTURES_SCENE_FIXTURE_HPP
 
-#include "Camera.hpp"
+#include "Camera/Camera.hpp"
 #include "Models/Models.hpp"
 #include "Renderer/Components.hpp"
 #include "Renderer/Environment.hpp"
