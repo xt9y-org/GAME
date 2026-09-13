@@ -39,10 +39,10 @@ Models::MeshHandle registerQuad()
 {
     Models::MeshData mesh;
     mesh.vertices = {
-        Models::Vertex{.position = {-1.0f, -1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {0.0f, 0.0f}},
-        Models::Vertex{.position = { 1.0f, -1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {1.0f, 0.0f}},
-        Models::Vertex{.position = { 1.0f,  1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {1.0f, 1.0f}},
-        Models::Vertex{.position = {-1.0f,  1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {0.0f, 1.0f}},
+        Models::Vertex{.position = {-1.0f, -1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {0.0f, 0.0f}, .skin = {}},
+        Models::Vertex{.position = { 1.0f, -1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {1.0f, 0.0f}, .skin = {}},
+        Models::Vertex{.position = { 1.0f,  1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {1.0f, 1.0f}, .skin = {}},
+        Models::Vertex{.position = {-1.0f,  1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {0.0f, 1.0f}, .skin = {}},
     };
     mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
     mesh.bounds = {{-1.0f, -1.0f, -0.01f}, {1.0f, 1.0f, 0.01f}};
@@ -132,6 +132,7 @@ void addLight(Ecs::World& world, Renderer::LightType type)
 
     world.add<Renderer::Transform>(light, transform);
     world.add<Renderer::LightComponent>(light, component);
+    world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{});
 }
 
 void addBaseScene(Ecs::World& world, Renderer::LightType light)
@@ -226,9 +227,9 @@ void addGaussianSplats(Ecs::World& world)
     Models::MeshData mesh;
     mesh.primitive_mode = Models::PrimitiveMode::Points;
     mesh.vertices = {
-        Models::Vertex{.position = {-0.7f, -0.15f, -3.2f}},
-        Models::Vertex{.position = { 0.0f,  0.55f, -3.4f}},
-        Models::Vertex{.position = { 0.7f, -0.15f, -3.2f}},
+        Models::Vertex{.position = {-0.7f, -0.15f, -3.2f}, .uv = {}, .skin = {}},
+        Models::Vertex{.position = { 0.0f,  0.55f, -3.4f}, .uv = {}, .skin = {}},
+        Models::Vertex{.position = { 0.7f, -0.15f, -3.2f}, .uv = {}, .skin = {}},
     };
     mesh.bounds = {{-1.0f, -0.5f, -3.7f}, {1.0f, 0.9f, -2.9f}};
     mesh.extensions_json["KHR_gaussian_splatting"] =
