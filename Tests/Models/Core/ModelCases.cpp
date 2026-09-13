@@ -49,6 +49,36 @@ bool loadMeshFormat(const char *path, std::string_view label, std::string& error
                             std::string(label) + " triangle geometry was not decoded", error);
 }
 
+bool loadImageFixture(
+    const char *path,
+    std::string_view label,
+    bool expected_alpha,
+    bool lossy,
+    std::string& error)
+{
+    Models::Images::Image image;
+    std::string load_error;
+    if (!Models::Images::load(path, &image, &load_error)) {
+        error = std::string(label) + " decode failed: " + load_error;
+        return false;
+    }
+    if (!Testing::require(image.width == 1 && image.height == 1,
+                          std::string(label) + " dimensions mismatch", error) ||
+        !Testing::require(image.rgba.size() == 4u,
+                          std::string(label) + " RGBA output size mismatch", error)) return false;
+
+    if (lossy) {
+        if (!Testing::require(image.rgba[0] >= 240u && image.rgba[1] <= 20u && image.rgba[2] <= 20u && image.rgba[3] == 255u,
+                              std::string(label) + " decoded pixel is not approximately red", error)) return false;
+    } else {
+        constexpr std::array<std::uint8_t, 4> expected{{255u, 0u, 0u, 128u}};
+        if (!Testing::require(std::equal(image.rgba.begin(), image.rgba.end(), expected.begin()),
+                              std::string(label) + " decoded pixel mismatch", error)) return false;
+    }
+    return Testing::require(image.meaningful_alpha == expected_alpha,
+                            std::string(label) + " meaningful alpha mismatch", error);
+}
+
 class FormatsCase final : public Testing::Case {
 public:
     std::string_view name() const override { return "models/formats"; }
@@ -112,7 +142,57 @@ public:
             Testing::require(decoderFor(".jpg") != nullptr || decoderFor(".jpeg") != nullptr, "JPEG decoder missing", error) &&
             Testing::require(decoderFor(".tga") != nullptr, "TGA decoder missing", error) &&
             Testing::require(decoderFor(".webp") != nullptr, "WebP decoder missing", error) &&
-            Testing::require(decoderFor(".ktx2") != nullptr, "KTX2 decoder missing", error);
+            Testing::require(decoderFor(".ktx2") != nullptr, "KTX2 decoder missing", error) &&
+            loadImageFixture("Assets/Images/red-alpha.png", "PNG", true, false, error) &&
+            loadImageFixture("Assets/Images/red.jpg", "JPEG", false, true, error) &&
+            loadImageFixture("Assets/Images/red-alpha.tga", "TGA", true, false, error) &&
+            loadImageFixture("Assets/Images/red-alpha.webp", "WebP", true, false, error) &&
+            loadImageFixture("Assets/Images/red-alpha.ktx2", "KTX2", true, false, error);
+    }
+};
+
+class PngDecoderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/images/png"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadImageFixture("Assets/Images/red-alpha.png", "PNG", true, false, error);
+    }
+};
+
+class JpegDecoderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/images/jpeg"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadImageFixture("Assets/Images/red.jpg", "JPEG", false, true, error);
+    }
+};
+
+class TgaDecoderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/images/tga"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadImageFixture("Assets/Images/red-alpha.tga", "TGA", true, false, error);
+    }
+};
+
+class WebpDecoderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/images/webp"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadImageFixture("Assets/Images/red-alpha.webp", "WebP", true, false, error);
+    }
+};
+
+class Ktx2DecoderCase final : public Testing::Case {
+public:
+    std::string_view name() const override { return "models/images/ktx2"; }
+    bool verify(Testing::Context&, std::string& error) override
+    {
+        return loadImageFixture("Assets/Images/red-alpha.ktx2", "KTX2", true, false, error);
     }
 };
 
@@ -207,6 +287,11 @@ void registerModels(Testing::Runner& runner)
     runner.add<ObjLoaderCase>();
     runner.add<FbxLoaderCase>();
     runner.add<ImagesCase>();
+    runner.add<PngDecoderCase>();
+    runner.add<JpegDecoderCase>();
+    runner.add<TgaDecoderCase>();
+    runner.add<WebpDecoderCase>();
+    runner.add<Ktx2DecoderCase>();
     runner.add<CompressionCase>();
     runner.add<MaterialsCase>();
     runner.add<ModelSceneCase>();
