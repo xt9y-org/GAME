@@ -21,7 +21,8 @@
             {"name": "lastAfterThree", "type": 0, "value": -2},
             {"name": "routeAfterExhausted", "type": 0, "value": -1},
             {"name": "lastAfterReset", "type": 0, "value": -2},
-            {"name": "routeAfterReset", "type": 0, "value": -1}
+            {"name": "routeAfterReset", "type": 0, "value": -1},
+            {"name": "defaultedConfigRoute", "type": 0, "value": 0}
           ],
           "nodes": [
             {
@@ -41,16 +42,19 @@
             {
               "declaration": 2,
               "flows": {
-                "0": {"node": 0, "socket": "in"},
-                "1": {"node": 0, "socket": "in"},
-                "2": {"node": 0, "socket": "in"},
-                "3": {"node": 8, "socket": "in"},
-                "4": {"node": 0, "socket": "in"},
-                "5": {"node": 9, "socket": "in"},
-                "6": {"node": 0, "socket": "reset"},
-                "7": {"node": 10, "socket": "in"},
-                "8": {"node": 0, "socket": "in"},
-                "9": {"node": 11, "socket": "in"}
+                "00": {"node": 0, "socket": "in"},
+                "01": {"node": 0, "socket": "in"},
+                "02": {"node": 0, "socket": "in"},
+                "03": {"node": 8, "socket": "in"},
+                "04": {"node": 0, "socket": "in"},
+                "05": {"node": 9, "socket": "in"},
+                "06": {"node": 0, "socket": "reset"},
+                "07": {"node": 10, "socket": "in"},
+                "08": {"node": 0, "socket": "in"},
+                "09": {"node": 11, "socket": "in"},
+                "10": {"node": 12, "socket": "in"},
+                "11": {"node": 12, "socket": "in"},
+                "12": {"node": 12, "socket": "in"}
               }
             },
             {"declaration": 3, "configuration": {"variable": {"value": 0}}, "values": {"value": {"type": 0, "value": 0}}},
@@ -60,7 +64,17 @@
             {"declaration": 3, "configuration": {"variable": {"value": 1}}, "values": {"value": {"node": 0, "socket": "lastIndex"}}},
             {"declaration": 3, "configuration": {"variable": {"value": 2}}, "values": {"value": {"node": 1, "socket": "value"}}},
             {"declaration": 3, "configuration": {"variable": {"value": 3}}, "values": {"value": {"node": 0, "socket": "lastIndex"}}},
-            {"declaration": 3, "configuration": {"variable": {"value": 4}}, "values": {"value": {"node": 1, "socket": "value"}}}
+            {"declaration": 3, "configuration": {"variable": {"value": 4}}, "values": {"value": {"node": 1, "socket": "value"}}},
+            {
+              "declaration": 0,
+              "configuration": {"isLoop": {"value": true}},
+              "flows": {
+                "a": {"node": 13, "socket": "in"},
+                "b": {"node": 14, "socket": "in"}
+              }
+            },
+            {"declaration": 3, "configuration": {"variable": {"value": 5}}, "values": {"value": {"type": 0, "value": 1}}},
+            {"declaration": 3, "configuration": {"variable": {"value": 5}}, "values": {"value": {"type": 0, "value": 2}}}
           ]
         }
       ]

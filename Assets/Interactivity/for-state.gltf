@@ -13,40 +13,45 @@
             {"op": "flow/for"},
             {"op": "event/onStart"},
             {"op": "flow/sequence"},
-            {"op": "variable/set"}
+            {"op": "variable/set"},
+            {"op": "variable/get"}
           ],
           "variables": [
             {"name": "before", "type": 0, "value": -1},
-            {"name": "after", "type": 0, "value": -1}
+            {"name": "after", "type": 0, "value": -1},
+            {"name": "dynamicEnd", "type": 0, "value": 5}
           ],
           "nodes": [
+            {"declaration": 4, "configuration": {"variable": {"value": 2}}},
             {
               "declaration": 0,
               "configuration": {"initialIndex": {"value": 7}},
               "values": {
                 "startIndex": {"type": 0, "value": 2},
-                "endIndex": {"type": 0, "value": 5}
-              }
+                "endIndex": {"node": 0, "socket": "value"}
+              },
+              "flows": {"loopBody": {"node": 6, "socket": "in"}}
             },
-            {"declaration": 1, "flows": {"out": {"node": 2, "socket": "in"}}},
+            {"declaration": 1, "flows": {"out": {"node": 3, "socket": "in"}}},
             {
               "declaration": 2,
               "flows": {
-                "0": {"node": 3, "socket": "in"},
-                "1": {"node": 0, "socket": "in"},
-                "2": {"node": 4, "socket": "in"}
+                "0": {"node": 4, "socket": "in"},
+                "1": {"node": 1, "socket": "in"},
+                "2": {"node": 5, "socket": "in"}
               }
             },
             {
               "declaration": 3,
               "configuration": {"variable": {"value": 0}},
-              "values": {"value": {"node": 0, "socket": "index"}}
+              "values": {"value": {"node": 1, "socket": "index"}}
             },
             {
               "declaration": 3,
               "configuration": {"variable": {"value": 1}},
-              "values": {"value": {"node": 0, "socket": "index"}}
-            }
+              "values": {"value": {"node": 1, "socket": "index"}}
+            },
+            {"declaration": 3, "configuration": {"variable": {"value": 2}}, "values": {"value": {"type": 0, "value": 3}}}
           ]
         }
       ]

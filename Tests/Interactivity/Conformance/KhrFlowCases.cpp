@@ -55,7 +55,7 @@ public:
         RuntimeFixture fixture;
         if (!fixture.load("Assets/Interactivity/for-state.gltf")) { error = fixture.error; return false; }
         return requireInt(fixture.runtime, "before", 7.0, "KHR flow/for initialIndex configuration mismatch", error) &&
-            requireInt(fixture.runtime, "after", 5.0, "KHR flow/for must retain end index after completion", error);
+            requireInt(fixture.runtime, "after", 3.0, "KHR flow/for must reevaluate endIndex after each loop body", error);
     }
 };
 
@@ -90,7 +90,8 @@ public:
         return requireInt(fixture.runtime, "lastAfterThree", 2.0, "KHR flow/multiGate lastIndex mismatch", error) &&
             requireInt(fixture.runtime, "routeAfterExhausted", 8.0, "KHR flow/multiGate did not stop after exhausting outputs", error) &&
             requireInt(fixture.runtime, "lastAfterReset", -1.0, "KHR flow/multiGate reset did not restore lastIndex", error) &&
-            requireInt(fixture.runtime, "routeAfterReset", 1.0, "KHR flow/multiGate lexicographic/reset routing mismatch", error);
+            requireInt(fixture.runtime, "routeAfterReset", 1.0, "KHR flow/multiGate lexicographic/reset routing mismatch", error) &&
+            requireInt(fixture.runtime, "defaultedConfigRoute", 2.0, "KHR flow/multiGate must default both booleans when either configuration value is missing", error);
     }
 };
 

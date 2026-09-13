@@ -106,6 +106,9 @@ public:
         std::vector<double> clamp_int;
         std::vector<double> smooth;
         std::vector<double> smooth_reverse;
+        std::vector<double> random_self_equal;
+        std::vector<double> random_first;
+        std::vector<double> random_second;
         return Testing::require(
                    fixture.runtime.variable("clampFloat", &clamp_float) && clamp_float.size() == 1u && Testing::near(clamp_float[0], 3.0),
                    "KHR math/clamp a/b/c socket semantics mismatch", error) &&
@@ -120,7 +123,16 @@ public:
                 "KHR math/smoothStep a/b/c socket semantics mismatch", error) &&
             Testing::require(
                 fixture.runtime.variable("smoothReverse", &smooth_reverse) && smooth_reverse.size() == 1u && Testing::near(smooth_reverse[0], 0.15625, 1.0e-6),
-                "KHR math/smoothStep must accept reversed edges", error);
+                "KHR math/smoothStep must accept reversed edges", error) &&
+            Testing::require(
+                fixture.runtime.variable("randomSelfEqual", &random_self_equal) && random_self_equal.size() == 1u && random_self_equal[0] == 1.0,
+                "KHR math/random must be stable within one flow activation", error) &&
+            Testing::require(
+                fixture.runtime.variable("randomFirst", &random_first) && random_first.size() == 1u &&
+                    fixture.runtime.variable("randomSecond", &random_second) && random_second.size() == 1u &&
+                    random_first[0] >= 0.0 && random_first[0] < 1.0 && random_second[0] >= 0.0 && random_second[0] < 1.0 &&
+                    random_first[0] != random_second[0],
+                "KHR math/random must refresh after another flow activation", error);
     }
 };
 
