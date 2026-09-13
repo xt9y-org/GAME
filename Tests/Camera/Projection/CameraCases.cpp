@@ -1,7 +1,7 @@
 #include "Tests/Harness/Testing.hpp"
 #include "Tests/Register.hpp"
 
-#include "Camera.hpp"
+#include "Camera/Camera.hpp"
 #include "Renderer/Components.hpp"
 
 namespace Tests {
