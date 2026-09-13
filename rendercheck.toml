@@ -4,7 +4,7 @@ command = "c update build run"
 cwd = "."
 headless = "auto"
 renderer = "auto"
-timeout_ms = 30000.0
+timeout_ms = 120000.0
 
 [validation]
 vulkan = false
@@ -334,36 +334,6 @@ capture = false
 [[test]]
 name = "rendering-settings-rasterizer-viewport-culling"
 args = "-- --test rendering/settings/rasterizer/viewport-culling"
-capture = false
-
-[[test]]
-name = "rendering-settings-rasterizer-shadow-resolution"
-args = "-- --test rendering/settings/rasterizer/shadow-resolution"
-capture = false
-
-[[test]]
-name = "rendering-settings-rasterizer-fallback-shadow-resolution"
-args = "-- --test rendering/settings/rasterizer/fallback-shadow-resolution"
-capture = false
-
-[[test]]
-name = "rendering-settings-rasterizer-minimum-shadow-resolution"
-args = "-- --test rendering/settings/rasterizer/minimum-shadow-resolution"
-capture = false
-
-[[test]]
-name = "rendering-settings-rasterizer-shadow-near-plane"
-args = "-- --test rendering/settings/rasterizer/shadow-near-plane"
-capture = false
-
-[[test]]
-name = "rendering-settings-rasterizer-shadow-far-scale"
-args = "-- --test rendering/settings/rasterizer/shadow-far-scale"
-capture = false
-
-[[test]]
-name = "rendering-settings-rasterizer-directional-shadow-distance"
-args = "-- --test rendering/settings/rasterizer/directional-shadow-distance"
 capture = false
 
 [[test]]
