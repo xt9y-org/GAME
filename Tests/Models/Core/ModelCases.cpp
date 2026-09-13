@@ -3,6 +3,7 @@
 
 #include "Models/Compression/Checksums.hpp"
 #include "Models/Compression/Deflate.hpp"
+#include "Models/Compression/Zstd.hpp"
 #include "Models/Core/Material.hpp"
 #include "Models/Formats/Registry.hpp"
 #include "Models/Images/Registry.hpp"
@@ -215,9 +216,20 @@ public:
             return false;
         }
         const std::array<std::uint8_t, 5> expected{{'H','o','r','s','e'}};
+        if (!Testing::require(output.size() == expected.size() &&
+                              std::equal(output.begin(), output.end(), expected.begin()),
+                              "zlib inflate mismatch", error)) return false;
+
+        constexpr std::array<std::uint8_t, 14> zstd{{40,181,47,253,0,88,41,0,0,72,111,114,115,101}};
+        output.clear();
+        std::string zstd_error;
+        if (!Models::Compression::decompressZstd(zstd.data(), zstd.size(), &output, &zstd_error)) {
+            error = zstd_error;
+            return false;
+        }
         return Testing::require(output.size() == expected.size() &&
                                 std::equal(output.begin(), output.end(), expected.begin()),
-                                "zlib inflate mismatch", error);
+                                "Zstd decompress mismatch", error);
     }
 };
 
