@@ -105,6 +105,7 @@ public:
         std::vector<double> clamp_reverse;
         std::vector<double> clamp_int;
         std::vector<double> smooth;
+        std::vector<double> smooth_reverse;
         return Testing::require(
                    fixture.runtime.variable("clampFloat", &clamp_float) && clamp_float.size() == 1u && Testing::near(clamp_float[0], 3.0),
                    "KHR math/clamp a/b/c socket semantics mismatch", error) &&
@@ -116,7 +117,10 @@ public:
                 "KHR integer math/clamp semantics mismatch", error) &&
             Testing::require(
                 fixture.runtime.variable("smooth", &smooth) && smooth.size() == 1u && Testing::near(smooth[0], 0.15625, 1.0e-6),
-                "KHR math/smoothStep a/b/c socket semantics mismatch", error);
+                "KHR math/smoothStep a/b/c socket semantics mismatch", error) &&
+            Testing::require(
+                fixture.runtime.variable("smoothReverse", &smooth_reverse) && smooth_reverse.size() == 1u && Testing::near(smooth_reverse[0], 0.15625, 1.0e-6),
+                "KHR math/smoothStep must accept reversed edges", error);
     }
 };
 

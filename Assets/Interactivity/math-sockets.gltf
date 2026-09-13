@@ -23,7 +23,8 @@
             {"name": "clampFloat", "type": 0, "value": 0.0},
             {"name": "clampReverse", "type": 0, "value": 0.0},
             {"name": "clampInt", "type": 1, "value": 0},
-            {"name": "smooth", "type": 0, "value": 0.0}
+            {"name": "smooth", "type": 0, "value": 0.0},
+            {"name": "smoothReverse", "type": 0, "value": 0.0}
           ],
           "nodes": [
             {
@@ -65,13 +66,23 @@
                 "0": {"node": 6, "socket": "in"},
                 "1": {"node": 7, "socket": "in"},
                 "2": {"node": 8, "socket": "in"},
-                "3": {"node": 9, "socket": "in"}
+                "3": {"node": 9, "socket": "in"},
+                "4": {"node": 11, "socket": "in"}
               }
             },
             {"declaration": 4, "configuration": {"variable": {"value": 0}}, "values": {"value": {"node": 0, "socket": "value"}}},
             {"declaration": 4, "configuration": {"variable": {"value": 1}}, "values": {"value": {"node": 1, "socket": "value"}}},
             {"declaration": 4, "configuration": {"variable": {"value": 2}}, "values": {"value": {"node": 2, "socket": "value"}}},
-            {"declaration": 4, "configuration": {"variable": {"value": 3}}, "values": {"value": {"node": 3, "socket": "value"}}}
+            {"declaration": 4, "configuration": {"variable": {"value": 3}}, "values": {"value": {"node": 3, "socket": "value"}}},
+            {
+              "declaration": 1,
+              "values": {
+                "a": {"type": 0, "value": 1.0},
+                "b": {"type": 0, "value": 0.0},
+                "c": {"type": 0, "value": 0.25}
+              }
+            },
+            {"declaration": 4, "configuration": {"variable": {"value": 4}}, "values": {"value": {"node": 10, "socket": "value"}}}
           ]
         }
       ]
