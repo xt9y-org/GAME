@@ -70,6 +70,7 @@ inline void addLighting(Ecs::World& world)
         .color = {1.0f, 0.95f, 0.9f},
         .intensity = 2.0f,
     });
+    world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{});
 
     const Ecs::Entity environment = world.createEntity();
     world.add<Renderer::EnvironmentComponent>(environment, Renderer::EnvironmentComponent{
