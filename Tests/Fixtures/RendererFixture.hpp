@@ -37,8 +37,8 @@ private:
     Renderer::Rasterizer *rasterizer_ = nullptr;
     Renderer::RayTracer *ray_tracer_ = nullptr;
     Renderer::PathTracer *path_tracer_ = nullptr;
-    int width_ = 640;
-    int height_ = 360;
+    int width_ = 1280;
+    int height_ = 720;
     bool window_created_ = false;
     bool initialized_ = false;
     bool capture_probe_added_ = false;
