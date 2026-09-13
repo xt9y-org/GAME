@@ -41,9 +41,11 @@ public:
         const Ecs::Entity camera = Testing::addCamera(world);
         Testing::addLighting(world);
         const Renderer::Scenes::Scene::CameraState camera_state = Renderer::Scenes::Scene::cameraState(world);
-        const Renderer::Scenes::Scene::LightState light_state = Renderer::Scenes::Scene::lightState(world);
+        std::vector<Renderer::Scenes::Scene::LightState> lights;
+        Renderer::Scenes::Scene::collectLights(world, lights);
         return Testing::require(camera_state.valid && camera_state.entity == camera, "camera scene state mismatch", error) &&
-            Testing::require(light_state.valid && light_state.light.type == Renderer::LightType::Directional,
+            Testing::require(lights.size() == 1u, "light scene state count mismatch", error) &&
+            Testing::require(lights.front().valid && lights.front().light.type == Renderer::LightType::Directional,
                              "light scene state mismatch", error);
     }
 };
