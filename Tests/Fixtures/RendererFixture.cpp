@@ -2,7 +2,7 @@
 
 #include "Input/Input.hpp"
 #include "Renderer/SDLGPU/Context.hpp"
-#include "Renderer/Systems/SceneCache.hpp"
+#include "Renderer/Scenes/SceneCache.hpp"
 #include "UI/UI.hpp"
 #include "Window/Window.hpp"
 
@@ -208,19 +208,13 @@ bool RendererFixture::initialize(std::string_view renderer, std::string *error)
     }
     Input::reset();
 
-    Renderer::Systems::SceneCache::setLeafSize(8u);
-    Renderer::Systems::SceneCache::setMaximumTriangles(1000000u);
+    Renderer::Scenes::SceneCache::setLeafSize(8u);
+    Renderer::Scenes::SceneCache::setMaximumTriangles(1000000u);
 
     manager_.setPostProcessPipeline(&post_process_);
     rasterizer_ = &manager_.add<Renderer::Rasterizer>("rasterizer");
     rasterizer_->setEnabled(true);
     rasterizer_->setViewportCulling(true);
-    rasterizer_->setShadowResolution(1024);
-    rasterizer_->setFallbackShadowResolution(512);
-    rasterizer_->setMinimumShadowResolution(128);
-    rasterizer_->setShadowNearPlane(0.05f);
-    rasterizer_->setShadowFarScale(1.0f);
-    rasterizer_->setDirectionalShadowDistance(80.0f);
     rasterizer_->setClearColor({0.025f, 0.03f, 0.04f, 1.0f});
 
     ray_tracer_ = &manager_.add<Renderer::RayTracer>("raytracer");
