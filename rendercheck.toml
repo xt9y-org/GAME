@@ -187,6 +187,26 @@ args = "--test interactivity/math-socket-semantics"
 capture = false
 
 [[test]]
+name = "interactivity-flow-do-n-state"
+args = "--test interactivity/flow-do-n-state"
+capture = false
+
+[[test]]
+name = "interactivity-flow-for-state"
+args = "--test interactivity/flow-for-state"
+capture = false
+
+[[test]]
+name = "interactivity-flow-wait-all-state"
+args = "--test interactivity/flow-wait-all-state"
+capture = false
+
+[[test]]
+name = "interactivity-flow-multi-gate-state"
+args = "--test interactivity/flow-multi-gate-state"
+capture = false
+
+[[test]]
 name = "interactivity-limits"
 args = "--test interactivity/limits"
 capture = false
@@ -219,6 +239,31 @@ capture = false
 [[test]]
 name = "models-images"
 args = "--test models/images"
+capture = false
+
+[[test]]
+name = "models-images-png"
+args = "--test models/images/png"
+capture = false
+
+[[test]]
+name = "models-images-jpeg"
+args = "--test models/images/jpeg"
+capture = false
+
+[[test]]
+name = "models-images-tga"
+args = "--test models/images/tga"
+capture = false
+
+[[test]]
+name = "models-images-webp"
+args = "--test models/images/webp"
+capture = false
+
+[[test]]
+name = "models-images-ktx2"
+args = "--test models/images/ktx2"
 capture = false
 
 [[test]]
