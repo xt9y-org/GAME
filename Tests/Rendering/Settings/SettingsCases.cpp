@@ -41,12 +41,6 @@ public:
         Renderer::Rasterizer rasterizer;
         rasterizer.setEnabled(true);
         rasterizer.setViewportCulling(true);
-        rasterizer.setShadowResolution(2048);
-        rasterizer.setFallbackShadowResolution(512);
-        rasterizer.setMinimumShadowResolution(128);
-        rasterizer.setShadowNearPlane(0.03f);
-        rasterizer.setShadowFarScale(1.5f);
-        rasterizer.setDirectionalShadowDistance(120.0f);
         rasterizer.setClearColor({0.1f, 0.2f, 0.3f, 1.0f});
 
         Renderer::RayTracer ray;
@@ -62,13 +56,12 @@ public:
         path.setMovingPhaseGrid(4);
         path.setMovingDepthBlock(8);
 
+        const Renderer::Vec4 clear_color = rasterizer.clearColor();
         return Testing::require(rasterizer.enabled() && rasterizer.viewportCulling(), "rasterizer flags mismatch", error) &&
-            Testing::require(rasterizer.shadowResolution() == 2048 && rasterizer.fallbackShadowResolution() == 512 &&
-                             rasterizer.minimumShadowResolution() == 128, "rasterizer shadow settings mismatch", error) &&
-            Testing::require(Testing::near(rasterizer.shadowNearPlane(), 0.03f) &&
-                             Testing::near(rasterizer.shadowFarScale(), 1.5f) &&
-                             Testing::near(rasterizer.directionalShadowDistance(), 120.0f),
-                             "rasterizer distance settings mismatch", error) &&
+            Testing::require(
+                Testing::near(clear_color.x, 0.1f) && Testing::near(clear_color.y, 0.2f) &&
+                Testing::near(clear_color.z, 0.3f) && Testing::near(clear_color.w, 1.0f),
+                "rasterizer clear color mismatch", error) &&
             Testing::require(ray.enabled() && ray.resolutionDivisor() == 3, "ray tracer settings mismatch", error) &&
             Testing::require(path.enabled() && path.resolutionDivisor() == 2 && path.samplesPerFrame() == 4 &&
                              path.stationaryPhaseGrid() == 2 && path.resetPhaseGrid() == 1 &&
