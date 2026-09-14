@@ -647,3 +647,4 @@ name = "ui-frame-rasterizer"
 args = "-- --test ui/frame --renderer rasterizer"
 capture = true
 warmup_frames = 30
+max_changed_percent = 0.5
