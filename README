@@ -1,9 +1,3 @@
-GAME
+-- GAME --
 
-c build
-c run
-renderercheck run
-
-WASD + mouse
-Tab: toggle mouse
-Esc: quit
+c build run
