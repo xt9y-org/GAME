@@ -20,7 +20,6 @@
 #include <string>
 #include <string_view>
 
-
 class GAME 
 {
 public:
