@@ -44,11 +44,7 @@ void drawTopBar(State& state)
 {
     if (!ImGui::BeginMainMenuBar()) return;
 
-    if (ImGui::BeginMenu("Demo")) {
-        ImGui::MenuItem("ImGui Demo", nullptr, &state.show_imgui_demo);
-        ImGui::EndMenu();
-    }
-
+    emptyMenu("Demo");
     emptyMenu("File");
     emptyMenu("Editors");
     emptyMenu("Tools");
@@ -248,9 +244,6 @@ void draw(State& state, Position position)
     drawPerformance(state);
     drawPosition(state, position);
     drawConsole(state);
-
-    if (state.show_imgui_demo)
-        ImGui::ShowDemoWindow(&state.show_imgui_demo);
 }
 
 } // namespace Debugging
