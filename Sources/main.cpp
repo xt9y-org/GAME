@@ -19,6 +19,7 @@
 #include "Debugging/Debugging.hpp"
 #include "Debugging/Values.hpp"
 #include "Dependencies/Dependencies.hpp"
+#include "Showcase/Showcase.hpp"
 
 #include <filesystem>
 #include <chrono>
@@ -217,6 +218,17 @@ public:
             return "[GAME] [ERROR] Could not init debug UI\n";
         }
 
+        Showcase::Lineup showcase;
+        std::string showcase_report;
+        const std::size_t showcase_count = Showcase::create(
+            world,
+            PATH / "CS2",
+            showcase,
+            &showcase_report
+        );
+        std::printf("[GAME] [SHOWCASE] Loaded %zu models\n", showcase_count);
+        if (!showcase_report.empty()) std::fprintf(stderr, "%s\n", showcase_report.c_str());
+
         Debugging::State debugging;
         Debugging::applyStyle();
 
@@ -315,6 +327,7 @@ public:
             ).count();
         }
 
+        Showcase::destroy(world, showcase);
         UI::shutdown();
         renderer.shutdown();
         Renderer::ModelScene::destroy(world, weapon_instance);
