@@ -42,8 +42,8 @@ public:
         });
 
         Camera::FreeController camera_controller;
-        camera_controller.setSpeed(10.0f);
-        camera_controller.setSprintMultiplier(10.0f);
+        camera_controller.setSpeed(45.0f);
+        camera_controller.setSprintMultiplier(50.0f);
         camera_controller.setMouseSensitivity(0.1f);
         camera_controller.setPitchRange(-89.0f, 89.0f);
 
@@ -58,10 +58,10 @@ public:
 
         const Ecs::Entity light = world.createEntity();
         world.add<Renderer::Transform>(light, Renderer::Transform{
-            .position = {0.0f, 1.0f, 0.0f},
+            .rotation = {0.45f, 0.45f, 0.45f},
         });
         world.add<Renderer::LightComponent>(light, Renderer::LightComponent{
-            .type = Renderer::LightType::Point,
+            .type = Renderer::LightType::Directional,
             .color = {1.0f, 1.0f, 1.0f},
             .intensity = 1.0f,
             .range = 200.0f,
