@@ -18,6 +18,7 @@
 
 #include "Debugging/Debugging.hpp"
 #include "Debugging/Values.hpp"
+#include "Dependencies/Dependencies.hpp"
 
 #include <filesystem>
 #include <chrono>
@@ -85,9 +86,14 @@ public:
         std::string error;
 
         const std::filesystem::path PATH = "Assets/";
-        
+        const std::filesystem::path sponza_path = Dependencies::path("Sponza");
+        if (sponza_path.empty() || !std::filesystem::exists(sponza_path / "sponza.obj")) {
+            Window::destroy();
+            return "[GAME] [ERROR] Could not resolve Sponza dependency\n";
+        }
+
         const Models::ModelHandle scene = Models::load(
-            (PATH / "Sponza/sponza.obj").string(),
+            (sponza_path / "sponza.obj").string(),
             &error
         );
 
@@ -115,12 +121,12 @@ public:
             (PATH / "CS2/Anim/animation/anims/viewmodel/pistol/pistol_revolver/lookat01_revolver.gltf").string(),
             &error
         );
-        
+
         bool valid = (arms == Models::INVALID_MODEL ||
                     weapon == Models::INVALID_MODEL ||
                      scene == Models::INVALID_MODEL ||
                       idle == Models::INVALID_MODEL ||
-                     shoot == Models::INVALID_MODEL || 
+                     shoot == Models::INVALID_MODEL ||
                     reload == Models::INVALID_MODEL ||
                    inspect == Models::INVALID_MODEL);
 
@@ -167,7 +173,7 @@ public:
             animation, weapon_instance
         );
 
-        valid = (arms_target == Models::INVALID_INDEX || 
+        valid = (arms_target == Models::INVALID_INDEX ||
                weapon_target == Models::INVALID_INDEX ||
             !Renderer::ModelScene::attach(animation, weapon_target, "wpn", "weapon") ||
             !Renderer::ModelScene::play(animation, idle, 0u, true, &error));
@@ -231,7 +237,7 @@ public:
             previous = now;
             if (delta > 0.1f) delta = 0.1f;
             Debugging::sample(debugging, delta);
-            
+
             if (Input::keyPressed(capture_key)) {
                 Input::setPointerCaptured(!Input::pointer().captured);
             }

@@ -1,4 +1,5 @@
 #include "Debugging.hpp"
+#include "Layout.hpp"
 #include "Values.hpp"
 
 #include <Camera/Camera.hpp>
@@ -37,6 +38,11 @@ void markLighting(Ecs::World& world)
     world.markChanged(Ecs::ChangeKind::Lighting);
 }
 
+void scalarWidth()
+{
+    ImGui::SetNextItemWidth(Layout::ControlWidth);
+}
+
 bool barFloat(
     const char *label,
     float *value,
@@ -44,17 +50,9 @@ bool barFloat(
     const char *format)
 {
     ImGui::PushID(label);
-
     const float button_width = ImGui::GetFrameHeight();
-    const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const float label_width = ImGui::CalcTextSize(label).x;
-    const float available = ImGui::GetContentRegionAvail().x;
-    const float bar_width = std::max(
-        100.0f,
-        available - label_width - button_width * 2.0f - spacing * 4.0f
-    );
 
-    ImGui::SetNextItemWidth(bar_width);
+    scalarWidth();
     bool changed = ImGui::SliderFloat(
         "##Value",
         value,
@@ -91,17 +89,9 @@ bool barInt(
     const char *format = "%d")
 {
     ImGui::PushID(label);
-
     const float button_width = ImGui::GetFrameHeight();
-    const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const float label_width = ImGui::CalcTextSize(label).x;
-    const float available = ImGui::GetContentRegionAvail().x;
-    const float bar_width = std::max(
-        100.0f,
-        available - label_width - button_width * 2.0f - spacing * 4.0f
-    );
 
-    ImGui::SetNextItemWidth(bar_width);
+    scalarWidth();
     bool changed = ImGui::SliderInt(
         "##Value",
         value,
@@ -134,21 +124,13 @@ bool barInt(
 bool shadowResolutionBar(int *value)
 {
     ImGui::PushID("Shadow Resolution");
-
     const float button_width = ImGui::GetFrameHeight();
-    const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const char *label = "Shadow Resolution";
-    const float label_width = ImGui::CalcTextSize(label).x;
-    const float available = ImGui::GetContentRegionAvail().x;
-    const float bar_width = std::max(
-        100.0f,
-        available - label_width - button_width * 2.0f - spacing * 4.0f
-    );
-
     int slider = *value;
-    ImGui::SetNextItemWidth(bar_width);
+
+    scalarWidth();
     bool changed = ImGui::SliderInt(
-        "##Value", &slider,
+        "##Value",
+        &slider,
         Values::ShadowResolutions.front(),
         Values::ShadowResolutions.back(),
         "%d",
@@ -170,11 +152,25 @@ bool shadowResolutionBar(int *value)
     }
 
     ImGui::SameLine();
-    ImGui::TextUnformatted(label);
+    ImGui::TextUnformatted("Shadow Resolution");
     ImGui::PopID();
 
     if (changed) *value = slider;
     return changed;
+}
+
+void pushProfilerStyle()
+{
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, profiler_background);
+    ImGui::PushStyleColor(ImGuiCol_Border, profiler_border);
+    ImGui::PushStyleColor(ImGuiCol_TitleBg, profiler_background);
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, profiler_background);
+    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, profiler_plot);
+}
+
+void popProfilerStyle()
+{
+    ImGui::PopStyleColor(5);
 }
 
 void drawDebugMenu(State& state, Context& context)
@@ -182,7 +178,7 @@ void drawDebugMenu(State& state, Context& context)
     if (!ImGui::BeginMenu("Debug")) return;
 
     ImGui::MenuItem("Display FPS", nullptr, &state.show_fps);
-    ImGui::MenuItem("Display position", nullptr, &state.show_position);
+    ImGui::MenuItem("Display Camera", nullptr, &state.show_camera);
 
     ImGui::BeginDisabled();
     ImGui::MenuItem("Wireframe", nullptr, false);
@@ -235,11 +231,10 @@ void drawCameraMenu(Context& context)
 
         if (barFloat("Far Plane", &camera->far_plane, Values::CameraFar, "%.0f"))
             markCamera(context.world);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("0 uses Horse's automatic/infinite far plane");
 
         int projection = camera->projection == Camera::Projection::Perspective ? 0 : 1;
         const char *projections[] = {"Perspective", "Orthographic"};
+        scalarWidth();
         if (ImGui::Combo("Projection", &projection, projections, 2)) {
             camera->projection = projection == 0
                 ? Camera::Projection::Perspective
@@ -273,6 +268,7 @@ void drawCameraMenu(Context& context)
         context.camera_controller.minimumPitch(),
         context.camera_controller.maximumPitch(),
     };
+    scalarWidth();
     if (ImGui::DragFloat2("Pitch Range", pitch, 1.0f, -89.0f, 89.0f, "%.0f"))
         context.camera_controller.setPitchRange(pitch[0], pitch[1]);
 
@@ -305,6 +301,7 @@ void drawRendererMenu(Context& context)
 
     Renderer::Vec4 clear = context.renderer.clearColor();
     float clear_color[4] = {clear.x, clear.y, clear.z, clear.w};
+    scalarWidth();
     if (ImGui::ColorEdit4("Clear Color", clear_color)) {
         context.renderer.setClearColor({
             clear_color[0], clear_color[1], clear_color[2], clear_color[3]
@@ -341,6 +338,7 @@ void drawEnvironmentMenu(Context& context)
         environment->sky_color.y,
         environment->sky_color.z,
     };
+    scalarWidth();
     if (ImGui::ColorEdit3("Sky Color", sky)) {
         environment->sky_color = {sky[0], sky[1], sky[2]};
         markLighting(context.world);
@@ -351,6 +349,7 @@ void drawEnvironmentMenu(Context& context)
         environment->ambient_color.y,
         environment->ambient_color.z,
     };
+    scalarWidth();
     if (ImGui::ColorEdit3("Ambient Color", ambient)) {
         environment->ambient_color = {ambient[0], ambient[1], ambient[2]};
         markLighting(context.world);
@@ -363,6 +362,7 @@ void drawEnvironmentMenu(Context& context)
 
     int fog = static_cast<int>(environment->fog);
     const char *fog_modes[] = {"None", "Linear", "Exponential"};
+    scalarWidth();
     if (ImGui::Combo("Mode", &fog, fog_modes, 3)) {
         environment->fog = static_cast<Renderer::FogMode>(fog);
         markLighting(context.world);
@@ -374,6 +374,7 @@ void drawEnvironmentMenu(Context& context)
             environment->fog_color.y,
             environment->fog_color.z,
         };
+        scalarWidth();
         if (ImGui::ColorEdit3("Fog Color", fog_color)) {
             environment->fog_color = {fog_color[0], fog_color[1], fog_color[2]};
             markLighting(context.world);
@@ -409,12 +410,14 @@ void drawLightMenu(Context& context)
 
     int type = static_cast<int>(light->type);
     const char *types[] = {"Directional", "Point", "Spot"};
+    scalarWidth();
     if (ImGui::Combo("Type", &type, types, 3)) {
         light->type = static_cast<Renderer::LightType>(type);
         markLighting(context.world);
     }
 
     float color[3] = {light->color.x, light->color.y, light->color.z};
+    scalarWidth();
     if (ImGui::ColorEdit3("Color", color)) {
         light->color = {color[0], color[1], color[2]};
         markLighting(context.world);
@@ -440,15 +443,18 @@ void drawLightMenu(Context& context)
             markLighting(context.world);
     }
 
+    scalarWidth();
     if (ImGui::DragFloat3("Position", &transform->position.x, 1.0f, -10000.0f, 10000.0f, "%.0f")) {
         context.world.markChanged(Ecs::ChangeKind::Transform);
         markLighting(context.world);
     }
 
-    if (light->type != Renderer::LightType::Point &&
-        ImGui::DragFloat3("Rotation", &transform->rotation.x, 1.0f, -180.0f, 180.0f, "%.0f")) {
-        context.world.markChanged(Ecs::ChangeKind::Transform);
-        markLighting(context.world);
+    if (light->type != Renderer::LightType::Point) {
+        scalarWidth();
+        if (ImGui::DragFloat3("Rotation", &transform->rotation.x, 1.0f, -180.0f, 180.0f, "%.0f")) {
+            context.world.markChanged(Ecs::ChangeKind::Transform);
+            markLighting(context.world);
+        }
     }
 
     if (shadow) {
@@ -501,18 +507,16 @@ void drawPerformance(State& state)
 
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(
-        ImVec2(io.DisplaySize.x - 8.0f, ImGui::GetFrameHeight() + 8.0f),
-        ImGuiCond_FirstUseEver,
+        ImVec2(io.DisplaySize.x - Layout::PanelPadding, ImGui::GetFrameHeight() + Layout::PanelPadding),
+        ImGuiCond_Always,
         ImVec2(1.0f, 0.0f)
     );
-    ImGui::SetNextWindowSize(ImVec2(350.0f, 360.0f), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(
+        ImVec2(Layout::PanelWidth, Layout::PerformanceHeight),
+        ImGuiCond_Always
+    );
 
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, profiler_background);
-    ImGui::PushStyleColor(ImGuiCol_Border, profiler_border);
-    ImGui::PushStyleColor(ImGuiCol_TitleBg, profiler_background);
-    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, profiler_background);
-    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, profiler_plot);
-
+    pushProfilerStyle();
     if (ImGui::Begin(
             "Performance",
             &state.show_fps,
@@ -553,25 +557,49 @@ void drawPerformance(State& state)
         metric("Debug UI", state.ui_ms);
     }
     ImGui::End();
-
-    ImGui::PopStyleColor(5);
+    popProfilerStyle();
 }
 
-void drawPosition(State& state, Context& context)
+void drawCameraPanel(State& state, Context& context)
 {
-    if (!state.show_position) return;
+    if (!state.show_camera) return;
 
     const Renderer::Transform *transform =
         context.world.get<Renderer::Transform>(context.camera);
     if (!transform) return;
 
-    ImGui::SetNextWindowSize(ImVec2(250.0f, 130.0f), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Position", &state.show_position, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::Text("X  %.3f", transform->position.x);
-        ImGui::Text("Y  %.3f", transform->position.y);
-        ImGui::Text("Z  %.3f", transform->position.z);
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(
+        ImVec2(
+            io.DisplaySize.x - Layout::PanelPadding,
+            Layout::CameraPanelTop(state.show_fps, ImGui::GetFrameHeight())
+        ),
+        ImGuiCond_Always,
+        ImVec2(1.0f, 0.0f)
+    );
+    ImGui::SetNextWindowSize(
+        ImVec2(Layout::PanelWidth, Layout::CameraHeight),
+        ImGuiCond_Always
+    );
+
+    pushProfilerStyle();
+    if (ImGui::Begin(
+            "Camera",
+            &state.show_camera,
+            ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::TextColored(heading_color, "%s", "Position");
+        ImGui::Text("X     %8.3f", transform->position.x);
+        ImGui::Text("Y     %8.3f", transform->position.y);
+        ImGui::Text("Z     %8.3f", transform->position.z);
+
+        ImGui::Separator();
+        ImGui::TextColored(heading_color, "%s", "Rotation");
+        ImGui::Text("Pitch %8.2f deg", transform->rotation.x);
+        ImGui::Text("Yaw   %8.2f deg", transform->rotation.y);
+        ImGui::Text("Roll  %8.2f deg", transform->rotation.z);
     }
     ImGui::End();
+    popProfilerStyle();
 }
 
 } // namespace
@@ -620,7 +648,7 @@ void draw(State& state, Context& context)
 {
     drawTopBar(state, context);
     drawPerformance(state);
-    drawPosition(state, context);
+    drawCameraPanel(state, context);
 }
 
 } // namespace Debugging

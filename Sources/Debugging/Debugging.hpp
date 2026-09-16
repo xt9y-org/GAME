@@ -28,7 +28,7 @@ struct State
     float ui_ms = 0.0f;
 
     bool show_fps = true;
-    bool show_position = false;
+    bool show_camera = false;
 };
 
 struct Context
