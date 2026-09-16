@@ -5,8 +5,8 @@
 #include <Renderer/Components.hpp>
 
 #include <array>
-#include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace Showcase {
