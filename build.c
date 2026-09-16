@@ -39,6 +39,14 @@ void build(C_Build *b)
     );
     c_dep_header_only(sponza);
 
+    C_Dependency *floor = c_git(
+        b,
+        "Floor",
+        "https://github.com/xt9y-org/Floor.git",
+        "main"
+    );
+    c_dep_header_only(floor);
+
     C_Dependency *imgui = c_git(
         b,
         "imgui",
@@ -57,6 +65,7 @@ void build(C_Build *b)
     c_link_system(game, "pthread");
     c_use(game, horse);
     c_use(game, sponza);
+    c_use(game, floor);
     c_use(game, imgui);
     define_root(game);
     c_default_target(b, game);

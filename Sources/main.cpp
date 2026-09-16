@@ -40,9 +40,9 @@ public:
         world.add<Renderer::Transform>(camera, Renderer::Transform{});
         world.add<Camera::CameraComponent>(camera, Camera::CameraComponent{
             .fov_degrees = Debugging::Values::CameraFovDefault,
-            .near_plane = Debugging::Values::CameraNearDefault,
+            .near_plane  = Debugging::Values::CameraNearDefault,
+            .far_plane   = Debugging::Values::CameraFarDefault,
             .active = true,
-            .far_plane = Debugging::Values::CameraFarDefault,
         });
 
         Camera::FreeController camera_controller;
@@ -69,10 +69,10 @@ public:
             },
         });
         world.add<Renderer::LightComponent>(light, Renderer::LightComponent{
-            .type = Renderer::LightType::Directional,
-            .color = {1.0f, 1.0f, 1.0f},
-            .intensity = Debugging::Values::LightIntensityDefault,
-            .range = 200.0f,
+            .type       = Renderer::LightType::Directional,
+            .color      = {1.0f, 1.0f, 1.0f},
+            .intensity  = Debugging::Values::LightIntensityDefault,
+            .range      = 200.0f,
         });
 
         world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{
@@ -86,14 +86,14 @@ public:
         std::string error;
 
         const std::filesystem::path PATH = "Assets/";
-        const std::filesystem::path sponza_path = Dependencies::path("Sponza");
-        if (sponza_path.empty() || !std::filesystem::exists(sponza_path / "sponza.obj")) {
-            Window::destroy();
-            return "[GAME] [ERROR] Could not resolve Sponza dependency\n";
-        }
+
+        // const Models::ModelHandle scene = Models::load(
+        //     (Dependencies::path("Sponza") / "sponza.obj").string(),
+        //     &error
+        // );
 
         const Models::ModelHandle scene = Models::load(
-            (sponza_path / "sponza.obj").string(),
+            (Dependencies::path("Floor") / "floor.obj").string(),
             &error
         );
 
