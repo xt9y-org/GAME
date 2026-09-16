@@ -14,6 +14,10 @@
 #include <Renderer/Rasterizer/Rasterizer.hpp>
 #include <Renderer/Scenes/SceneCache.hpp>
 
+#include <UI/UI.hpp>
+
+#include "Debugging/Debugging.hpp"
+
 #include <filesystem>
 #include <chrono>
 #include <cstdio>
@@ -184,6 +188,17 @@ public:
         int height = Window::height();
         renderer.resize(width, height);
 
+        if (!UI::init()) {
+            renderer.shutdown();
+            Renderer::ModelScene::destroy(world, weapon_instance);
+            Renderer::ModelScene::destroy(world, arms_instance);
+            Window::destroy();
+            return "[GAME] [ERROR] Could not init debug UI\n";
+        }
+
+        Debugging::State debugging;
+        Debugging::applyStyle();
+
         const Input::Button shoot_button = Input::button("left");
         const Input::Key reload_key = Input::key("R");
         const Input::Key inspect_key = Input::key("F");
@@ -200,28 +215,31 @@ public:
             float delta = std::chrono::duration<float>(now - previous).count();
             previous = now;
             if (delta > 0.1f) delta = 0.1f;
+            Debugging::sample(debugging, delta);
             
             if (Input::keyPressed(capture_key)) {
                 Input::setPointerCaptured(!Input::pointer().captured);
             }
 
+            const auto update_begin = Clock::now();
+
             if (Input::pointer().captured) {
                 camera_controller.update(world, delta);
-            }
 
-            if (Input::buttonPressed(shoot_button) &&
-                !Renderer::ModelScene::play(animation, shoot, 0u, false, &error)) {
-                break;
-            }
+                if (Input::buttonPressed(shoot_button) &&
+                    !Renderer::ModelScene::play(animation, shoot, 0u, false, &error)) {
+                    break;
+                }
 
-            if (Input::keyPressed(reload_key) &&
-                !Renderer::ModelScene::play(animation, reload, 0u, false, &error)) {
-                break;
-            }
+                if (Input::keyPressed(reload_key) &&
+                    !Renderer::ModelScene::play(animation, reload, 0u, false, &error)) {
+                    break;
+                }
 
-            if (Input::keyPressed(inspect_key) &&
-                !Renderer::ModelScene::play(animation, inspect, 0u, false, &error)) {
-                break;
+                if (Input::keyPressed(inspect_key) &&
+                    !Renderer::ModelScene::play(animation, inspect, 0u, false, &error)) {
+                    break;
+                }
             }
 
             if (!Renderer::ModelScene::update(world, animation, delta, &error)) {
@@ -242,9 +260,39 @@ public:
                 renderer.resize(width, height);
             }
 
+            debugging.update_ms = std::chrono::duration<float, std::milli>(
+                Clock::now() - update_begin
+            ).count();
+
+            if (!UI::beginFrame() && !UI::initialized()) {
+                error = "Could not begin debug UI frame";
+                break;
+            }
+            UI::showOverlay();
+
+            Debugging::Position camera_position{};
+            if (const Renderer::Transform *transform = world.get<Renderer::Transform>(camera)) {
+                camera_position = {
+                    transform->position.x,
+                    transform->position.y,
+                    transform->position.z,
+                };
+            }
+
+            const auto ui_begin = Clock::now();
+            Debugging::draw(debugging, camera_position);
+            debugging.ui_ms = std::chrono::duration<float, std::milli>(
+                Clock::now() - ui_begin
+            ).count();
+
+            const auto render_begin = Clock::now();
             renderer.render(world);
+            debugging.render_ms = std::chrono::duration<float, std::milli>(
+                Clock::now() - render_begin
+            ).count();
         }
 
+        UI::shutdown();
         renderer.shutdown();
         Renderer::ModelScene::destroy(world, weapon_instance);
         Renderer::ModelScene::destroy(world, arms_instance);
