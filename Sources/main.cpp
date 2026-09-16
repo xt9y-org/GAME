@@ -55,9 +55,6 @@ public:
             .scale = {1.0f, 1.0f, -1.0f},
         });
         world.add<Renderer::Parent>(viewmodel, Renderer::Parent{camera});
-        world.add<Renderer::RenderLayerComponent>(viewmodel, Renderer::RenderLayerComponent{
-            .layer = Renderer::RenderLayer::Overlay,
-        });
 
         const Ecs::Entity light = world.createEntity();
         world.add<Renderer::Transform>(light, Renderer::Transform{
