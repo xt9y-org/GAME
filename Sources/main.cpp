@@ -17,6 +17,7 @@
 #include <UI/UI.hpp>
 
 #include "Debugging/Debugging.hpp"
+#include "Debugging/Values.hpp"
 
 #include <filesystem>
 #include <chrono>
@@ -37,8 +38,10 @@ public:
         const Ecs::Entity camera = world.createEntity();
         world.add<Renderer::Transform>(camera, Renderer::Transform{});
         world.add<Camera::CameraComponent>(camera, Camera::CameraComponent{
-            .fov_degrees = 70.0f,
+            .fov_degrees = Debugging::Values::CameraFovDefault,
+            .near_plane = Debugging::Values::CameraNearDefault,
             .active = true,
+            .far_plane = Debugging::Values::CameraFarDefault,
         });
 
         Camera::FreeController camera_controller;
@@ -58,16 +61,23 @@ public:
 
         const Ecs::Entity light = world.createEntity();
         world.add<Renderer::Transform>(light, Renderer::Transform{
-            .rotation = {0.45f, 0.45f, 0.45f},
+            .rotation = {
+                Debugging::Values::LightRotationXDefault,
+                Debugging::Values::LightRotationYDefault,
+                Debugging::Values::LightRotationZDefault,
+            },
         });
         world.add<Renderer::LightComponent>(light, Renderer::LightComponent{
             .type = Renderer::LightType::Directional,
             .color = {1.0f, 1.0f, 1.0f},
-            .intensity = 1.0f,
+            .intensity = Debugging::Values::LightIntensityDefault,
             .range = 200.0f,
         });
 
-        world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{});
+        world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{
+            .enabled = true,
+            .bias = Debugging::Values::ShadowBiasDefault,
+        });
 
         const Ecs::Entity environment = world.createEntity();
         world.add<Renderer::EnvironmentComponent>(environment, Renderer::EnvironmentComponent{});
@@ -176,6 +186,11 @@ public:
         Renderer::Rasterizer renderer;
         renderer.setEnabled(true);
         renderer.setViewportCulling(true);
+        renderer.setShadowResolution(Debugging::Values::ShadowResolutionDefault);
+        renderer.setShadowCascades(Debugging::Values::ShadowCascadesDefault);
+        renderer.setShadowDistance(Debugging::Values::ShadowDistanceDefault);
+        renderer.setShadowNearPlane(Debugging::Values::ShadowNearDefault);
+        renderer.setClearColor({0.0f, 0.0f, 0.0f, 0.0f});
 
         if (!renderer.init()) {
             Renderer::ModelScene::destroy(world, weapon_instance);
