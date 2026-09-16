@@ -1,9 +1,14 @@
 #include "Debugging.hpp"
 
+#include <Camera/Camera.hpp>
+#include <Renderer/Components.hpp>
+#include <Renderer/Debug/Debug.hpp>
+#include <Renderer/Environment.hpp>
+#include <Renderer/Rasterizer/Rasterizer.hpp>
+
 #include <imgui.h>
 
 #include <algorithm>
-#include <cfloat>
 #include <cstdio>
 
 namespace Debugging {
@@ -14,18 +19,6 @@ constexpr ImVec4 profiler_background{0.02f, 0.03f, 0.28f, 0.96f};
 constexpr ImVec4 profiler_border{0.38f, 0.62f, 1.0f, 1.0f};
 constexpr ImVec4 profiler_plot{1.0f, 0.9f, 0.0f, 1.0f};
 
-void disabled(const char *label)
-{
-    ImGui::MenuItem(label, nullptr, false, false);
-}
-
-void emptyMenu(const char *label)
-{
-    if (!ImGui::BeginMenu(label)) return;
-    disabled("No actions");
-    ImGui::EndMenu();
-}
-
 void section(const char *label)
 {
     ImGui::Spacing();
@@ -33,57 +26,302 @@ void section(const char *label)
     ImGui::Separator();
 }
 
-void disabledSubmenu(const char *label)
+void markCamera(Ecs::World& world)
 {
-    if (!ImGui::BeginMenu(label)) return;
-    disabled("No debug views");
+    world.markChanged(Ecs::ChangeKind::Camera);
+}
+
+void markLighting(Ecs::World& world)
+{
+    world.markChanged(Ecs::ChangeKind::Lighting);
+}
+
+void drawDebugMenu(State& state, Context& context)
+{
+    if (!ImGui::BeginMenu("Debug")) return;
+
+    ImGui::MenuItem("Display FPS", nullptr, &state.show_fps);
+    ImGui::MenuItem("Display position", nullptr, &state.show_position);
+
+    ImGui::BeginDisabled();
+    ImGui::MenuItem("Wireframe", nullptr, false);
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("Not exposed by the current Horse rasterizer");
+
+    section("Experimental");
+
+    Renderer::Debug::Inspector& inspector = Renderer::Debug::inspector();
+
+    bool frozen = inspector.frozen();
+    if (ImGui::MenuItem("Freeze Scene", nullptr, &frozen)) {
+        if (frozen) inspector.freeze(context.world, context.width, context.height);
+        else inspector.unfreeze(context.world);
+    }
+
+    bool show_bvh = inspector.showBvh();
+    if (ImGui::MenuItem("Show BVH", nullptr, &show_bvh))
+        inspector.setShowBvh(show_bvh);
+
+    bool show_viewport = inspector.showViewport();
+    if (ImGui::MenuItem("Show Viewport", nullptr, &show_viewport))
+        inspector.setShowViewport(show_viewport);
+
+    const Renderer::Debug::BvhInfo bvh = inspector.bvhInfo();
+    int level = inspector.bvhLevel();
+    const int maximum_level = std::max(bvh.maximum_level, 0);
+    if (ImGui::SliderInt("BVH Level", &level, 0, maximum_level))
+        inspector.setBvhLevel(level);
+
+    float opacity = inspector.overlayOpacity();
+    if (ImGui::SliderFloat("Overlay Opacity", &opacity, 0.0f, 1.0f, "%.2f"))
+        inspector.setOverlayOpacity(opacity);
+
     ImGui::EndMenu();
 }
 
-void drawTopBar(State& state)
+void drawCameraMenu(Context& context)
+{
+    if (!ImGui::BeginMenu("Camera")) return;
+
+    Camera::CameraComponent *camera = context.world.get<Camera::CameraComponent>(context.camera);
+    if (camera) {
+        if (ImGui::SliderFloat("FOV", &camera->fov_degrees, 20.0f, 140.0f, "%.1f deg"))
+            markCamera(context.world);
+
+        if (ImGui::DragFloat("Near Plane", &camera->near_plane, 0.005f, 0.0001f, 100.0f, "%.4f"))
+            markCamera(context.world);
+
+        if (ImGui::DragFloat("Far Plane", &camera->far_plane, 1.0f, 0.0f, 100000.0f, "%.1f"))
+            markCamera(context.world);
+
+        int projection = camera->projection == Camera::Projection::Perspective ? 0 : 1;
+        const char *projections[] = {"Perspective", "Orthographic"};
+        if (ImGui::Combo("Projection", &projection, projections, 2)) {
+            camera->projection = projection == 0
+                ? Camera::Projection::Perspective
+                : Camera::Projection::Orthographic;
+            markCamera(context.world);
+        }
+
+        if (camera->projection == Camera::Projection::Orthographic) {
+            if (ImGui::DragFloat("Width", &camera->xmag, 0.05f, 0.01f, 10000.0f, "%.2f"))
+                markCamera(context.world);
+            if (ImGui::DragFloat("Height", &camera->ymag, 0.05f, 0.01f, 10000.0f, "%.2f"))
+                markCamera(context.world);
+        }
+    }
+
+    ImGui::Separator();
+
+    float speed = context.camera_controller.speed();
+    if (ImGui::DragFloat("Speed", &speed, 0.1f, 0.0f, 10000.0f, "%.2f"))
+        context.camera_controller.setSpeed(speed);
+
+    float sprint = context.camera_controller.sprintMultiplier();
+    if (ImGui::DragFloat("Sprint Multiplier", &sprint, 0.1f, 0.0f, 1000.0f, "%.2f"))
+        context.camera_controller.setSprintMultiplier(sprint);
+
+    float sensitivity = context.camera_controller.mouseSensitivity();
+    if (ImGui::DragFloat("Mouse Sensitivity", &sensitivity, 0.005f, 0.0f, 10.0f, "%.3f"))
+        context.camera_controller.setMouseSensitivity(sensitivity);
+
+    float pitch[2] = {
+        context.camera_controller.minimumPitch(),
+        context.camera_controller.maximumPitch(),
+    };
+    if (ImGui::DragFloat2("Pitch Range", pitch, 0.1f, -179.0f, 179.0f, "%.1f"))
+        context.camera_controller.setPitchRange(pitch[0], pitch[1]);
+
+    ImGui::EndMenu();
+}
+
+void drawRendererMenu(Context& context)
+{
+    if (!ImGui::BeginMenu("Renderer")) return;
+
+    bool viewport_culling = context.renderer.viewportCulling();
+    if (ImGui::MenuItem("Viewport Culling", nullptr, &viewport_culling))
+        context.renderer.setViewportCulling(viewport_culling);
+
+    int shadow_resolution = context.renderer.shadowResolution();
+    if (ImGui::SliderInt("Shadow Resolution", &shadow_resolution, 128, 4096))
+        context.renderer.setShadowResolution(shadow_resolution);
+
+    int shadow_cascades = context.renderer.shadowCascades();
+    if (ImGui::SliderInt("Shadow Cascades", &shadow_cascades, 1, 8))
+        context.renderer.setShadowCascades(shadow_cascades);
+
+    float shadow_distance = context.renderer.shadowDistance();
+    if (ImGui::DragFloat("Shadow Distance", &shadow_distance, 1.0f, 1.0f, 10000.0f, "%.1f"))
+        context.renderer.setShadowDistance(shadow_distance);
+
+    float shadow_near = context.renderer.shadowNearPlane();
+    if (ImGui::DragFloat("Shadow Near Plane", &shadow_near, 0.005f, 0.0001f, 100.0f, "%.4f"))
+        context.renderer.setShadowNearPlane(shadow_near);
+
+    Renderer::Vec4 clear = context.renderer.clearColor();
+    float clear_color[4] = {clear.x, clear.y, clear.z, clear.w};
+    if (ImGui::ColorEdit4("Clear Color", clear_color)) {
+        context.renderer.setClearColor({
+            clear_color[0], clear_color[1], clear_color[2], clear_color[3]
+        });
+    }
+
+    ImGui::EndMenu();
+}
+
+void drawEnvironmentMenu(Context& context)
+{
+    if (!ImGui::BeginMenu("Environment")) return;
+
+    Renderer::EnvironmentComponent *environment =
+        context.world.get<Renderer::EnvironmentComponent>(context.environment);
+
+    if (!environment) {
+        ImGui::TextDisabled("No environment component");
+        ImGui::EndMenu();
+        return;
+    }
+
+    if (ImGui::MenuItem("Enabled", nullptr, &environment->enabled))
+        markLighting(context.world);
+
+    if (ImGui::DragFloat("Intensity", &environment->intensity, 0.05f, 0.0f, 1000.0f, "%.2f"))
+        markLighting(context.world);
+
+    if (ImGui::DragFloat("Rotation", &environment->rotation_degrees, 0.5f, -360.0f, 360.0f, "%.1f deg"))
+        markLighting(context.world);
+
+    float sky[3] = {
+        environment->sky_color.x,
+        environment->sky_color.y,
+        environment->sky_color.z,
+    };
+    if (ImGui::ColorEdit3("Sky Color", sky)) {
+        environment->sky_color = {sky[0], sky[1], sky[2]};
+        markLighting(context.world);
+    }
+
+    float ambient[3] = {
+        environment->ambient_color.x,
+        environment->ambient_color.y,
+        environment->ambient_color.z,
+    };
+    if (ImGui::ColorEdit3("Ambient Color", ambient)) {
+        environment->ambient_color = {ambient[0], ambient[1], ambient[2]};
+        markLighting(context.world);
+    }
+
+    if (ImGui::DragFloat("Ambient Intensity", &environment->ambient_intensity, 0.01f, 0.0f, 1000.0f, "%.3f"))
+        markLighting(context.world);
+
+    section("Fog");
+
+    int fog = static_cast<int>(environment->fog);
+    const char *fog_modes[] = {"None", "Linear", "Exponential"};
+    if (ImGui::Combo("Mode", &fog, fog_modes, 3)) {
+        environment->fog = static_cast<Renderer::FogMode>(fog);
+        markLighting(context.world);
+    }
+
+    if (environment->fog != Renderer::FogMode::None) {
+        float fog_color[3] = {
+            environment->fog_color.x,
+            environment->fog_color.y,
+            environment->fog_color.z,
+        };
+        if (ImGui::ColorEdit3("Fog Color", fog_color)) {
+            environment->fog_color = {fog_color[0], fog_color[1], fog_color[2]};
+            markLighting(context.world);
+        }
+
+        if (environment->fog == Renderer::FogMode::Exponential) {
+            if (ImGui::DragFloat("Density", &environment->fog_density, 0.0001f, 0.0f, 100.0f, "%.5f"))
+                markLighting(context.world);
+        } else {
+            if (ImGui::DragFloat("Start", &environment->fog_start, 0.5f, 0.0f, 100000.0f, "%.1f"))
+                markLighting(context.world);
+            if (ImGui::DragFloat("End", &environment->fog_end, 0.5f, 0.0f, 100000.0f, "%.1f"))
+                markLighting(context.world);
+        }
+    }
+
+    ImGui::EndMenu();
+}
+
+void drawLightMenu(Context& context)
+{
+    if (!ImGui::BeginMenu("Light")) return;
+
+    Renderer::LightComponent *light = context.world.get<Renderer::LightComponent>(context.light);
+    Renderer::Transform *transform = context.world.get<Renderer::Transform>(context.light);
+    Renderer::ShadowComponent *shadow = context.world.get<Renderer::ShadowComponent>(context.light);
+
+    if (!light || !transform) {
+        ImGui::TextDisabled("No light component");
+        ImGui::EndMenu();
+        return;
+    }
+
+    int type = static_cast<int>(light->type);
+    const char *types[] = {"Directional", "Point", "Spot"};
+    if (ImGui::Combo("Type", &type, types, 3)) {
+        light->type = static_cast<Renderer::LightType>(type);
+        markLighting(context.world);
+    }
+
+    float color[3] = {light->color.x, light->color.y, light->color.z};
+    if (ImGui::ColorEdit3("Color", color)) {
+        light->color = {color[0], color[1], color[2]};
+        markLighting(context.world);
+    }
+
+    if (ImGui::DragFloat("Intensity", &light->intensity, 0.1f, 0.0f, 1000000.0f, "%.2f"))
+        markLighting(context.world);
+
+    if (light->type != Renderer::LightType::Directional &&
+        ImGui::DragFloat("Range", &light->range, 0.5f, 0.0f, 100000.0f, "%.1f"))
+        markLighting(context.world);
+
+    if (light->type == Renderer::LightType::Spot) {
+        if (ImGui::SliderFloat("Inner Cone", &light->inner_cone_degrees, 0.0f, 179.0f, "%.1f deg"))
+            markLighting(context.world);
+        if (ImGui::SliderFloat("Outer Cone", &light->outer_cone_degrees, 0.0f, 179.0f, "%.1f deg"))
+            markLighting(context.world);
+    }
+
+    if (ImGui::DragFloat3("Position", &transform->position.x, 0.05f)) {
+        context.world.markChanged(Ecs::ChangeKind::Transform);
+        markLighting(context.world);
+    }
+
+    if (light->type != Renderer::LightType::Point &&
+        ImGui::DragFloat3("Rotation", &transform->rotation.x, 0.25f)) {
+        context.world.markChanged(Ecs::ChangeKind::Transform);
+        markLighting(context.world);
+    }
+
+    if (shadow) {
+        section("Shadows");
+        if (ImGui::MenuItem("Enabled##LightShadows", nullptr, &shadow->enabled))
+            markLighting(context.world);
+        if (ImGui::DragFloat("Bias", &shadow->bias, 0.0001f, 0.0f, 1.0f, "%.5f"))
+            markLighting(context.world);
+    }
+
+    ImGui::EndMenu();
+}
+
+void drawTopBar(State& state, Context& context)
 {
     if (!ImGui::BeginMainMenuBar()) return;
 
-    emptyMenu("Demo");
-    emptyMenu("File");
-    emptyMenu("Editors");
-    emptyMenu("Tools");
-    emptyMenu("Options");
-
-    if (ImGui::BeginMenu("Debug")) {
-        ImGui::TextColored(heading_color, "%s", "Console");
-        ImGui::Separator();
-        ImGui::MenuItem("Console", nullptr, &state.show_console);
-
-        section("Drawing");
-        disabled("Sim Objects");
-        disabled("Sim Objects Model Statistics");
-        disabled("World Objects");
-        disabled("POI");
-        disabledSubmenu("Collisions");
-        disabled("Flight Object Debug");
-        disabledSubmenu("Aircraft");
-        disabledSubmenu("Airports");
-        disabledSubmenu("Terrain");
-
-        section("Rendering");
-        ImGui::MenuItem("Display FPS", nullptr, &state.show_fps);
-        disabled("Wireframe");
-        ImGui::MenuItem("Display position", nullptr, &state.show_position);
-        disabled("Debug model LODs");
-
-        section("WASM");
-        disabled("Display WASM Debug Window");
-
-        section("Experimental");
-        disabled("Debug Weather");
-        disabled("Debug Vegetation");
-
-        ImGui::EndMenu();
-    }
-
-    emptyMenu("Camera");
-    emptyMenu("Help");
+    drawDebugMenu(state, context);
+    drawCameraMenu(context);
+    drawRendererMenu(context);
+    drawEnvironmentMenu(context);
+    drawLightMenu(context);
 
     ImGui::EndMainMenuBar();
 }
@@ -170,28 +408,19 @@ void drawPerformance(State& state)
     ImGui::PopStyleColor(5);
 }
 
-void drawPosition(State& state, Position position)
+void drawPosition(State& state, Context& context)
 {
     if (!state.show_position) return;
 
+    const Renderer::Transform *transform =
+        context.world.get<Renderer::Transform>(context.camera);
+    if (!transform) return;
+
     ImGui::SetNextWindowSize(ImVec2(250.0f, 130.0f), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Position", &state.show_position, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::Text("X  %.3f", position.x);
-        ImGui::Text("Y  %.3f", position.y);
-        ImGui::Text("Z  %.3f", position.z);
-    }
-    ImGui::End();
-}
-
-void drawConsole(State& state)
-{
-    if (!state.show_console) return;
-
-    ImGui::SetNextWindowSize(ImVec2(520.0f, 240.0f), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Console", &state.show_console, ImGuiWindowFlags_NoCollapse)) {
-        ImGui::TextUnformatted("[GAME] Debug console");
-        ImGui::Separator();
-        ImGui::TextDisabled("Console logging can be connected here later.");
+        ImGui::Text("X  %.3f", transform->position.x);
+        ImGui::Text("Y  %.3f", transform->position.y);
+        ImGui::Text("Z  %.3f", transform->position.z);
     }
     ImGui::End();
 }
@@ -238,12 +467,11 @@ void sample(State& state, float delta_seconds)
     }
 }
 
-void draw(State& state, Position position)
+void draw(State& state, Context& context)
 {
-    drawTopBar(state);
+    drawTopBar(state, context);
     drawPerformance(state);
-    drawPosition(state, position);
-    drawConsole(state);
+    drawPosition(state, context);
 }
 
 } // namespace Debugging

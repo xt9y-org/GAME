@@ -270,17 +270,19 @@ public:
             }
             UI::showOverlay();
 
-            Debugging::Position camera_position{};
-            if (const Renderer::Transform *transform = world.get<Renderer::Transform>(camera)) {
-                camera_position = {
-                    transform->position.x,
-                    transform->position.y,
-                    transform->position.z,
-                };
-            }
+            Debugging::Context debug_context{
+                world,
+                camera_controller,
+                renderer,
+                camera,
+                environment,
+                light,
+                width,
+                height,
+            };
 
             const auto ui_begin = Clock::now();
-            Debugging::draw(debugging, camera_position);
+            Debugging::draw(debugging, debug_context);
             debugging.ui_ms = std::chrono::duration<float, std::milli>(
                 Clock::now() - ui_begin
             ).count();

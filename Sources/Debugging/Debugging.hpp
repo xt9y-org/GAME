@@ -1,17 +1,17 @@
 #ifndef GAME_DEBUGGING_DEBUGGING_HPP
 #define GAME_DEBUGGING_DEBUGGING_HPP
 
+#include <Camera/FreeController.hpp>
+#include <Ecs/Ecs.hpp>
+
 #include <array>
 #include <cstddef>
 
-namespace Debugging {
+namespace Renderer {
+class Rasterizer;
+}
 
-struct Position
-{
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-};
+namespace Debugging {
 
 struct State
 {
@@ -27,15 +27,25 @@ struct State
     float render_ms = 0.0f;
     float ui_ms = 0.0f;
 
-    bool show_console = false;
     bool show_fps = true;
     bool show_position = false;
-    bool show_imgui_demo = false;
+};
+
+struct Context
+{
+    Ecs::World& world;
+    Camera::FreeController& camera_controller;
+    Renderer::Rasterizer& renderer;
+    Ecs::Entity camera = Ecs::INVALID_ENTITY;
+    Ecs::Entity environment = Ecs::INVALID_ENTITY;
+    Ecs::Entity light = Ecs::INVALID_ENTITY;
+    int width = 1;
+    int height = 1;
 };
 
 void applyStyle();
 void sample(State& state, float delta_seconds);
-void draw(State& state, Position position);
+void draw(State& state, Context& context);
 
 } // namespace Debugging
 
