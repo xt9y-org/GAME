@@ -1,0 +1,4 @@
+newmtl regression
+Kd 0.8 0.3 0.15
+Pr 0.6
+Pm 0.1

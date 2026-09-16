@@ -1,6 +1,7 @@
 build/
 compile_commands.json
 imgui.ini
+c.lock
 .rendercheck/*
 !.rendercheck/run-performance/
 .rendercheck/run-performance/*

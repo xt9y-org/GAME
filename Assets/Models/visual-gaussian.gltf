@@ -1,0 +1,46 @@
+{
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_gaussian_splatting", "KHR_materials_unlit"],
+  "extensionsRequired": ["KHR_gaussian_splatting"],
+  "buffers": [{
+    "byteLength": 168,
+    "uri": "data:application/octet-stream;base64,MzMzv5qZGb7NzEzAAAAAAM3MDD+amVnAMzMzP5qZGb7NzEzAAAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/uB6FPuxROD7sUTg+rkdhPilcjz7sUTg+uB6FPuxROD7sUTg+H4VrP65HYT8fhWs/MzOTPwrXoz0K1yM9zcxMPWZmhj+PwvU9j8J1PexROD4zM5M/"
+  }],
+  "bufferViews": [
+    {"buffer": 0, "byteOffset": 0, "byteLength": 36},
+    {"buffer": 0, "byteOffset": 36, "byteLength": 48},
+    {"buffer": 0, "byteOffset": 84, "byteLength": 36},
+    {"buffer": 0, "byteOffset": 120, "byteLength": 12},
+    {"buffer": 0, "byteOffset": 132, "byteLength": 36}
+  ],
+  "accessors": [
+    {"bufferView": 0, "componentType": 5126, "count": 3, "type": "VEC3", "min": [-0.7, -0.15, -3.4], "max": [0.7, 0.55, -3.2]},
+    {"bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC4"},
+    {"bufferView": 2, "componentType": 5126, "count": 3, "type": "VEC3"},
+    {"bufferView": 3, "componentType": 5126, "count": 3, "type": "SCALAR"},
+    {"bufferView": 4, "componentType": 5126, "count": 3, "type": "VEC3"}
+  ],
+  "materials": [{"name": "gaussian-splat", "extensions": {"KHR_materials_unlit": {}}}],
+  "meshes": [{"primitives": [{
+    "attributes": {
+      "POSITION": 0,
+      "KHR_gaussian_splatting:ROTATION": 1,
+      "KHR_gaussian_splatting:SCALE": 2,
+      "KHR_gaussian_splatting:OPACITY": 3,
+      "KHR_gaussian_splatting:SH_DEGREE_0_COEF_0": 4
+    },
+    "material": 0,
+    "mode": 0,
+    "extensions": {
+      "KHR_gaussian_splatting": {
+        "kernel": "ellipse",
+        "colorSpace": "srgb_rec709_display",
+        "projection": "perspective",
+        "sortingMethod": "cameraDistance"
+      }
+    }
+  }]}],
+  "nodes": [{"name": "gaussian", "mesh": 0}],
+  "scenes": [{"nodes": [0]}],
+  "scene": 0
+}

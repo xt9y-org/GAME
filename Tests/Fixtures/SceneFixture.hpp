@@ -5,34 +5,19 @@
 #include "Models/Models.hpp"
 #include "Renderer/Components.hpp"
 #include "Renderer/Environment.hpp"
+#include "Renderer/ModelScene.hpp"
 
-#include <utility>
+#include <string>
 
 namespace Testing {
 
 struct SceneAssets {
-    Models::MeshHandle mesh = Models::INVALID_MESH;
-    Models::MaterialHandle material = Models::INVALID_MATERIAL;
+    Models::ModelHandle model = Models::INVALID_MODEL;
 };
 
-inline SceneAssets triangleAssets()
+inline SceneAssets triangleAssets(std::string *error = nullptr)
 {
-    Models::MeshData mesh;
-    mesh.vertices = {
-        Models::Vertex{.position = {-0.75f, -0.5f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {}, .skin = {}},
-        Models::Vertex{.position = { 0.75f, -0.5f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {}, .skin = {}},
-        Models::Vertex{.position = { 0.0f,   0.75f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {}, .skin = {}},
-    };
-    mesh.indices = {0u, 1u, 2u};
-    mesh.bounds = {{-0.75f, -0.5f, -0.01f}, {0.75f, 0.75f, 0.01f}};
-
-    Models::MaterialData material;
-    material.name = "regression";
-    material.color = {0.8f, 0.3f, 0.15f};
-    material.roughness = 0.6f;
-    material.metallic = 0.1f;
-
-    return {Models::registerMesh(std::move(mesh)), Models::registerMaterial(std::move(material))};
+    return {Models::load("Assets/Models/visual-triangle.obj", error)};
 }
 
 inline Ecs::Entity addCamera(Ecs::World& world)
@@ -52,13 +37,28 @@ inline Ecs::Entity addCamera(Ecs::World& world)
 inline Ecs::Entity addTriangle(
     Ecs::World& world,
     const SceneAssets& assets,
-    Renderer::Vec3 position = {0.0f, 0.0f, -3.0f})
+    Renderer::Vec3 position = {0.0f, 0.0f, -3.0f},
+    std::string *error = nullptr)
 {
-    const Ecs::Entity entity = world.createEntity();
-    world.add<Renderer::Transform>(entity, Renderer::Transform{.position = position});
-    world.add<Renderer::MeshComponent>(entity, Renderer::MeshComponent{assets.mesh, assets.material});
-    world.add<Renderer::RenderableComponent>(entity, Renderer::RenderableComponent{true});
-    return entity;
+    if (assets.model == Models::INVALID_MODEL) {
+        if (error) *error = "triangle fixture model is invalid";
+        return Ecs::INVALID_ENTITY;
+    }
+
+    const Ecs::Entity root = world.createEntity();
+    world.add<Renderer::Transform>(root, Renderer::Transform{.position = position});
+
+    Renderer::ModelScene::Instance instance;
+    const Renderer::ModelScene::Options options{.parent = root};
+    if (!Renderer::ModelScene::instantiate(world, assets.model, &instance, options, error)) {
+        world.destroyEntity(root);
+        return Ecs::INVALID_ENTITY;
+    }
+    if (instance.loose_parts.empty()) {
+        if (error) *error = "triangle fixture produced no renderable part";
+        return Ecs::INVALID_ENTITY;
+    }
+    return instance.loose_parts.front().entity;
 }
 
 inline void addLighting(Ecs::World& world)

@@ -19,9 +19,13 @@ public:
         Models::clearCache();
         Ecs::World world;
         Testing::addCamera(world);
-        const Testing::SceneAssets assets = Testing::triangleAssets();
-        const Ecs::Entity visible = Testing::addTriangle(world, assets, {0.0f, 0.0f, -3.0f});
-        const Ecs::Entity culled = Testing::addTriangle(world, assets, {100.0f, 0.0f, -3.0f});
+        std::string fixture_error;
+        const Testing::SceneAssets assets = Testing::triangleAssets(&fixture_error);
+        if (!Testing::require(assets.model != Models::INVALID_MODEL, fixture_error, error)) return false;
+        const Ecs::Entity visible = Testing::addTriangle(world, assets, {0.0f, 0.0f, -3.0f}, &fixture_error);
+        if (!Testing::require(visible != Ecs::INVALID_ENTITY, fixture_error, error)) return false;
+        const Ecs::Entity culled = Testing::addTriangle(world, assets, {100.0f, 0.0f, -3.0f}, &fixture_error);
+        if (!Testing::require(culled != Ecs::INVALID_ENTITY, fixture_error, error)) return false;
 
         Renderer::Visibility::System visibility;
         const Renderer::Visibility::Result result = visibility.evaluate(world, 640, 360);

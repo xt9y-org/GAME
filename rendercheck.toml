@@ -1,6 +1,6 @@
 [project]
 name = "test"
-command = "c update build run"
+command = "c fetch update Horse build run"
 cwd = "."
 headless = "auto"
 renderer = "auto"

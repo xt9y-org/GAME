@@ -116,12 +116,17 @@ public:
     Testing::Kind kind() const override { return Testing::Kind::Visual; }
     std::size_t frameCount() const override { return 4u; }
 
-    bool setup(Testing::Context& context, std::string&) override
+    bool setup(Testing::Context& context, std::string& error) override
     {
         Models::clearCache();
         Testing::addCamera(context.world);
-        const Testing::SceneAssets assets = Testing::triangleAssets();
-        Testing::addTriangle(context.world, assets);
+        std::string fixture_error;
+        const Testing::SceneAssets assets = Testing::triangleAssets(&fixture_error);
+        if (!Testing::require(assets.model != Models::INVALID_MODEL, fixture_error, error)) return false;
+        if (!Testing::require(
+                Testing::addTriangle(context.world, assets, {0.0f, 0.0f, -3.0f}, &fixture_error) != Ecs::INVALID_ENTITY,
+                fixture_error,
+                error)) return false;
         Testing::addLighting(context.world);
         return true;
     }

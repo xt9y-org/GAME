@@ -1,0 +1,9 @@
+newmtl receiver
+Kd 0.42 0.46 0.52
+Pr 0.85
+Pm 0.0
+
+newmtl foreground
+Kd 0.92 0.24 0.08
+Pr 0.38
+Pm 0.15

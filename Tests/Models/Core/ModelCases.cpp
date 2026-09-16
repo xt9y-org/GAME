@@ -238,30 +238,36 @@ public:
     std::string_view name() const override { return "models/materials"; }
     bool verify(Testing::Context&, std::string& error) override
     {
-        Models::MaterialData material;
-        material.name = "advanced";
-        material.color = {0.2f, 0.4f, 0.6f};
-        material.roughness = 0.25f;
-        material.metallic = 0.75f;
-        material.ior = 1.45f;
-        material.clearcoat = 0.8f;
-        material.sheen_color = {0.1f, 0.2f, 0.3f};
-        material.transmission = 0.5f;
-        material.thickness = 0.2f;
-        material.specular = 0.7f;
-        material.iridescence = 0.4f;
-        material.anisotropy_strength = 0.3f;
-        material.dispersion = 0.1f;
-        material.diffuse_transmission = 0.35f;
-        const Models::MaterialHandle handle = Models::registerMaterial(material);
-        const Models::MaterialData *stored = Models::material(handle);
-        if (!Testing::require(stored != nullptr, "material registration failed", error)) return false;
-        if (!Testing::require(Testing::near(stored->clearcoat, 0.8f) && Testing::near(stored->transmission, 0.5f) &&
-                              Testing::near(stored->iridescence, 0.4f) && Testing::near(stored->diffuse_transmission, 0.35f),
-                              "advanced material fields lost", error)) return false;
-        material.clearcoat = 0.1f;
-        return Testing::require(Models::updateMaterial(handle, material) && Testing::near(Models::material(handle)->clearcoat, 0.1f),
-                                "material update failed", error);
+        Models::clearCache();
+        std::string load_error;
+        const Models::ModelHandle model = Models::load("Assets/Models/visual-advanced.gltf", &load_error);
+        if (model == Models::INVALID_MODEL) {
+            error = "advanced material fixture failed to load: " + load_error;
+            return false;
+        }
+        if (!Testing::require(Models::partCount(model) == 3u, "advanced material fixture part count mismatch", error))
+            return false;
+
+        const Models::ModelPart *coated_part = Models::part(model, 0u);
+        const Models::ModelPart *film_part = Models::part(model, 1u);
+        const Models::ModelPart *transmission_part = Models::part(model, 2u);
+        if (!Testing::require(coated_part && film_part && transmission_part,
+                              "advanced material fixture parts are unavailable", error)) return false;
+
+        const Models::MaterialData *coated = Models::material(coated_part->material);
+        const Models::MaterialData *film = Models::material(film_part->material);
+        const Models::MaterialData *transmission = Models::material(transmission_part->material);
+        if (!Testing::require(coated && film && transmission,
+                              "advanced material fixture materials are unavailable", error)) return false;
+
+        return Testing::require(
+            Testing::near(coated->clearcoat, 1.0f) && Testing::near(coated->sheen_roughness, 0.35f) &&
+            Testing::near(film->iridescence, 0.9f) && Testing::near(film->anisotropy_strength, 0.8f) &&
+            Testing::near(transmission->ior, 1.52f) && Testing::near(transmission->transmission, 0.72f) &&
+            Testing::near(transmission->thickness, 0.65f) && Testing::near(transmission->dispersion, 0.35f),
+            "advanced material fields were not preserved through model loading",
+            error
+        );
     }
 };
 

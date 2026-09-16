@@ -7,10 +7,9 @@
 #include "Renderer/Components.hpp"
 #include "Renderer/Environment.hpp"
 #include "Renderer/GlobalIllumination/GlobalIllumination.hpp"
+#include "Renderer/ModelScene.hpp"
 #include "Renderer/PostProcess.hpp"
 
-#include <array>
-#include <initializer_list>
 #include <string>
 #include <utility>
 
@@ -35,45 +34,21 @@ enum class Feature {
     Everything,
 };
 
-Models::MeshHandle registerQuad()
+bool addModel(Ecs::World& world, const char *path, std::string& error)
 {
-    Models::MeshData mesh;
-    mesh.vertices = {
-        Models::Vertex{.position = {-1.0f, -1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {0.0f, 0.0f}, .skin = {}},
-        Models::Vertex{.position = { 1.0f, -1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {1.0f, 0.0f}, .skin = {}},
-        Models::Vertex{.position = { 1.0f,  1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {1.0f, 1.0f}, .skin = {}},
-        Models::Vertex{.position = {-1.0f,  1.0f, 0.0f}, .normal = {0.0f, 0.0f, 1.0f}, .uv = {0.0f, 1.0f}, .skin = {}},
-    };
-    mesh.indices = {0u, 1u, 2u, 0u, 2u, 3u};
-    mesh.bounds = {{-1.0f, -1.0f, -0.01f}, {1.0f, 1.0f, 0.01f}};
-    return Models::registerMesh(std::move(mesh));
-}
+    std::string load_error;
+    const Models::ModelHandle model = Models::load(path, &load_error);
+    if (model == Models::INVALID_MODEL) {
+        error = std::string("visual model load failed for ") + path + ": " + load_error;
+        return false;
+    }
 
-Models::MaterialHandle registerMaterial(
-    Models::Vec3 color,
-    float roughness = 0.65f,
-    float metallic = 0.0f)
-{
-    Models::MaterialData material;
-    material.name = "visual-regression";
-    material.color = color;
-    material.roughness = roughness;
-    material.metallic = metallic;
-    return Models::registerMaterial(std::move(material));
-}
-
-Ecs::Entity addRenderable(
-    Ecs::World& world,
-    Models::MeshHandle mesh,
-    Models::MaterialHandle material,
-    Renderer::Vec3 position,
-    Renderer::Vec3 scale = {1.0f, 1.0f, 1.0f})
-{
-    const Ecs::Entity entity = world.createEntity();
-    world.add<Renderer::Transform>(entity, Renderer::Transform{.position = position, .scale = scale});
-    world.add<Renderer::MeshComponent>(entity, Renderer::MeshComponent{mesh, material});
-    world.add<Renderer::RenderableComponent>(entity, Renderer::RenderableComponent{true});
-    return entity;
+    Renderer::ModelScene::Instance instance;
+    if (!Renderer::ModelScene::instantiate(world, model, &instance, {}, &load_error)) {
+        error = std::string("visual model instantiate failed for ") + path + ": " + load_error;
+        return false;
+    }
+    return true;
 }
 
 void addCamera(Ecs::World& world)
@@ -135,128 +110,33 @@ void addLight(Ecs::World& world, Renderer::LightType type)
     world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{});
 }
 
-void addBaseScene(Ecs::World& world, Renderer::LightType light)
+bool addBaseScene(Ecs::World& world, Renderer::LightType light, std::string& error)
 {
     addCamera(world);
     addEnvironment(world);
     addLight(world, light);
-
-    const Models::MeshHandle quad = registerQuad();
-    const Models::MaterialHandle receiver = registerMaterial({0.42f, 0.46f, 0.52f}, 0.85f, 0.0f);
-    const Models::MaterialHandle foreground = registerMaterial({0.92f, 0.24f, 0.08f}, 0.38f, 0.15f);
-
-    addRenderable(world, quad, receiver, {0.0f, 0.0f, -5.2f}, {2.7f, 1.75f, 1.0f});
-    addRenderable(world, quad, foreground, {-0.45f, 0.15f, -3.45f}, {0.55f, 0.75f, 1.0f});
+    return addModel(world, "Assets/Models/visual-base.obj", error);
 }
 
-void addDepthScene(Ecs::World& world, Renderer::FogMode fog)
+bool addDepthScene(Ecs::World& world, Renderer::FogMode fog, std::string& error)
 {
     addCamera(world);
     addEnvironment(world, fog);
     addLight(world, Renderer::LightType::Directional);
-    const Models::MeshHandle quad = registerQuad();
-    const Models::MaterialHandle near_material = registerMaterial({0.9f, 0.18f, 0.08f});
-    const Models::MaterialHandle middle_material = registerMaterial({0.1f, 0.7f, 0.25f});
-    const Models::MaterialHandle far_material = registerMaterial({0.08f, 0.32f, 0.95f});
-    addRenderable(world, quad, near_material, {-1.15f, -0.15f, -3.0f}, {0.55f, 0.75f, 1.0f});
-    addRenderable(world, quad, middle_material, {0.0f, 0.0f, -4.8f}, {0.65f, 0.85f, 1.0f});
-    addRenderable(world, quad, far_material, {1.2f, 0.15f, -7.2f}, {0.8f, 1.0f, 1.0f});
+    return addModel(world, "Assets/Models/visual-depth.obj", error);
 }
 
-void addAdvancedMaterials(Ecs::World& world)
+bool addAdvancedMaterials(Ecs::World& world, std::string& error)
 {
     addCamera(world);
     addEnvironment(world);
     addLight(world, Renderer::LightType::Point);
-
-    const Models::MeshHandle quad = registerQuad();
-
-    Models::MaterialData coated;
-    coated.name = "clearcoat-sheen";
-    coated.color = {0.72f, 0.08f, 0.04f};
-    coated.roughness = 0.22f;
-    coated.metallic = 0.15f;
-    coated.clearcoat = 1.0f;
-    coated.clearcoat_roughness = 0.06f;
-    coated.sheen_color = {0.8f, 0.18f, 0.08f};
-    coated.sheen_roughness = 0.35f;
-
-    Models::MaterialData film;
-    film.name = "iridescent-anisotropic";
-    film.color = {0.08f, 0.32f, 0.72f};
-    film.roughness = 0.3f;
-    film.metallic = 0.55f;
-    film.anisotropy_strength = 0.8f;
-    film.anisotropy_rotation = 0.55f;
-    film.iridescence = 0.9f;
-    film.iridescence_ior = 1.45f;
-    film.iridescence_thickness_min = 180.0f;
-    film.iridescence_thickness_max = 520.0f;
-
-    Models::MaterialData transmissive;
-    transmissive.name = "transmission-dispersion";
-    transmissive.color = {0.82f, 0.92f, 1.0f};
-    transmissive.roughness = 0.08f;
-    transmissive.ior = 1.52f;
-    transmissive.transmission = 0.72f;
-    transmissive.thickness = 0.65f;
-    transmissive.attenuation_distance = 2.5f;
-    transmissive.attenuation_color = {0.72f, 0.9f, 1.0f};
-    transmissive.dispersion = 0.35f;
-
-    const Models::MaterialHandle coated_handle = Models::registerMaterial(std::move(coated));
-    const Models::MaterialHandle film_handle = Models::registerMaterial(std::move(film));
-    const Models::MaterialHandle transmission_handle = Models::registerMaterial(std::move(transmissive));
-
-    addRenderable(world, quad, coated_handle, {-1.35f, 0.0f, -4.0f}, {0.72f, 0.9f, 1.0f});
-    addRenderable(world, quad, film_handle, {0.0f, 0.0f, -4.0f}, {0.72f, 0.9f, 1.0f});
-    addRenderable(world, quad, transmission_handle, {1.35f, 0.0f, -4.0f}, {0.72f, 0.9f, 1.0f});
+    return addModel(world, "Assets/Models/visual-advanced.gltf", error);
 }
 
-Models::AttributeData attribute(std::uint32_t components, std::initializer_list<double> values)
+bool addGaussianSplats(Ecs::World& world, std::string& error)
 {
-    Models::AttributeData result;
-    result.component_type = 5126;
-    result.components = components;
-    result.values.assign(values.begin(), values.end());
-    return result;
-}
-
-void addGaussianSplats(Ecs::World& world)
-{
-    Models::MeshData mesh;
-    mesh.primitive_mode = Models::PrimitiveMode::Points;
-    mesh.vertices = {
-        Models::Vertex{.position = {-0.7f, -0.15f, -3.2f}, .uv = {}, .skin = {}},
-        Models::Vertex{.position = { 0.0f,  0.55f, -3.4f}, .uv = {}, .skin = {}},
-        Models::Vertex{.position = { 0.7f, -0.15f, -3.2f}, .uv = {}, .skin = {}},
-    };
-    mesh.bounds = {{-1.0f, -0.5f, -3.7f}, {1.0f, 0.9f, -2.9f}};
-    mesh.extensions_json["KHR_gaussian_splatting"] =
-        R"({"kernel":"ellipse","colorSpace":"srgb_rec709_display","projection":"perspective","sortingMethod":"cameraDistance"})";
-    mesh.attributes["KHR_gaussian_splatting:ROTATION"] = attribute(4u, {
-        0.0, 0.0, 0.0, 1.0,
-        0.0, 0.0, 0.0, 1.0,
-        0.0, 0.0, 0.0, 1.0,
-    });
-    mesh.attributes["KHR_gaussian_splatting:SCALE"] = attribute(3u, {
-        0.26, 0.18, 0.18,
-        0.22, 0.28, 0.18,
-        0.26, 0.18, 0.18,
-    });
-    mesh.attributes["KHR_gaussian_splatting:OPACITY"] = attribute(1u, {0.92, 0.88, 0.92});
-    mesh.attributes["KHR_gaussian_splatting:SH_DEGREE_0_COEF_0"] = attribute(3u, {
-        1.15, 0.08, 0.04,
-        0.05, 1.05, 0.12,
-        0.06, 0.18, 1.15,
-    });
-
-    Models::MaterialData material;
-    material.name = "gaussian-splat";
-    material.unlit = true;
-    const Models::MeshHandle mesh_handle = Models::registerMesh(std::move(mesh));
-    const Models::MaterialHandle material_handle = Models::registerMaterial(std::move(material));
-    addRenderable(world, mesh_handle, material_handle, {0.0f, 0.0f, 0.0f});
+    return addModel(world, "Assets/Models/visual-gaussian.gltf", error);
 }
 
 void addGlobalIllumination(Ecs::World& world, bool photons)
@@ -316,37 +196,36 @@ public:
         switch (feature_) {
             case Feature::DirectionalLight:
             case Feature::DirectionalShadow:
-                addBaseScene(context.world, Renderer::LightType::Directional);
+                if (!addBaseScene(context.world, Renderer::LightType::Directional, error)) return false;
                 break;
             case Feature::PointLight:
             case Feature::PointShadow:
-                addBaseScene(context.world, Renderer::LightType::Point);
+                if (!addBaseScene(context.world, Renderer::LightType::Point, error)) return false;
                 break;
             case Feature::SpotLight:
             case Feature::SpotShadow:
-                addBaseScene(context.world, Renderer::LightType::Spot);
+                if (!addBaseScene(context.world, Renderer::LightType::Spot, error)) return false;
                 break;
             case Feature::AdvancedMaterials:
-                addAdvancedMaterials(context.world);
+                if (!addAdvancedMaterials(context.world, error)) return false;
                 break;
             case Feature::Environment:
                 addCamera(context.world);
                 addEnvironment(context.world);
-                addRenderable(context.world, registerQuad(), registerMaterial({0.42f, 0.45f, 0.5f}),
-                              {0.0f, 0.0f, -4.5f}, {1.7f, 1.1f, 1.0f});
+                if (!addModel(context.world, "Assets/Models/visual-environment.obj", error)) return false;
                 break;
             case Feature::LinearFog:
-                addDepthScene(context.world, Renderer::FogMode::Linear);
+                if (!addDepthScene(context.world, Renderer::FogMode::Linear, error)) return false;
                 break;
             case Feature::ExponentialFog:
-                addDepthScene(context.world, Renderer::FogMode::Exponential);
+                if (!addDepthScene(context.world, Renderer::FogMode::Exponential, error)) return false;
                 break;
             case Feature::GlobalIllumination:
-                addBaseScene(context.world, Renderer::LightType::Point);
+                if (!addBaseScene(context.world, Renderer::LightType::Point, error)) return false;
                 addGlobalIllumination(context.world, false);
                 break;
             case Feature::PhotonMapping:
-                addBaseScene(context.world, Renderer::LightType::Point);
+                if (!addBaseScene(context.world, Renderer::LightType::Point, error)) return false;
                 addGlobalIllumination(context.world, true);
                 break;
             case Feature::GaussianSplat:
@@ -359,7 +238,7 @@ public:
                 probe_ = &context.graphics->postProcess().add<ProbePass>();
                 break;
             case Feature::PostProcess:
-                addBaseScene(context.world, Renderer::LightType::Point);
+                if (!addBaseScene(context.world, Renderer::LightType::Point, error)) return false;
                 if (!context.graphics) {
                     error = "post-process visual test has no graphics fixture";
                     return false;
@@ -367,8 +246,8 @@ public:
                 probe_ = &context.graphics->postProcess().add<ProbePass>();
                 break;
             case Feature::Everything:
-                addAdvancedMaterials(context.world);
-                addGaussianSplats(context.world);
+                if (!addAdvancedMaterials(context.world, error)) return false;
+                if (!addGaussianSplats(context.world, error)) return false;
                 addGlobalIllumination(context.world, true);
                 if (!context.graphics) {
                     error = "everything visual test has no graphics fixture";
@@ -381,10 +260,11 @@ public:
         return true;
     }
 
-    bool update(Testing::Context& context, double, std::string&) override
+    bool update(Testing::Context& context, double, std::string& error) override
     {
-        if (feature_ == Feature::GaussianSplat && updates_ == 1u)
-            addGaussianSplats(context.world);
+        if (feature_ == Feature::GaussianSplat && updates_ == 1u &&
+            !addGaussianSplats(context.world, error))
+            return false;
         ++updates_;
         return true;
     }

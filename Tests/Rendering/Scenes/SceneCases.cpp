@@ -19,8 +19,11 @@ public:
         Models::clearCache();
         Ecs::World world;
         Testing::addCamera(world);
-        const Testing::SceneAssets assets = Testing::triangleAssets();
-        const Ecs::Entity entity = Testing::addTriangle(world, assets);
+        std::string fixture_error;
+        const Testing::SceneAssets assets = Testing::triangleAssets(&fixture_error);
+        if (!Testing::require(assets.model != Models::INVALID_MODEL, fixture_error, error)) return false;
+        const Ecs::Entity entity = Testing::addTriangle(world, assets, {0.0f, 0.0f, -3.0f}, &fixture_error);
+        if (!Testing::require(entity != Ecs::INVALID_ENTITY, fixture_error, error)) return false;
 
         std::vector<Renderer::Scenes::Scene::RenderItem> items;
         Renderer::Scenes::Scene::collectRenderItems(world, items);

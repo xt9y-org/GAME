@@ -1,0 +1,14 @@
+newmtl near
+Kd 0.9 0.18 0.08
+Pr 0.65
+Pm 0.0
+
+newmtl middle
+Kd 0.1 0.7 0.25
+Pr 0.65
+Pm 0.0
+
+newmtl far
+Kd 0.08 0.32 0.95
+Pr 0.65
+Pm 0.0
