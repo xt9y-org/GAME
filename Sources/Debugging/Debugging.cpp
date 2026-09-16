@@ -1,4 +1,5 @@
 #include "Debugging.hpp"
+#include "Values.hpp"
 
 #include <Camera/Camera.hpp>
 #include <Renderer/Components.hpp>
@@ -36,6 +37,146 @@ void markLighting(Ecs::World& world)
     world.markChanged(Ecs::ChangeKind::Lighting);
 }
 
+bool barFloat(
+    const char *label,
+    float *value,
+    const Values::Range<float>& range,
+    const char *format)
+{
+    ImGui::PushID(label);
+
+    const float button_width = ImGui::GetFrameHeight();
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float label_width = ImGui::CalcTextSize(label).x;
+    const float available = ImGui::GetContentRegionAvail().x;
+    const float bar_width = std::max(
+        100.0f,
+        available - label_width - button_width * 2.0f - spacing * 4.0f
+    );
+
+    ImGui::SetNextItemWidth(bar_width);
+    bool changed = ImGui::SliderFloat(
+        "##Value",
+        value,
+        range.minimum,
+        range.maximum,
+        format,
+        ImGuiSliderFlags_AlwaysClamp
+    );
+
+    ImGui::SameLine();
+    if (ImGui::Button("-", ImVec2(button_width, 0.0f))) {
+        *value = Values::stepValue(
+            *value, range.step, range.minimum, range.maximum, -1);
+        changed = true;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("+", ImVec2(button_width, 0.0f))) {
+        *value = Values::stepValue(
+            *value, range.step, range.minimum, range.maximum, 1);
+        changed = true;
+    }
+
+    ImGui::SameLine();
+    ImGui::TextUnformatted(label);
+    ImGui::PopID();
+    return changed;
+}
+
+bool barInt(
+    const char *label,
+    int *value,
+    const Values::Range<int>& range,
+    const char *format = "%d")
+{
+    ImGui::PushID(label);
+
+    const float button_width = ImGui::GetFrameHeight();
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const float label_width = ImGui::CalcTextSize(label).x;
+    const float available = ImGui::GetContentRegionAvail().x;
+    const float bar_width = std::max(
+        100.0f,
+        available - label_width - button_width * 2.0f - spacing * 4.0f
+    );
+
+    ImGui::SetNextItemWidth(bar_width);
+    bool changed = ImGui::SliderInt(
+        "##Value",
+        value,
+        range.minimum,
+        range.maximum,
+        format,
+        ImGuiSliderFlags_AlwaysClamp
+    );
+
+    ImGui::SameLine();
+    if (ImGui::Button("-", ImVec2(button_width, 0.0f))) {
+        *value = Values::stepValue(
+            *value, range.step, range.minimum, range.maximum, -1);
+        changed = true;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("+", ImVec2(button_width, 0.0f))) {
+        *value = Values::stepValue(
+            *value, range.step, range.minimum, range.maximum, 1);
+        changed = true;
+    }
+
+    ImGui::SameLine();
+    ImGui::TextUnformatted(label);
+    ImGui::PopID();
+    return changed;
+}
+
+bool shadowResolutionBar(int *value)
+{
+    ImGui::PushID("Shadow Resolution");
+
+    const float button_width = ImGui::GetFrameHeight();
+    const float spacing = ImGui::GetStyle().ItemSpacing.x;
+    const char *label = "Shadow Resolution";
+    const float label_width = ImGui::CalcTextSize(label).x;
+    const float available = ImGui::GetContentRegionAvail().x;
+    const float bar_width = std::max(
+        100.0f,
+        available - label_width - button_width * 2.0f - spacing * 4.0f
+    );
+
+    int slider = *value;
+    ImGui::SetNextItemWidth(bar_width);
+    bool changed = ImGui::SliderInt(
+        "##Value", &slider,
+        Values::ShadowResolutions.front(),
+        Values::ShadowResolutions.back(),
+        "%d",
+        ImGuiSliderFlags_AlwaysClamp
+    );
+    if (changed)
+        slider = Values::ShadowResolutions[Values::shadowResolutionIndex(slider)];
+
+    ImGui::SameLine();
+    if (ImGui::Button("-", ImVec2(button_width, 0.0f))) {
+        slider = Values::stepShadowResolution(slider, -1);
+        changed = true;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("+", ImVec2(button_width, 0.0f))) {
+        slider = Values::stepShadowResolution(slider, 1);
+        changed = true;
+    }
+
+    ImGui::SameLine();
+    ImGui::TextUnformatted(label);
+    ImGui::PopID();
+
+    if (changed) *value = slider;
+    return changed;
+}
+
 void drawDebugMenu(State& state, Context& context)
 {
     if (!ImGui::BeginMenu("Debug")) return;
@@ -70,11 +211,11 @@ void drawDebugMenu(State& state, Context& context)
     const Renderer::Debug::BvhInfo bvh = inspector.bvhInfo();
     int level = inspector.bvhLevel();
     const int maximum_level = std::max(bvh.maximum_level, 0);
-    if (ImGui::SliderInt("BVH Level", &level, 0, maximum_level))
+    if (barInt("BVH Level", &level, {0, maximum_level, 1}))
         inspector.setBvhLevel(level);
 
     float opacity = inspector.overlayOpacity();
-    if (ImGui::SliderFloat("Overlay Opacity", &opacity, 0.0f, 1.0f, "%.2f"))
+    if (barFloat("Overlay Opacity", &opacity, Values::OverlayOpacity, "%.2f"))
         inspector.setOverlayOpacity(opacity);
 
     ImGui::EndMenu();
@@ -86,14 +227,16 @@ void drawCameraMenu(Context& context)
 
     Camera::CameraComponent *camera = context.world.get<Camera::CameraComponent>(context.camera);
     if (camera) {
-        if (ImGui::SliderFloat("FOV", &camera->fov_degrees, 20.0f, 140.0f, "%.1f deg"))
+        if (barFloat("FOV", &camera->fov_degrees, Values::CameraFov, "%.0f deg"))
             markCamera(context.world);
 
-        if (ImGui::DragFloat("Near Plane", &camera->near_plane, 0.005f, 0.0001f, 100.0f, "%.4f"))
+        if (barFloat("Near Plane", &camera->near_plane, Values::CameraNear, "%.2f"))
             markCamera(context.world);
 
-        if (ImGui::DragFloat("Far Plane", &camera->far_plane, 1.0f, 0.0f, 100000.0f, "%.1f"))
+        if (barFloat("Far Plane", &camera->far_plane, Values::CameraFar, "%.0f"))
             markCamera(context.world);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("0 uses Horse's automatic/infinite far plane");
 
         int projection = camera->projection == Camera::Projection::Perspective ? 0 : 1;
         const char *projections[] = {"Perspective", "Orthographic"};
@@ -105,9 +248,9 @@ void drawCameraMenu(Context& context)
         }
 
         if (camera->projection == Camera::Projection::Orthographic) {
-            if (ImGui::DragFloat("Width", &camera->xmag, 0.05f, 0.01f, 10000.0f, "%.2f"))
+            if (barFloat("Width", &camera->xmag, Values::OrthographicSize, "%.1f"))
                 markCamera(context.world);
-            if (ImGui::DragFloat("Height", &camera->ymag, 0.05f, 0.01f, 10000.0f, "%.2f"))
+            if (barFloat("Height", &camera->ymag, Values::OrthographicSize, "%.1f"))
                 markCamera(context.world);
         }
     }
@@ -115,22 +258,22 @@ void drawCameraMenu(Context& context)
     ImGui::Separator();
 
     float speed = context.camera_controller.speed();
-    if (ImGui::DragFloat("Speed", &speed, 0.1f, 0.0f, 10000.0f, "%.2f"))
+    if (barFloat("Speed", &speed, Values::CameraSpeed, "%.0f"))
         context.camera_controller.setSpeed(speed);
 
     float sprint = context.camera_controller.sprintMultiplier();
-    if (ImGui::DragFloat("Sprint Multiplier", &sprint, 0.1f, 0.0f, 1000.0f, "%.2f"))
+    if (barFloat("Sprint Multiplier", &sprint, Values::SprintMultiplier, "%.0f"))
         context.camera_controller.setSprintMultiplier(sprint);
 
     float sensitivity = context.camera_controller.mouseSensitivity();
-    if (ImGui::DragFloat("Mouse Sensitivity", &sensitivity, 0.005f, 0.0f, 10.0f, "%.3f"))
+    if (barFloat("Mouse Sensitivity", &sensitivity, Values::MouseSensitivity, "%.2f"))
         context.camera_controller.setMouseSensitivity(sensitivity);
 
     float pitch[2] = {
         context.camera_controller.minimumPitch(),
         context.camera_controller.maximumPitch(),
     };
-    if (ImGui::DragFloat2("Pitch Range", pitch, 0.1f, -179.0f, 179.0f, "%.1f"))
+    if (ImGui::DragFloat2("Pitch Range", pitch, 1.0f, -89.0f, 89.0f, "%.0f"))
         context.camera_controller.setPitchRange(pitch[0], pitch[1]);
 
     ImGui::EndMenu();
@@ -145,19 +288,19 @@ void drawRendererMenu(Context& context)
         context.renderer.setViewportCulling(viewport_culling);
 
     int shadow_resolution = context.renderer.shadowResolution();
-    if (ImGui::SliderInt("Shadow Resolution", &shadow_resolution, 128, 4096))
+    if (shadowResolutionBar(&shadow_resolution))
         context.renderer.setShadowResolution(shadow_resolution);
 
     int shadow_cascades = context.renderer.shadowCascades();
-    if (ImGui::SliderInt("Shadow Cascades", &shadow_cascades, 1, 8))
+    if (barInt("Shadow Cascades", &shadow_cascades, Values::ShadowCascades))
         context.renderer.setShadowCascades(shadow_cascades);
 
     float shadow_distance = context.renderer.shadowDistance();
-    if (ImGui::DragFloat("Shadow Distance", &shadow_distance, 1.0f, 1.0f, 10000.0f, "%.1f"))
+    if (barFloat("Shadow Distance", &shadow_distance, Values::ShadowDistance, "%.0f"))
         context.renderer.setShadowDistance(shadow_distance);
 
     float shadow_near = context.renderer.shadowNearPlane();
-    if (ImGui::DragFloat("Shadow Near Plane", &shadow_near, 0.005f, 0.0001f, 100.0f, "%.4f"))
+    if (barFloat("Shadow Near Plane", &shadow_near, Values::ShadowNear, "%.2f"))
         context.renderer.setShadowNearPlane(shadow_near);
 
     Renderer::Vec4 clear = context.renderer.clearColor();
@@ -187,10 +330,10 @@ void drawEnvironmentMenu(Context& context)
     if (ImGui::MenuItem("Enabled", nullptr, &environment->enabled))
         markLighting(context.world);
 
-    if (ImGui::DragFloat("Intensity", &environment->intensity, 0.05f, 0.0f, 1000.0f, "%.2f"))
+    if (barFloat("Intensity", &environment->intensity, Values::EnvironmentIntensity, "%.1f"))
         markLighting(context.world);
 
-    if (ImGui::DragFloat("Rotation", &environment->rotation_degrees, 0.5f, -360.0f, 360.0f, "%.1f deg"))
+    if (barFloat("Rotation", &environment->rotation_degrees, Values::EnvironmentRotation, "%.0f deg"))
         markLighting(context.world);
 
     float sky[3] = {
@@ -213,7 +356,7 @@ void drawEnvironmentMenu(Context& context)
         markLighting(context.world);
     }
 
-    if (ImGui::DragFloat("Ambient Intensity", &environment->ambient_intensity, 0.01f, 0.0f, 1000.0f, "%.3f"))
+    if (barFloat("Ambient Intensity", &environment->ambient_intensity, Values::AmbientIntensity, "%.2f"))
         markLighting(context.world);
 
     section("Fog");
@@ -237,12 +380,12 @@ void drawEnvironmentMenu(Context& context)
         }
 
         if (environment->fog == Renderer::FogMode::Exponential) {
-            if (ImGui::DragFloat("Density", &environment->fog_density, 0.0001f, 0.0f, 100.0f, "%.5f"))
+            if (barFloat("Density", &environment->fog_density, Values::FogDensity, "%.3f"))
                 markLighting(context.world);
         } else {
-            if (ImGui::DragFloat("Start", &environment->fog_start, 0.5f, 0.0f, 100000.0f, "%.1f"))
+            if (barFloat("Start", &environment->fog_start, Values::FogDistance, "%.0f"))
                 markLighting(context.world);
-            if (ImGui::DragFloat("End", &environment->fog_end, 0.5f, 0.0f, 100000.0f, "%.1f"))
+            if (barFloat("End", &environment->fog_end, Values::FogDistance, "%.0f"))
                 markLighting(context.world);
         }
     }
@@ -277,27 +420,33 @@ void drawLightMenu(Context& context)
         markLighting(context.world);
     }
 
-    if (ImGui::DragFloat("Intensity", &light->intensity, 0.1f, 0.0f, 1000000.0f, "%.2f"))
+    const Values::Range<float>& intensity_range =
+        light->type == Renderer::LightType::Directional
+            ? Values::DirectionalIntensity
+            : Values::LocalLightIntensity;
+    const char *intensity_format =
+        light->type == Renderer::LightType::Directional ? "%.1f" : "%.0f";
+    if (barFloat("Intensity", &light->intensity, intensity_range, intensity_format))
         markLighting(context.world);
 
     if (light->type != Renderer::LightType::Directional &&
-        ImGui::DragFloat("Range", &light->range, 0.5f, 0.0f, 100000.0f, "%.1f"))
+        barFloat("Range", &light->range, Values::LocalLightRange, "%.0f"))
         markLighting(context.world);
 
     if (light->type == Renderer::LightType::Spot) {
-        if (ImGui::SliderFloat("Inner Cone", &light->inner_cone_degrees, 0.0f, 179.0f, "%.1f deg"))
+        if (barFloat("Inner Cone", &light->inner_cone_degrees, Values::ConeAngle, "%.0f deg"))
             markLighting(context.world);
-        if (ImGui::SliderFloat("Outer Cone", &light->outer_cone_degrees, 0.0f, 179.0f, "%.1f deg"))
+        if (barFloat("Outer Cone", &light->outer_cone_degrees, Values::ConeAngle, "%.0f deg"))
             markLighting(context.world);
     }
 
-    if (ImGui::DragFloat3("Position", &transform->position.x, 0.05f)) {
+    if (ImGui::DragFloat3("Position", &transform->position.x, 1.0f, -10000.0f, 10000.0f, "%.0f")) {
         context.world.markChanged(Ecs::ChangeKind::Transform);
         markLighting(context.world);
     }
 
     if (light->type != Renderer::LightType::Point &&
-        ImGui::DragFloat3("Rotation", &transform->rotation.x, 0.25f)) {
+        ImGui::DragFloat3("Rotation", &transform->rotation.x, 1.0f, -180.0f, 180.0f, "%.0f")) {
         context.world.markChanged(Ecs::ChangeKind::Transform);
         markLighting(context.world);
     }
@@ -306,7 +455,7 @@ void drawLightMenu(Context& context)
         section("Shadows");
         if (ImGui::MenuItem("Enabled##LightShadows", nullptr, &shadow->enabled))
             markLighting(context.world);
-        if (ImGui::DragFloat("Bias", &shadow->bias, 0.0001f, 0.0f, 1.0f, "%.5f"))
+        if (barFloat("Bias", &shadow->bias, Values::ShadowBias, "%.4f"))
             markLighting(context.world);
     }
 
