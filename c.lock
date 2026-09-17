@@ -7,18 +7,6 @@ requested = "main"
 resolved = "ae3bedd7ffe9ef3def884a10209cb56848751752"
 
 [[dependency]]
-name = "Sponza"
-url = "https://github.com/xt9y-org/Sponza.git"
-requested = "master"
-resolved = "222338979d32f4f4818466291bdbc29f192b86ba"
-
-[[dependency]]
-name = "Floor"
-url = "https://github.com/xt9y-org/Floor.git"
-requested = "main"
-resolved = "2feaaa325ff41b6a7ca9a1b256bdb0a43171f896"
-
-[[dependency]]
 name = "imgui"
 url = "https://github.com/ocornut/imgui.git"
 requested = "v1.92.9b"
