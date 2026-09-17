@@ -11,6 +11,10 @@ namespace Renderer {
 class Rasterizer;
 }
 
+namespace Loadout {
+struct State;
+}
+
 namespace Debugging {
 
 struct State
@@ -36,6 +40,7 @@ struct Context
     Ecs::World& world;
     Camera::FreeController& camera_controller;
     Renderer::Rasterizer& renderer;
+    Loadout::State& loadout;
     Ecs::Entity camera = Ecs::INVALID_ENTITY;
     Ecs::Entity environment = Ecs::INVALID_ENTITY;
     Ecs::Entity light = Ecs::INVALID_ENTITY;
