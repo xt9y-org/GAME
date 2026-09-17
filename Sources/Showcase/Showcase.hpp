@@ -4,6 +4,7 @@
 #include "Discovery.hpp"
 
 #include <Ecs/Ecs.hpp>
+#include <Models/Models.hpp>
 #include <Renderer/ModelScene.hpp>
 
 #include <cstddef>
@@ -22,6 +23,7 @@ struct Lineup
 struct Loader
 {
     std::vector<Discovery::Placement> items;
+    std::vector<Models::LoadHandle> requests;
     std::size_t next = 0u;
     std::size_t loaded = 0u;
 };
