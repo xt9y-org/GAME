@@ -1,23 +1,15 @@
 #include "Showcase.hpp"
-#include "Discovery.hpp"
 
 #include <Models/Models.hpp>
 #include <Renderer/Components.hpp>
 
-#include <array>
+#include <chrono>
+#include <cstdio>
 #include <string>
 #include <utility>
-#include <vector>
 
 namespace Showcase {
 namespace {
-
-struct Row
-{
-    std::vector<std::filesystem::path> models;
-    float z = 0.0f;
-    float spacing = 50.0f;
-};
 
 void appendReport(std::string *report, const std::string& message)
 {
@@ -28,23 +20,35 @@ void appendReport(std::string *report, const std::string& message)
 
 bool add(
     Ecs::World& world,
-    const std::filesystem::path& model_path,
-    float x,
-    float z,
+    const Discovery::Placement& placement,
     Lineup& lineup,
-    std::string *report
+    std::string *report,
+    double *load_ms,
+    double *instantiate_ms
 )
 {
+    using Clock = std::chrono::steady_clock;
+
     std::string error;
-    const Models::ModelHandle model = Models::load(model_path.string(), &error);
+    const auto load_begin = Clock::now();
+    const Models::ModelHandle model = Models::load(placement.model.string(), &error);
+    if (load_ms) {
+        *load_ms = std::chrono::duration<double, std::milli>(
+            Clock::now() - load_begin
+        ).count();
+    }
+
     if (model == Models::INVALID_MODEL) {
-        appendReport(report, "[GAME] [SHOWCASE] Skipped " + model_path.string() + ": " + error);
+        appendReport(
+            report,
+            "[GAME] [SHOWCASE] Skipped " + placement.model.string() + ": " + error
+        );
         return false;
     }
 
     const Ecs::Entity root = world.createEntity();
     world.add<Renderer::Transform>(root, Renderer::Transform{
-        .position = {x, 10.0f, z},
+        .position = {placement.x, 10.0f, placement.z},
     });
 
     Renderer::ModelScene::Instance instance;
@@ -54,9 +58,26 @@ bool add(
         .instantiate_lights = false,
     };
 
-    if (!Renderer::ModelScene::instantiate(world, model, &instance, options, &error)) {
+    const auto instantiate_begin = Clock::now();
+    const bool instantiated = Renderer::ModelScene::instantiate(
+        world,
+        model,
+        &instance,
+        options,
+        &error
+    );
+    if (instantiate_ms) {
+        *instantiate_ms = std::chrono::duration<double, std::milli>(
+            Clock::now() - instantiate_begin
+        ).count();
+    }
+
+    if (!instantiated) {
         if (world.alive(root)) world.destroyEntity(root);
-        appendReport(report, "[GAME] [SHOWCASE] Skipped " + model_path.string() + ": " + error);
+        appendReport(
+            report,
+            "[GAME] [SHOWCASE] Skipped " + placement.model.string() + ": " + error
+        );
         return false;
     }
 
@@ -65,73 +86,65 @@ bool add(
     return true;
 }
 
-void appendPrimary(
-    std::vector<std::filesystem::path>& models,
-    const std::filesystem::path& directory
-)
-{
-    const std::filesystem::path model = Discovery::primaryModel(directory);
-    if (!model.empty()) models.push_back(model);
-}
-
 } // namespace
 
-std::size_t create(
+void prepare(const std::filesystem::path& cs2_root, Loader& loader)
+{
+    loader.items = Discovery::lineup(cs2_root);
+    loader.next = 0u;
+    loader.loaded = 0u;
+    std::printf("[GAME] [SHOWCASE] Queued %zu models\n", loader.items.size());
+}
+
+bool step(
     Ecs::World& world,
-    const std::filesystem::path& cs2_root,
+    Loader& loader,
     Lineup& lineup,
     std::string *report
 )
 {
-    destroy(world, lineup);
-    if (report) report->clear();
+    if (complete(loader)) return false;
 
-    const std::filesystem::path weapons = cs2_root / "Models/weapons/models";
-    const std::filesystem::path arms = cs2_root / "Arms/agents/models/shared/arms";
-
-    std::vector<std::filesystem::path> firearms = Discovery::childModels(
-        weapons,
-        {"knife", "grenade", "shared", "c4", "defuser", "healthshot"}
+    const Discovery::Placement& placement = loader.items[loader.next];
+    double load_ms = 0.0;
+    double instantiate_ms = 0.0;
+    const bool loaded = add(
+        world,
+        placement,
+        lineup,
+        report,
+        &load_ms,
+        &instantiate_ms
     );
 
-    std::vector<std::filesystem::path> knives = Discovery::childModels(
-        weapons / "knife"
+    ++loader.next;
+    if (loaded) ++loader.loaded;
+
+    std::printf(
+        "[GAME] [SHOWCASE] %zu/%zu %s load=%.2fms instantiate=%.2fms%s\n",
+        loader.next,
+        loader.items.size(),
+        placement.model.filename().string().c_str(),
+        load_ms,
+        instantiate_ms,
+        loaded ? "" : " FAILED"
     );
 
-    std::vector<std::filesystem::path> equipment;
-    appendPrimary(equipment, weapons / "c4");
-    appendPrimary(equipment, weapons / "defuser");
-    appendPrimary(equipment, weapons / "healthshot");
-    const auto grenades = Discovery::childModels(weapons / "grenade", {"shared"});
-    equipment.insert(equipment.end(), grenades.begin(), grenades.end());
-
-    std::vector<std::filesystem::path> gloves = Discovery::childModels(
-        arms,
-        {"glove_cloth_collision"}
-    );
-
-    const std::array<Row, 4> rows{{
-        {std::move(firearms), -250.0f, 55.0f},
-        {std::move(knives), -350.0f, 45.0f},
-        {std::move(equipment), -450.0f, 55.0f},
-        {std::move(gloves), -550.0f, 60.0f},
-    }};
-
-    std::size_t created = 0;
-    for (const Row& row : rows) {
-        for (std::size_t i = 0; i < row.models.size(); ++i) {
-            if (add(
-                world,
-                row.models[i],
-                Discovery::centeredX(i, row.models.size(), row.spacing),
-                row.z,
-                lineup,
-                report
-            )) ++created;
-        }
+    if (complete(loader)) {
+        std::printf(
+            "[GAME] [SHOWCASE] Loaded %zu/%zu models\n",
+            loader.loaded,
+            loader.items.size()
+        );
+        if (report && !report->empty()) std::fprintf(stderr, "%s\n", report->c_str());
     }
 
-    return created;
+    return true;
+}
+
+bool complete(const Loader& loader)
+{
+    return loader.next >= loader.items.size();
 }
 
 void destroy(Ecs::World& world, Lineup& lineup)
