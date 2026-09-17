@@ -1,6 +1,5 @@
 #include "Showcase.hpp"
 
-#include <Models/Models.hpp>
 #include <Renderer/Components.hpp>
 
 #include <chrono>
@@ -18,34 +17,18 @@ void appendReport(std::string *report, const std::string& message)
     report->append(message);
 }
 
-bool add(
+bool instantiate(
     Ecs::World& world,
     const Discovery::Placement& placement,
+    Models::ModelHandle model,
     Lineup& lineup,
     std::string *report,
-    double *load_ms,
     double *instantiate_ms
 )
 {
     using Clock = std::chrono::steady_clock;
 
     std::string error;
-    const auto load_begin = Clock::now();
-    const Models::ModelHandle model = Models::load(placement.model.string(), &error);
-    if (load_ms) {
-        *load_ms = std::chrono::duration<double, std::milli>(
-            Clock::now() - load_begin
-        ).count();
-    }
-
-    if (model == Models::INVALID_MODEL) {
-        appendReport(
-            report,
-            "[GAME] [SHOWCASE] Skipped " + placement.model.string() + ": " + error
-        );
-        return false;
-    }
-
     const Ecs::Entity root = world.createEntity();
     world.add<Renderer::Transform>(root, Renderer::Transform{
         .position = {placement.x, 10.0f, placement.z},
@@ -86,11 +69,26 @@ bool add(
     return true;
 }
 
+void printComplete(const Loader& loader, std::string *report)
+{
+    if (!complete(loader)) return;
+    std::printf(
+        "[GAME] [SHOWCASE] Loaded %zu/%zu models\n",
+        loader.loaded,
+        loader.items.size()
+    );
+    if (report && !report->empty()) std::fprintf(stderr, "%s\n", report->c_str());
+}
+
 } // namespace
 
 void prepare(const std::filesystem::path& cs2_root, Loader& loader)
 {
     loader.items = Discovery::lineup(cs2_root);
+    loader.requests.clear();
+    loader.requests.reserve(loader.items.size());
+    for (const Discovery::Placement& placement : loader.items)
+        loader.requests.push_back(Models::loadAsync(placement.model.string()));
     loader.next = 0u;
     loader.loaded = 0u;
     std::printf("[GAME] [SHOWCASE] Queued %zu models\n", loader.items.size());
@@ -104,41 +102,61 @@ bool step(
 )
 {
     if (complete(loader)) return false;
+    if (loader.next >= loader.requests.size()) {
+        appendReport(report, "[GAME] [SHOWCASE] Async request list is incomplete");
+        loader.next = loader.items.size();
+        printComplete(loader, report);
+        return true;
+    }
 
     const Discovery::Placement& placement = loader.items[loader.next];
-    double load_ms = 0.0;
+    const Models::LoadHandle request = loader.requests[loader.next];
+    const Models::LoadState state = Models::loadState(request);
+    if (state == Models::LoadState::Pending) return false;
+
+    bool loaded = false;
     double instantiate_ms = 0.0;
-    const bool loaded = add(
-        world,
-        placement,
-        lineup,
-        report,
-        &load_ms,
-        &instantiate_ms
-    );
+    std::string error;
+
+    if (state == Models::LoadState::Ready) {
+        const Models::ModelHandle model = Models::loadResult(request, &error);
+        if (model != Models::INVALID_MODEL) {
+            loaded = instantiate(
+                world,
+                placement,
+                model,
+                lineup,
+                report,
+                &instantiate_ms
+            );
+        } else {
+            appendReport(
+                report,
+                "[GAME] [SHOWCASE] Skipped " + placement.model.string() + ": " + error
+            );
+        }
+    } else {
+        Models::loadResult(request, &error);
+        appendReport(
+            report,
+            "[GAME] [SHOWCASE] Skipped " + placement.model.string() + ": " +
+                (error.empty() ? std::string("asynchronous model load failed") : error)
+        );
+    }
 
     ++loader.next;
     if (loaded) ++loader.loaded;
 
     std::printf(
-        "[GAME] [SHOWCASE] %zu/%zu %s load=%.2fms instantiate=%.2fms%s\n",
+        "[GAME] [SHOWCASE] %zu/%zu %s instantiate=%.2fms%s\n",
         loader.next,
         loader.items.size(),
         placement.model.filename().string().c_str(),
-        load_ms,
         instantiate_ms,
         loaded ? "" : " FAILED"
     );
 
-    if (complete(loader)) {
-        std::printf(
-            "[GAME] [SHOWCASE] Loaded %zu/%zu models\n",
-            loader.loaded,
-            loader.items.size()
-        );
-        if (report && !report->empty()) std::fprintf(stderr, "%s\n", report->c_str());
-    }
-
+    printComplete(loader, report);
     return true;
 }
 
