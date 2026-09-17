@@ -179,7 +179,7 @@ void drawLoadoutMenu(Context& context)
 {
     if (!ImGui::BeginMenu("Loadout")) return;
 
-    if (ImGui::BeginMenu("Weapon")) {
+    if (ImGui::BeginMenu("Weapons")) {
         for (std::size_t index = 0u; index < context.loadout.weapons.size(); ++index) {
             const Loadout::Item& item = context.loadout.weapons[index];
             ImGui::PushID(item.path.string().c_str());
@@ -221,8 +221,6 @@ void drawDebugMenu(State& state, Context& context)
 
     ImGui::MenuItem("Display FPS", nullptr, &state.show_fps);
     ImGui::MenuItem("Display Camera", nullptr, &state.show_camera);
-
-    drawLoadoutMenu(context);
 
     ImGui::BeginDisabled();
     ImGui::MenuItem("Wireframe", nullptr, false);
@@ -517,6 +515,7 @@ void drawTopBar(State& state, Context& context)
     if (!ImGui::BeginMainMenuBar()) return;
 
     drawDebugMenu(state, context);
+    drawLoadoutMenu(context);
     drawCameraMenu(context);
     drawRendererMenu(context);
     drawEnvironmentMenu(context);
