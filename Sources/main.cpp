@@ -42,8 +42,8 @@ public:
         world.add<Camera::CameraComponent>(camera, Camera::CameraComponent{
             .fov_degrees = Debugging::Values::CameraFovDefault,
             .near_plane  = Debugging::Values::CameraNearDefault,
+            .active      = true,
             .far_plane   = Debugging::Values::CameraFarDefault,
-            .active = true,
         });
 
         Camera::FreeController camera_controller;
@@ -219,15 +219,9 @@ public:
         }
 
         Showcase::Lineup showcase;
+        Showcase::Loader showcase_loader;
         std::string showcase_report;
-        const std::size_t showcase_count = Showcase::create(
-            world,
-            PATH / "CS2",
-            showcase,
-            &showcase_report
-        );
-        std::printf("[GAME] [SHOWCASE] Loaded %zu models\n", showcase_count);
-        if (!showcase_report.empty()) std::fprintf(stderr, "%s\n", showcase_report.c_str());
+        Showcase::prepare(PATH / "CS2", showcase_loader);
 
         Debugging::State debugging;
         Debugging::applyStyle();
@@ -240,6 +234,7 @@ public:
 
         using Clock = std::chrono::steady_clock;
         auto previous = Clock::now();
+        bool showcase_can_step = false;
 
         while (Window::poll()) {
             Input::poll();
@@ -325,6 +320,14 @@ public:
             debugging.render_ms = std::chrono::duration<float, std::milli>(
                 Clock::now() - render_begin
             ).count();
+
+            if (showcase_can_step) {
+                if (!Showcase::complete(showcase_loader)) {
+                    Showcase::step(world, showcase_loader, showcase, &showcase_report);
+                }
+            } else {
+                showcase_can_step = true;
+            }
         }
 
         Showcase::destroy(world, showcase);
