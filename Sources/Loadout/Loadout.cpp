@@ -29,6 +29,43 @@ bool modelFile(const std::filesystem::path& path)
     return extension == ".gltf" || extension == ".glb";
 }
 
+bool ignored(const std::filesystem::path& path)
+{
+    const std::string stem = path.stem().string();
+    return stem.find("_physics") != std::string::npos ||
+           stem.find("_mag") != std::string::npos;
+}
+
+std::filesystem::path primaryModel(const std::filesystem::path& directory)
+{
+    std::vector<std::filesystem::path> models;
+    std::error_code error;
+
+    for (std::filesystem::directory_iterator it(directory, error), end;
+         !error && it != end;
+         it.increment(error)) {
+        if (!it->is_regular_file(error)) continue;
+        const std::filesystem::path path = it->path();
+        if (!modelFile(path) || ignored(path)) continue;
+        models.push_back(path.lexically_normal());
+    }
+
+    if (models.empty()) return {};
+
+    std::sort(models.begin(), models.end(), [](const auto& a, const auto& b) {
+        return a.filename().string() < b.filename().string();
+    });
+
+    const std::string directory_name = directory.filename().string();
+    for (const auto& model : models)
+        if (model.stem().string() == directory_name) return model;
+
+    for (const auto& model : models)
+        if (model.filename().string().rfind("weapon_", 0u) == 0u) return model;
+
+    return models.front();
+}
+
 std::string label(const std::filesystem::path& path)
 {
     std::string value = path.stem().string();
@@ -44,11 +81,18 @@ std::string label(const std::filesystem::path& path)
     return value;
 }
 
-std::vector<Item> discover(const std::filesystem::path& root, bool weapons)
+std::vector<Item> discover(const std::filesystem::path& root, bool)
 {
     std::vector<Item> items;
-    std::error_code error;
 
+    const auto add = [&](const std::filesystem::path& directory) {
+        const std::filesystem::path model = primaryModel(directory);
+        if (!model.empty()) items.push_back(Item{label(model), model});
+    };
+
+    add(root);
+
+    std::error_code error;
     for (std::filesystem::recursive_directory_iterator it(
              root,
              std::filesystem::directory_options::skip_permission_denied,
@@ -56,9 +100,7 @@ std::vector<Item> discover(const std::filesystem::path& root, bool weapons)
          end;
          !error && it != end;
          it.increment(error)) {
-        if (!it->is_regular_file(error) || !modelFile(it->path())) continue;
-        if (weapons && it->path().filename().string().rfind("weapon_", 0u) != 0u) continue;
-        items.push_back(Item{label(it->path()), it->path().lexically_normal()});
+        if (it->is_directory(error)) add(it->path());
     }
 
     std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) {
