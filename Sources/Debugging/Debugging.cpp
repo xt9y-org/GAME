@@ -2,6 +2,8 @@
 #include "Layout.hpp"
 #include "Values.hpp"
 
+#include "../Loadout/Loadout.hpp"
+
 #include <Camera/Camera.hpp>
 #include <Renderer/Components.hpp>
 #include <Renderer/Debug/Debug.hpp>
@@ -173,12 +175,54 @@ void popProfilerStyle()
     ImGui::PopStyleColor(5);
 }
 
+void drawLoadoutMenu(Context& context)
+{
+    if (!ImGui::BeginMenu("Loadout")) return;
+
+    if (ImGui::BeginMenu("Weapon")) {
+        for (std::size_t index = 0u; index < context.loadout.weapons.size(); ++index) {
+            const Loadout::Item& item = context.loadout.weapons[index];
+            ImGui::PushID(item.path.string().c_str());
+            if (ImGui::MenuItem(
+                    item.name.c_str(),
+                    nullptr,
+                    index == context.loadout.weapon))
+                Loadout::selectWeapon(context.loadout, context.world, index);
+            ImGui::PopID();
+        }
+        ImGui::EndMenu();
+    }
+
+    if (ImGui::BeginMenu("Arms")) {
+        for (std::size_t index = 0u; index < context.loadout.arms.size(); ++index) {
+            const Loadout::Item& item = context.loadout.arms[index];
+            ImGui::PushID(item.path.string().c_str());
+            if (ImGui::MenuItem(
+                    item.name.c_str(),
+                    nullptr,
+                    index == context.loadout.arm))
+                Loadout::selectArms(context.loadout, context.world, index);
+            ImGui::PopID();
+        }
+        ImGui::EndMenu();
+    }
+
+    if (!context.loadout.error.empty()) {
+        ImGui::Separator();
+        ImGui::TextDisabled("%s", context.loadout.error.c_str());
+    }
+
+    ImGui::EndMenu();
+}
+
 void drawDebugMenu(State& state, Context& context)
 {
     if (!ImGui::BeginMenu("Debug")) return;
 
     ImGui::MenuItem("Display FPS", nullptr, &state.show_fps);
     ImGui::MenuItem("Display Camera", nullptr, &state.show_camera);
+
+    drawLoadoutMenu(context);
 
     ImGui::BeginDisabled();
     ImGui::MenuItem("Wireframe", nullptr, false);
