@@ -5,12 +5,8 @@
 
 #include <Camera/Camera.hpp>
 
-#include <Models/Models.hpp>
-#include <Models/Runtime.hpp>
-
 #include <Renderer/Components.hpp>
 #include <Renderer/Environment.hpp>
-#include <Renderer/ModelScene.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
 #include <Renderer/Scenes/SceneCache.hpp>
 
@@ -18,12 +14,10 @@
 
 #include "Debugging/Debugging.hpp"
 #include "Debugging/Values.hpp"
-#include "Dependencies/Dependencies.hpp"
-#include "Showcase/Showcase.hpp"
+#include "Loadout/Loadout.hpp"
 
-#include <filesystem>
 #include <chrono>
-#include <cstdio>
+#include <filesystem>
 #include <limits>
 #include <string>
 
@@ -75,115 +69,23 @@ public:
             .intensity  = Debugging::Values::LightIntensityDefault,
             .range      = 200.0f,
         });
-
         world.add<Renderer::ShadowComponent>(light, Renderer::ShadowComponent{
             .enabled = true,
             .bias = Debugging::Values::ShadowBiasDefault,
         });
 
         const Ecs::Entity environment = world.createEntity();
-        world.add<Renderer::EnvironmentComponent>(environment, Renderer::EnvironmentComponent{});
+        world.add<Renderer::EnvironmentComponent>(
+            environment,
+            Renderer::EnvironmentComponent{}
+        );
 
         std::string error;
-
-        const std::filesystem::path PATH = "Assets/";
-
-        // const Models::ModelHandle scene = Models::load(
-        //     (Dependencies::path("Sponza") / "sponza.obj").string(),
-        //     &error
-        // );
-
-        const Models::ModelHandle scene = Models::load(
-            (Dependencies::path("Floor") / "floor.obj").string(),
-            &error
-        );
-
-        const Models::ModelHandle arms = Models::load(
-            (PATH / "CS2/Arms/agents/models/shared/arms/glove_fullfinger/glove_fullfinger.gltf").string(),
-            &error
-        );
-        const Models::ModelHandle weapon = Models::load(
-            (PATH / "CS2/Models/weapons/models/revolver/weapon_pist_revolver.gltf").string(),
-            &error
-        );
-        const Models::ModelHandle idle = Models::load(
-            (PATH / "CS2/Anim/animation/anims/viewmodel/pistol/pistol_revolver/idle_revolver.gltf").string(),
-            &error
-        );
-        const Models::ModelHandle shoot = Models::load(
-            (PATH / "CS2/Anim/animation/anims/viewmodel/pistol/pistol_revolver/shoot1_revolver.gltf").string(),
-            &error
-        );
-        const Models::ModelHandle reload = Models::load(
-            (PATH / "CS2/Anim/animation/anims/viewmodel/pistol/pistol_revolver/reload_revolver.gltf").string(),
-            &error
-        );
-        const Models::ModelHandle inspect = Models::load(
-            (PATH / "CS2/Anim/animation/anims/viewmodel/pistol/pistol_revolver/lookat01_revolver.gltf").string(),
-            &error
-        );
-
-        bool valid = (arms == Models::INVALID_MODEL ||
-                    weapon == Models::INVALID_MODEL ||
-                     scene == Models::INVALID_MODEL ||
-                      idle == Models::INVALID_MODEL ||
-                     shoot == Models::INVALID_MODEL ||
-                    reload == Models::INVALID_MODEL ||
-                   inspect == Models::INVALID_MODEL);
-
-        if (valid) {
+        Loadout::State loadout;
+        if (!Loadout::init(loadout, world, viewmodel, "Assets/CS2", &error)) {
+            Loadout::destroy(loadout, world);
             Window::destroy();
-            return std::string("[GAME] [ERROR] Could not load assets: ") + error + "\n";
-        }
-
-        const Renderer::ModelScene::Options viewmodel_options{
-            .parent = viewmodel
-        };
-
-        Renderer::ModelScene::Instance scene_instance;
-        if (!Renderer::ModelScene::instantiate(world, scene, &scene_instance)) {
-            Renderer::ModelScene::destroy(world, scene_instance);
-            Window::destroy();
-            return std::string("[GAME] [ERROR] Could not instantiate sponza-scene") + error + "\n";
-        }
-
-        Renderer::ModelScene::Instance arms_instance;
-        if (!Renderer::ModelScene::instantiate(world, arms, &arms_instance, viewmodel_options, &error)) {
-            Renderer::ModelScene::destroy(world, arms_instance);
-            Window::destroy();
-            return std::string("[GAME] [ERROR] Could not instantiate CS2 arm-viewmodel: ") + error + "\n";
-        }
-
-        Renderer::ModelScene::Instance weapon_instance;
-        if (!Renderer::ModelScene::instantiate(world, weapon, &weapon_instance, viewmodel_options, &error)) {
-            Renderer::ModelScene::destroy(world, weapon_instance);
-            Window::destroy();
-            return std::string("[GAME] [ERROR] Could not instantiate CS2 world-viewmodel: ") + error + "\n";
-        }
-
-        Renderer::ModelScene::Animation animation;
-        const std::size_t arms_target = Renderer::ModelScene::bind(
-            animation,
-            arms_instance,
-            Models::Runtime::RetargetOptions{
-                .mode = Models::Runtime::RetargetMode::World,
-                .source_root = "root_motion",
-            }
-        );
-        const std::size_t weapon_target = Renderer::ModelScene::bind(
-            animation, weapon_instance
-        );
-
-        valid = (arms_target == Models::INVALID_INDEX ||
-               weapon_target == Models::INVALID_INDEX ||
-            !Renderer::ModelScene::attach(animation, weapon_target, "wpn", "weapon") ||
-            !Renderer::ModelScene::play(animation, idle, 0u, true, &error));
-
-        if (valid) {
-            Renderer::ModelScene::destroy(world, weapon_instance);
-            Renderer::ModelScene::destroy(world, arms_instance);
-            Window::destroy();
-            return std::string("[GAME] [ERROR] Could not bind CS2 animations: ") + error + "\n";
+            return std::string("[GAME] [ERROR] Could not load default loadout: ") + error + "\n";
         }
 
         Renderer::Scenes::SceneCache::setMaximumTriangles(
@@ -200,8 +102,7 @@ public:
         renderer.setClearColor({0.0f, 0.0f, 0.0f, 0.0f});
 
         if (!renderer.init()) {
-            Renderer::ModelScene::destroy(world, weapon_instance);
-            Renderer::ModelScene::destroy(world, arms_instance);
+            Loadout::destroy(loadout, world);
             Window::destroy();
             return "[GAME] [ERROR] Could not init rasterizer\n";
         }
@@ -212,16 +113,10 @@ public:
 
         if (!UI::init()) {
             renderer.shutdown();
-            Renderer::ModelScene::destroy(world, weapon_instance);
-            Renderer::ModelScene::destroy(world, arms_instance);
+            Loadout::destroy(loadout, world);
             Window::destroy();
             return "[GAME] [ERROR] Could not init debug UI\n";
         }
-
-        Showcase::Lineup showcase;
-        Showcase::Loader showcase_loader;
-        std::string showcase_report;
-        Showcase::prepare(PATH / "CS2", showcase_loader);
 
         Debugging::State debugging;
         Debugging::applyStyle();
@@ -234,7 +129,6 @@ public:
 
         using Clock = std::chrono::steady_clock;
         auto previous = Clock::now();
-        bool showcase_can_step = false;
 
         while (Window::poll()) {
             Input::poll();
@@ -245,9 +139,8 @@ public:
             if (delta > 0.1f) delta = 0.1f;
             Debugging::sample(debugging, delta);
 
-            if (Input::keyPressed(capture_key)) {
+            if (Input::keyPressed(capture_key))
                 Input::setPointerCaptured(!Input::pointer().captured);
-            }
 
             const auto update_begin = Clock::now();
 
@@ -255,29 +148,20 @@ public:
                 camera_controller.update(world, delta);
 
                 if (Input::buttonPressed(shoot_button) &&
-                    !Renderer::ModelScene::play(animation, shoot, 0u, false, &error)) {
+                    !Loadout::shoot(loadout, &error))
                     break;
-                }
 
                 if (Input::keyPressed(reload_key) &&
-                    !Renderer::ModelScene::play(animation, reload, 0u, false, &error)) {
+                    !Loadout::reload(loadout, &error))
                     break;
-                }
 
                 if (Input::keyPressed(inspect_key) &&
-                    !Renderer::ModelScene::play(animation, inspect, 0u, false, &error)) {
+                    !Loadout::inspect(loadout, &error))
                     break;
-                }
             }
 
-            if (!Renderer::ModelScene::update(world, animation, delta, &error)) {
+            if (!Loadout::update(loadout, world, delta, &error))
                 break;
-            }
-
-            if (!Renderer::ModelScene::playing(animation) &&
-                !Renderer::ModelScene::play(animation, idle, 0u, true, &error)) {
-                break;
-            }
 
             const int new_width  = Window::width();
             const int new_height = Window::height();
@@ -302,6 +186,7 @@ public:
                 world,
                 camera_controller,
                 renderer,
+                loadout,
                 camera,
                 environment,
                 light,
@@ -320,21 +205,11 @@ public:
             debugging.render_ms = std::chrono::duration<float, std::milli>(
                 Clock::now() - render_begin
             ).count();
-
-            if (showcase_can_step) {
-                if (!Showcase::complete(showcase_loader)) {
-                    Showcase::step(world, showcase_loader, showcase, &showcase_report);
-                }
-            } else {
-                showcase_can_step = true;
-            }
         }
 
-        Showcase::destroy(world, showcase);
         UI::shutdown();
+        Loadout::destroy(loadout, world);
         renderer.shutdown();
-        Renderer::ModelScene::destroy(world, weapon_instance);
-        Renderer::ModelScene::destroy(world, arms_instance);
         Input::reset();
         Window::destroy();
         return "[GAME] [FINISHED]";
