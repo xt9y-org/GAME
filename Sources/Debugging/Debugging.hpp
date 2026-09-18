@@ -8,7 +8,7 @@
 #include <cstddef>
 
 namespace Renderer {
-class Rasterizer;
+class Manager;
 }
 
 namespace Loadout {
@@ -39,11 +39,12 @@ struct Context
 {
     Ecs::World& world;
     Camera::FreeController& camera_controller;
-    Renderer::Rasterizer& renderer;
+    Renderer::Manager& renderers;
     Loadout::State& loadout;
     Ecs::Entity camera = Ecs::INVALID_ENTITY;
     Ecs::Entity environment = Ecs::INVALID_ENTITY;
     Ecs::Entity light = Ecs::INVALID_ENTITY;
+    Ecs::Entity global_illumination = Ecs::INVALID_ENTITY;
     int width = 1;
     int height = 1;
 };
