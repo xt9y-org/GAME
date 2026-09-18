@@ -180,15 +180,38 @@ void drawLoadoutMenu(Context& context)
     if (!ImGui::BeginMenu("Loadout")) return;
 
     if (ImGui::BeginMenu("Weapons")) {
-        for (std::size_t index = 0u; index < context.loadout.weapons.size(); ++index) {
-            const Loadout::Item& item = context.loadout.weapons[index];
-            ImGui::PushID(item.path.string().c_str());
-            if (ImGui::MenuItem(
-                    item.name.c_str(),
-                    nullptr,
-                    index == context.loadout.weapon))
-                Loadout::selectWeapon(context.loadout, context.world, index);
-            ImGui::PopID();
+        constexpr std::array<Loadout::WeaponCategory, 6> categories{{
+            Loadout::WeaponCategory::Pistols,
+            Loadout::WeaponCategory::Smgs,
+            Loadout::WeaponCategory::Rifles,
+            Loadout::WeaponCategory::Snipers,
+            Loadout::WeaponCategory::Shotguns,
+            Loadout::WeaponCategory::MachineGuns,
+        }};
+
+        for (const Loadout::WeaponCategory category : categories) {
+            bool any = false;
+            for (const Loadout::WeaponItem& item : context.loadout.weapons) {
+                if (item.category == category) {
+                    any = true;
+                    break;
+                }
+            }
+            if (!any || !ImGui::BeginMenu(Loadout::categoryName(category))) continue;
+
+            for (std::size_t index = 0u; index < context.loadout.weapons.size(); ++index) {
+                const Loadout::WeaponItem& item = context.loadout.weapons[index];
+                if (item.category != category) continue;
+
+                ImGui::PushID(item.path.string().c_str());
+                if (ImGui::MenuItem(
+                        item.name.c_str(),
+                        nullptr,
+                        index == context.loadout.weapon))
+                    Loadout::selectWeapon(context.loadout, context.world, index);
+                ImGui::PopID();
+            }
+            ImGui::EndMenu();
         }
         ImGui::EndMenu();
     }
