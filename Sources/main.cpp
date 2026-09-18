@@ -98,7 +98,7 @@ public:
         world.add<Renderer::GlobalIlluminationComponent>(
             global_illumination,
             Renderer::GlobalIlluminationComponent{
-                .enabled = false,
+                .enabled = true,
                 .intensity = 1.0f,
                 .bounces = 1u,
                 .photon_mapping = false,
