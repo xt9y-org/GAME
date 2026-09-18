@@ -1,72 +1,470 @@
-# Rasterizer-Only Renderer Cleanup Implementation Plan
+# Horse Rasterizer Renderer Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Remove Horse's selectable Ray Tracer, Path Tracer, and their reconstruction stack, leaving Rasterizer as the only renderer backend while preserving shared rendering systems such as GI, Volumetrics, Gaussian Splat, lighting, shadows, environment, scene resources, and any internal ray-query/BVH code those systems still require.
+**Goal:** Make Horse a single-backend, high-performance rasterized renderer with strong lighting, visibility, shadows, ambient lighting, reflections, GI and volumetrics while keeping game-specific rendering systems outside this roadmap.
 
-**Architecture:** `Renderer::Manager` remains generic, but GAME registers only `Renderer::Rasterizer`. Backend-specific trace/reconstruction code is deleted. Shared GI/BVH/trace-query infrastructure is kept only where it is consumed independently by the rasterizer/shared systems. No post-processing changes are part of this cleanup.
+**Architecture:** `Renderer::Rasterizer` is the only scene renderer registered by GAME. Rendering features are shared systems around it rather than alternate renderers. Every current renderer system gets a non-destructive global master override, and GAME's Debug UI exposes meaningful visual/performance controls instead of internal algorithm knobs. Internal tuning remains owned by Horse and is selected through quality presets.
 
 **Tech Stack:** C++20, Horse, SDL3 GPU, SDL_shadercross, custom `c` build system.
 
-**Spec:** User-approved conversation design from 2026-09-18.
+**Spec:** User-approved renderer direction from 2026-09-18.
 
 ## Global Constraints
 
-- Rasterizer output and behavior must remain unchanged.
-- Keep `Renderer::Manager`; GAME registers one backend only.
-- Delete Ray/Path backend source, dedicated reconstruction source/shaders/tests, and obsolete backend documentation from Horse.
-- Do not delete generic BVH/trace-query infrastructure required by Global Illumination or other shared systems.
-- Remove all GAME setup/debug/test dependencies on the deleted backends.
-- Keep Volumetrics, Gaussian Splat, GI, environment, lighting, shadows, models, scene resources, and PostProcess untouched except for compile fallout caused by deleted includes.
-- Verify repository searches contain no active RayTracer/PathTracer/Reconstruction backend references after cleanup.
+- Rasterizer remains the only scene renderer backend.
+- Do not reintroduce selectable Ray Tracer or Path Tracer backends.
+- No post-processing work is part of this roadmap unless separately requested.
+- Keep Water, Decals, Particles, Terrain, Vegetation and other game-specific rendering systems out for now.
+- Rendering systems must stay modular and backend-neutral where possible.
+- Global system switches are non-destructive overrides. Turning a system off must not delete or rewrite ECS components; turning it back on restores the scene exactly as it was.
+- Every implemented renderer system must have an `Enabled` master control where disabling it is meaningful.
+- Debug controls must represent changes a player/developer can actually see or feel. Do not expose implementation trivia such as photon counts, probe dimensions, ray epsilon, internal sample budgets or BVH leaf sizes in the normal Renderer menu.
+- Internal tuning stays in Horse and is selected through simple quality levels where useful: `Low`, `Medium`, `High`, `Ultra`.
+- Do not add Debug UI for systems that do not exist yet.
+- Camera controls follow the same philosophy: Active, Projection, FOV, Exposure, Tone Mapping, Render Distance, movement speed, sprint speed and mouse sensitivity. Hide low-value tuning unless needed for a concrete visual/debugging reason.
+- Preserve the existing experimental BVH/viewport visualizer under Debug; it is not a player-facing renderer setting.
+- Prefer quality loss only when the user explicitly selects a lower quality level. Do not silently degrade image quality to chase a target frame rate.
 
 ---
 
-### Task 1: Remove Horse backend and reconstruction ownership
+## Current Architecture
 
-**Files:**
-- Delete: `Sources/Renderer/RayTracer/RayTracer.hpp`
-- Delete: `Sources/Renderer/RayTracer/RayTracerSDLGPU.cpp`
-- Delete: `Sources/Renderer/PathTracer/PathTracer.hpp`
-- Delete: `Sources/Renderer/PathTracer/PathTracerSDLGPU.cpp`
-- Delete: `Sources/Renderer/Reconstruction/Reconstruction.hpp`
-- Delete: `Sources/Renderer/Reconstruction/Reconstruction.cpp`
-- Delete: `Sources/Renderer/Reconstruction/ReconstructionSDLGPU.cpp`
-- Delete: `Sources/Renderer/Internal/ReconstructionSDLGPU.hpp`
-- Delete: `Sources/Renderer/SDLGPU/ReconstructionShaders.hpp`
-- Delete: `Sources/Renderer/SDLGPU/ReconstructionTraceShaders.hpp`
-- Delete: `Sources/Renderer/SDLGPU/PBRTraceShaders.hpp`
-- Delete: `Tests/Reconstruction.cpp`
-- Delete: `RAY_PATH_RECONSTRUCTION_PLAN`
-- Delete: `RAY_PATH_RECONSTRUCTION_IMPLEMENTATION_PLAN`
-- Modify: `Sources/Renderer/Render.hpp`
-- Modify: `Sources/Renderer/SDLGPU/Shaders.hpp`
-- Modify: `Tests/RendererSettings.cpp`
-- Modify: `build.c`
+```text
+Horse
+└── Renderer
+    ├── Rasterizer
+    │   ├── Visibility
+    │   ├── Shadows
+    │   ├── PBR
+    │   └── Present
+    │
+    ├── Lighting
+    ├── Environment
+    ├── GlobalIllumination
+    ├── Volumetrics
+    ├── GaussianSplat
+    └── Debug
+```
 
-- [ ] Remove backend/reconstruction files.
-- [ ] Remove the Ray/Path includes from `Render.hpp`.
-- [ ] Remove `PBRTraceShaders.hpp`, `TraceSource`, `Trace`, and `PathResolve` from `Shaders.hpp` while preserving Shadow, Raster, and Sky shaders.
-- [ ] Remove Ray/Path settings assertions and the dedicated HLSL trace compatibility assertion from `Tests/RendererSettings.cpp`.
-- [ ] Remove `HorseReconstructionTests` from `build.c`.
+Ray Tracer, Path Tracer and their reconstruction stack were removed from current `main`. Git history preserves that work.
 
-### Task 2: Make GAME rasterizer-only
+### Rasterizer-only cleanup status
 
-**Files:**
-- Modify: `Sources/Rendering/Setup.cpp`
-- Modify: `Sources/Debugging/Debugging.cpp`
-- Modify: `Sources/Debugging/Values.hpp`
-- Modify: `Tests/RendererSetup.cpp`
+- [x] Remove Ray Tracer backend.
+- [x] Remove Path Tracer backend.
+- [x] Remove native sparse reconstruction stack.
+- [x] Remove trace/reconstruction shader compilation from normal startup.
+- [x] Keep `Renderer::Manager` generic.
+- [x] Register only `Renderer::Rasterizer` in GAME.
+- [x] Keep shared GI/BVH ray-query infrastructure used independently by GI.
+- [x] Remove Ray/Path Debug menus.
 
-- [ ] Register only `Renderer::Rasterizer` in `Rendering::configure`.
-- [ ] Remove Ray/Path debug submenus and includes.
-- [ ] Remove reconstruction/path-only debug ranges, keeping `RendererResolutionDivisor` because Volumetrics still uses it.
-- [ ] Change renderer setup test from three registered backends to one Rasterizer backend while preserving Volumetrics-disabled defaults.
+---
 
-### Task 3: Source and runtime verification
+# Debug / Renderer Control Philosophy
 
-- [ ] Search Horse for `RayTracer`, `PathTracer`, `ReconstructionTraceShaders`, `ReconstructionSDLGPU`, and `PBRTraceShaders`; expect no active source references.
-- [ ] Search GAME for `RayTracer`, `PathTracer`, `reconstructionSettings`, `Stationary Phase Grid`, and `Debug Reconstruction`; expect no active source references.
-- [ ] Run on the target machine: `c update build run`.
-- [ ] Confirm startup initializes only SDL_GPU + Rasterizer and no Ray/Path shader compilation occurs.
-- [ ] Confirm Rasterizer FPS matches the clean baseline.
+The Debug menu is a live renderer control surface, not a dump of Horse internals.
+
+Target structure:
+
+```text
+Renderer
+├── Lighting
+│   └── Enabled
+│
+├── Shadows
+│   ├── Enabled
+│   ├── Quality          Low / Medium / High / Ultra
+│   ├── Distance
+│   └── Softness         when filtered shadows exist
+│
+├── Environment
+│   ├── Enabled
+│   ├── Intensity
+│   └── Ambient Strength
+│
+├── Global Illumination
+│   ├── Enabled
+│   ├── Quality          Low / Medium / High / Ultra
+│   └── Strength
+│
+├── Ambient Occlusion    once implemented
+│   ├── Enabled
+│   ├── Quality
+│   ├── Strength
+│   └── Radius
+│
+├── Reflections          once implemented
+│   ├── Enabled
+│   ├── Quality
+│   └── Strength
+│
+├── Volumetrics
+│   ├── Enabled
+│   ├── Quality
+│   ├── Density
+│   └── Distance
+│
+├── Gaussian Splat
+│   └── Enabled
+│
+└── Visibility
+    ├── Frustum Culling
+    ├── Occlusion Culling    once implemented
+    └── GPU Driven           once implemented
+```
+
+Camera target:
+
+```text
+Camera
+├── Active
+├── Projection
+├── FOV
+├── Exposure
+├── Tone Mapping
+├── Render Distance
+│
+└── Controller
+    ├── Speed
+    ├── Sprint Speed
+    └── Mouse Sensitivity
+```
+
+The normal menu must not expose `Rays / Probe`, `Probe Budget`, `Probe Dimension`, `Photon Count`, `Photon Radius`, `Ray Epsilon`, volumetric raw sample counts, blur-pass counts or BVH construction knobs. Those remain Horse internals and can be selected by quality presets.
+
+---
+
+# Current BVH
+
+Horse's existing BVH is **not** the Rasterizer's normal visibility system. It is a triangle-level acceleration structure in `Renderer::Scenes::SceneCache`, currently used by GI ray queries and by the experimental BVH visualizer.
+
+Current build:
+
+```text
+scene render items
+    ↓
+world-space triangles
+    ↓
+triangle centroids
+    ↓
+choose largest centroid extent X/Y/Z
+    ↓
+median split with std::nth_element
+    ↓
+binary AABB tree
+```
+
+- `GpuNode` contains an AABB.
+- Internal nodes store two child indices.
+- Leaf nodes use `LeafBit` and own a contiguous triangle range.
+- The current default effectively allows one triangle per leaf because `leaf_size_` defaults to zero and build uses `max(leaf_size_, 1)`.
+- Topology changes rebuild the tree.
+- Transform/animation/deformation-only changes update world triangles and refit node AABBs bottom-up without rebuilding topology.
+- GI traversal uses CPU AABB slab tests followed by Möller-Trumbore triangle tests.
+- Closest-hit traversal currently pushes both children rather than near-child-first sorting.
+- GI also uses the same structure for shadow/occlusion checks from probe hits toward lights.
+- `Debug -> Experimental -> Show BVH` visualizes AABBs by tree depth.
+
+Do not use this triangle BVH as the Rasterizer's main occlusion system. Raster visibility should use object/instance bounds + Hi-Z on the GPU.
+
+Future GI BVH direction, after the rasterizer foundation is complete:
+
+```text
+GI Acceleration
+├── TLAS
+│   └── scene instances / transforms
+│
+└── BLAS
+    └── reusable mesh-local triangles
+
+Builder
+├── binned SAH
+├── 4-8 triangles per leaf
+└── static/dynamic separation
+
+Traversal
+├── near child first
+├── closest-hit early pruning
+└── specialized any-hit path for occlusion
+```
+
+This avoids baking duplicate mesh instances into world-space triangle arrays and makes static mesh acceleration reusable.
+
+---
+
+# Implementation Roadmap
+
+## Phase 1 — Renderer Feature Controls
+
+**Goal:** Establish one clean master-control API before adding more renderer systems.
+
+Horse:
+- Add a shared renderer feature settings object with non-destructive master overrides for Lighting, Shadows, Environment, Global Illumination, Volumetrics and Gaussian Splat.
+- Add a shared `Renderer::Quality` enum for systems that map a player-facing quality setting to internal tuning.
+- Lighting off returns no effective lights without modifying ECS lights.
+- Shadows off keeps lights but suppresses all effective shadow casting.
+- Environment off suppresses environment/ambient contribution without modifying the `EnvironmentComponent`.
+- GI off skips all GI build/update work.
+- Volumetrics off skips the volumetric pass.
+- Gaussian Splat off skips that pass.
+- Add a non-destructive Camera master Active override.
+
+GAME:
+- Replace low-level GI/Volumetric controls with meaningful controls.
+- Keep optional expensive systems disabled through master overrides by default, while their underlying scene configuration remains intact and ready to restore.
+
+- [ ] Add renderer feature override API and tests.
+- [ ] Add Camera master override and tests.
+- [ ] Gate all current systems through the master overrides.
+- [ ] Add quality preset API for Shadows, GI and Volumetrics.
+- [ ] Simplify Renderer Debug menu.
+- [ ] Simplify Camera Debug menu.
+
+## Phase 2 — GPU Profiling
+
+**Goal:** Measure actual GPU cost before optimizing or adding expensive passes.
+
+Target information:
+
+```text
+Frame
+├── Depth
+├── Shadows
+├── Visibility
+├── PBR / Opaque
+├── Transparent
+├── GI
+├── Volumetrics
+├── Gaussian Splat
+└── Present
+```
+
+- Use backend GPU timestamps only if SDL_GPU exposes a reliable path on the active backend.
+- Do not label CPU command-recording time as GPU time.
+- If portable timestamps are unavailable, keep the current CPU profiler and add backend-specific timing only when it can be implemented cleanly.
+
+- [ ] Verify SDL_GPU timestamp/query support for current supported backends.
+- [ ] Add renderer pass timing abstraction if reliable.
+- [ ] Show high-level pass cost in the existing Performance window.
+
+## Phase 3 — Depth Prepass + Hi-Z
+
+**Goal:** Build the visibility foundation without changing image quality.
+
+```text
+Depth Prepass
+    ↓
+full-resolution depth
+    ↓
+Hi-Z mip pyramid
+    ↓
+conservative object-bound visibility tests
+```
+
+- Reuse Rasterizer depth.
+- Build hierarchical depth with compute.
+- Conservative occlusion only; false visible is acceptable, false hidden is not.
+- Keep Frustum Culling independently switchable.
+
+- [ ] Add Depth Prepass ownership.
+- [ ] Build Hi-Z pyramid.
+- [ ] Add Hi-Z debug visualization/status.
+
+## Phase 4 — GPU Visibility + GPU-Driven Submission
+
+**Goal:** Stop spending CPU/draw work on objects that cannot contribute to the frame.
+
+- Use object/instance bounds, not triangle BVH nodes.
+- Frustum test + Hi-Z occlusion test.
+- Generate visible draw/instance list on GPU where SDL_GPU permits a clean implementation.
+- Preserve CPU fallback where backend capability requires it.
+
+- [ ] Add object bounds buffer.
+- [ ] Add GPU visibility compute pass.
+- [ ] Add compact visible instance list.
+- [ ] Connect visible results to Rasterizer submission.
+
+## Phase 5 — Forward+ / Clustered Lighting
+
+**Goal:** Keep PBR cost scalable as scenes gain many lights.
+
+```text
+camera frustum
+    ↓
+screen tiles / depth clusters
+    ↓
+light assignment compute
+    ↓
+per-cluster light lists
+    ↓
+PBR shades only relevant lights
+```
+
+- Keep `LightComponent` API unchanged.
+- Do not make game code understand clusters.
+- Directional lights remain globally available where appropriate.
+- Point/spot lights are culled into screen/depth clusters.
+
+- [ ] Add cluster grid and buffers.
+- [ ] Add light-cluster assignment.
+- [ ] Change PBR light loop to cluster-local lights.
+- [ ] Stress-test many point/spot lights.
+
+## Phase 6 — Shadow System Upgrade
+
+**Goal:** Improve both shadow quality and shadow cost.
+
+```text
+Shadows
+├── Directional
+│   ├── stable cascades
+│   ├── texel snapping
+│   ├── cascade blending
+│   └── filtered sampling
+├── Spot
+│   └── atlas allocation
+├── Point
+│   └── array/cubemap allocation
+└── Cache
+    └── redraw only when light/casters change
+```
+
+Player controls remain only Enabled, Quality, Distance and visible Softness where supported.
+
+- [ ] Stabilize cascades with texel snapping.
+- [ ] Add cascade blending.
+- [ ] Add PCF/filtered shadow sampling.
+- [ ] Add shadow atlas/caching for local lights.
+
+## Phase 7 — Ambient Occlusion
+
+**Goal:** Add contact grounding and local depth without ray tracing.
+
+Preferred direction: GTAO-style screen-space ambient occlusion using depth + normal information.
+
+Player controls:
+- Enabled
+- Quality
+- Strength
+- Radius
+
+- [ ] Add AO pass.
+- [ ] Add depth/normal-aware filtering.
+- [ ] Composite AO into PBR indirect/ambient contribution.
+
+## Phase 8 — Reflections + Better IBL
+
+**Goal:** Make rasterized PBR surfaces significantly more convincing.
+
+Priority:
+1. Prefiltered environment IBL.
+2. Local reflection probes.
+3. Selective planar reflection support if later required by a renderer feature.
+4. SSR only if it complements probes cleanly and does not become the primary reflection source.
+
+Player controls:
+- Enabled
+- Quality
+- Strength
+
+- [ ] Add irradiance/specular environment preprocessing or cached equivalents.
+- [ ] Add BRDF integration data.
+- [ ] Add local reflection probe representation and blending.
+
+## Phase 9 — Global Illumination Cleanup
+
+**Goal:** Keep GI optional and visually meaningful without exposing algorithm internals.
+
+- Debug exposes Enabled, Quality and Strength only.
+- Quality presets own rays/probe budgets/probe dimensions/bounce budgets/photon limits internally.
+- Photon mapping remains an implementation choice rather than a player-facing toggle unless a later visual mode genuinely requires it.
+- Investigate baked lightmaps + SH/light probes for static scenes before making dynamic GI more expensive.
+- Only after profiling, consider TLAS/BLAS + SAH BVH upgrade described above.
+
+- [ ] Add GI quality presets.
+- [ ] Remove low-level GAME Debug controls.
+- [ ] Profile current CPU GI/BVH cost.
+- [ ] Decide dynamic GI vs baked/static-probe split from measured data.
+
+## Phase 10 — Volumetrics Upgrade
+
+**Goal:** Replace raw tuning knobs with quality-driven volumetrics and improve scalability.
+
+Long-term preferred direction: froxel/grid volumetrics rather than brute-force screen work where it offers a real performance/quality improvement.
+
+Player controls:
+- Enabled
+- Quality
+- Density
+- Distance
+
+- [ ] Add Volumetrics quality presets.
+- [ ] Hide raw resolution/sample/blur controls from normal Debug UI.
+- [ ] Profile existing implementation.
+- [ ] Evaluate froxel migration only from measured results.
+
+## Phase 11 — Lightweight Render Graph
+
+**Goal:** Keep pass/resource ownership clean as the rasterizer grows.
+
+The graph should describe dependencies and resource lifetime; it must not become a giant abstraction layer around SDL_GPU.
+
+Example:
+
+```text
+Depth
+ ├── Hi-Z
+ ├── Shadows
+ └── AO
+
+Visibility
+ └── Opaque
+
+Lighting
+ ├── Opaque
+ └── Volumetrics
+
+Opaque
+ ├── Reflections
+ └── Transparent
+```
+
+- [ ] Introduce only when enough passes exist to remove actual duplication/resource lifetime complexity.
+- [ ] Keep API small and code-first.
+
+---
+
+# Explicitly Out Of Scope For This Renderer Pass
+
+Do not implement these as part of the roadmap above:
+
+- Water
+- Decals
+- GPU particles
+- Terrain
+- Vegetation / wind
+- gameplay VFX systems
+
+They can consume the renderer foundation later without shaping its core architecture now.
+
+---
+
+# Priority Order
+
+Implement in this order unless measurements justify moving a phase:
+
+1. Renderer feature controls + clean Debug UX.
+2. Reliable GPU profiling.
+3. Depth prepass + Hi-Z.
+4. GPU visibility / GPU-driven submission.
+5. Forward+ / clustered lighting.
+6. Shadow upgrade.
+7. GTAO.
+8. Better IBL + reflection probes.
+9. GI cleanup / measured BVH improvements.
+10. Volumetrics upgrade.
+11. Lightweight render graph when pass count justifies it.
+
+The guiding rule is: one excellent rasterizer with modular systems is preferred over multiple renderer backends that duplicate lighting, materials, scene synchronization and debugging logic.
