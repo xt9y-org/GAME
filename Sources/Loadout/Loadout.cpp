@@ -551,6 +551,7 @@ bool init(
 
 bool selectWeapon(State& state, Ecs::World& world, std::size_t index)
 {
+    if (state.shooting) return true;
     if (index >= state.weapons.size())
         return fail(state, "Invalid weapon selection");
     if (index == state.weapon) return true;
@@ -602,6 +603,7 @@ bool selectWeapon(State& state, Ecs::World& world, std::size_t index)
 
 bool selectArms(State& state, Ecs::World& world, std::size_t index)
 {
+    if (state.shooting) return true;
     if (index >= state.arms.size())
         return fail(state, "Invalid arms selection");
     if (index == state.arm) return true;
@@ -644,16 +646,21 @@ bool selectArms(State& state, Ecs::World& world, std::size_t index)
 
 bool shoot(State& state, std::string *error)
 {
-    return play(state, state.shoot, error);
+    if (state.shooting) return true;
+    if (!play(state, state.shoot, error)) return false;
+    state.shooting = true;
+    return true;
 }
 
 bool reload(State& state, std::string *error)
 {
+    if (state.shooting) return true;
     return play(state, state.reload, error);
 }
 
 bool inspect(State& state, std::string *error)
 {
+    if (state.shooting) return true;
     return play(state, state.inspect, error);
 }
 
@@ -666,6 +673,9 @@ bool update(State& state, Ecs::World& world, float delta_seconds, std::string *e
             message.empty() ? "Could not update viewmodel animation" : message,
             error
         );
+
+    if (state.shooting && !Renderer::ModelScene::playing(state.animation))
+        state.shooting = false;
 
     if (!Renderer::ModelScene::playing(state.animation) &&
         !Renderer::ModelScene::play(state.animation, state.idle, 0u, true, &message))
@@ -698,6 +708,7 @@ void destroy(State& state, Ecs::World& world)
     state.shoot = Models::INVALID_MODEL;
     state.reload = Models::INVALID_MODEL;
     state.inspect = Models::INVALID_MODEL;
+    state.shooting = false;
     state.error.clear();
 }
 
