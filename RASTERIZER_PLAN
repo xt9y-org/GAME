@@ -111,7 +111,7 @@ Renderer
 │
 └── Visibility
     ├── Frustum Culling
-    ├── Occlusion Culling    once implemented
+    ├── Occlusion Culling
     └── GPU Driven           once implemented
 ```
 
@@ -167,7 +167,7 @@ binary AABB tree
 - GI also uses the same structure for shadow/occlusion checks from probe hits toward lights.
 - `Debug -> Experimental -> Show BVH` visualizes AABBs by tree depth.
 
-Do not use this triangle BVH as the Rasterizer's main occlusion system. Raster visibility should use object/instance bounds + Hi-Z on the GPU.
+Do not use this triangle BVH as the Rasterizer's main occlusion system. Raster visibility uses object/instance bounds + Hi-Z on the GPU.
 
 Future GI BVH direction, after the rasterizer foundation is complete:
 
@@ -215,12 +215,13 @@ GAME:
 - Replace low-level GI/Volumetric controls with meaningful controls.
 - Keep optional expensive systems disabled through master overrides by default, while their underlying scene configuration remains intact and ready to restore.
 
-- [ ] Add renderer feature override API and tests.
-- [ ] Add Camera master override and tests.
-- [ ] Gate all current systems through the master overrides.
-- [ ] Add quality preset API for Shadows, GI and Volumetrics.
-- [ ] Simplify Renderer Debug menu.
-- [ ] Simplify Camera Debug menu.
+- [x] Add renderer feature override API and tests.
+- [x] Add Camera master override and tests.
+- [x] Gate all current systems through the master overrides.
+- [x] Add quality preset API for Shadows, GI and Volumetrics.
+- [x] Simplify Renderer Debug menu.
+- [x] Simplify Camera Debug menu.
+- [ ] Remove the last GAME Debug paths that mutate local Environment/GI component enable state when a global override is toggled.
 
 ## Phase 2 — GPU Profiling
 
@@ -243,11 +244,11 @@ Frame
 
 - Use backend GPU timestamps only if SDL_GPU exposes a reliable path on the active backend.
 - Do not label CPU command-recording time as GPU time.
-- If portable timestamps are unavailable, keep the current CPU profiler and add backend-specific timing only when it can be implemented cleanly.
+- Current SDL_GPU public API does not expose a portable timestamp/query path, so Horse must not fake these values.
 
-- [ ] Verify SDL_GPU timestamp/query support for current supported backends.
-- [ ] Add renderer pass timing abstraction if reliable.
-- [ ] Show high-level pass cost in the existing Performance window.
+- [x] Verify SDL_GPU timestamp/query support for current supported backends; no portable public timestamp/query path is available in the current SDL_GPU API.
+- [ ] Add renderer pass timing abstraction when a reliable backend-neutral path exists.
+- [ ] Show high-level GPU pass cost only when the values are real GPU timings.
 
 ## Phase 3 — Depth Prepass + Hi-Z
 
@@ -258,33 +259,51 @@ Depth Prepass
     ↓
 full-resolution depth
     ↓
-Hi-Z mip pyramid
+Hi-Z hierarchy
     ↓
 conservative object-bound visibility tests
 ```
 
 - Reuse Rasterizer depth.
-- Build hierarchical depth with compute.
+- Only opaque geometry writes the occluder depth prepass; masked/blended geometry cannot accidentally become a solid occluder.
+- Hi-Z stores conservative maximum depth for normal 0-near/1-far depth.
 - Conservative occlusion only; false visible is acceptable, false hidden is not.
 - Keep Frustum Culling independently switchable.
 
-- [ ] Add Depth Prepass ownership.
-- [ ] Build Hi-Z pyramid.
-- [ ] Add Hi-Z debug visualization/status.
+- [x] Add Depth Prepass ownership.
+- [x] Build Hi-Z hierarchy on SDL_GPU compute.
+- [ ] Add Hi-Z debug visualization/status under Debug/Experimental if it proves useful.
 
 ## Phase 4 — GPU Visibility + GPU-Driven Submission
 
 **Goal:** Stop spending CPU/draw work on objects that cannot contribute to the frame.
 
-- Use object/instance bounds, not triangle BVH nodes.
-- Frustum test + Hi-Z occlusion test.
-- Generate visible draw/instance list on GPU where SDL_GPU permits a clean implementation.
+Current first stage:
+
+```text
+CPU frustum entity mask
+    ↓
+opaque depth prepass
+    ↓
+Hi-Z
+    ↓
+GPU static-object AABB test
+    ↓
+refined entity visibility mask
+    ↓
+PBR vertex/fragment path
+```
+
+- Uses object/entity bounds, not triangle BVH nodes.
+- Dynamic/skinned/deformed/parented/overlay entities stay conservatively visible in the first implementation.
+- Current GPU visibility removes expensive shaded contribution but does not yet compact CPU draw calls.
 - Preserve CPU fallback where backend capability requires it.
 
-- [ ] Add object bounds buffer.
-- [ ] Add GPU visibility compute pass.
-- [ ] Add compact visible instance list.
-- [ ] Connect visible results to Rasterizer submission.
+- [x] Add object bounds buffer.
+- [x] Add GPU Hi-Z visibility compute pass.
+- [ ] Add compact visible instance/draw list.
+- [x] Connect GPU visibility results to Rasterizer shading through the existing entity visibility buffer.
+- [ ] Move eligible batches to indirect/GPU-driven submission so hidden objects also stop consuming draw/vertex work.
 
 ## Phase 5 — Forward+ / Clustered Lighting
 
@@ -333,9 +352,9 @@ Shadows
 
 Player controls remain only Enabled, Quality, Distance and visible Softness where supported.
 
-- [ ] Stabilize cascades with texel snapping.
-- [ ] Add cascade blending.
-- [ ] Add PCF/filtered shadow sampling.
+- [x] Directional cascades already use texel snapping.
+- [ ] Add explicit cascade transition blending.
+- [x] Current comparison sampler already provides filtered shadow sampling.
 - [ ] Add shadow atlas/caching for local lights.
 
 ## Phase 7 — Ambient Occlusion
@@ -383,8 +402,8 @@ Player controls:
 - Investigate baked lightmaps + SH/light probes for static scenes before making dynamic GI more expensive.
 - Only after profiling, consider TLAS/BLAS + SAH BVH upgrade described above.
 
-- [ ] Add GI quality presets.
-- [ ] Remove low-level GAME Debug controls.
+- [x] Add GI quality presets.
+- [x] Remove low-level GAME Debug controls from the normal renderer menu.
 - [ ] Profile current CPU GI/BVH cost.
 - [ ] Decide dynamic GI vs baked/static-probe split from measured data.
 
@@ -400,8 +419,8 @@ Player controls:
 - Density
 - Distance
 
-- [ ] Add Volumetrics quality presets.
-- [ ] Hide raw resolution/sample/blur controls from normal Debug UI.
+- [x] Add Volumetrics quality presets.
+- [x] Hide raw resolution/sample/blur controls from normal Debug UI.
 - [ ] Profile existing implementation.
 - [ ] Evaluate froxel migration only from measured results.
 
@@ -456,7 +475,7 @@ They can consume the renderer foundation later without shaping its core architec
 Implement in this order unless measurements justify moving a phase:
 
 1. Renderer feature controls + clean Debug UX.
-2. Reliable GPU profiling.
+2. Reliable GPU profiling when SDL_GPU exposes a real path.
 3. Depth prepass + Hi-Z.
 4. GPU visibility / GPU-driven submission.
 5. Forward+ / clustered lighting.
