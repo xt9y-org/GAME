@@ -14,6 +14,7 @@
 #include <Renderer/Manager.hpp>
 #include <Renderer/Quality.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
+#include <Renderer/Reflections/Reflections.hpp>
 #include <Renderer/Volumetrics/Volumetrics.hpp>
 
 #include <imgui.h>
@@ -500,6 +501,23 @@ void drawAmbientOcclusionSettings()
     ImGui::EndMenu();
 }
 
+void drawReflectionSettings()
+{
+    if (!ImGui::BeginMenu("Reflections")) return;
+
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    ImGui::MenuItem("Enabled", nullptr, &features.reflections);
+
+    Renderer::Quality quality = Renderer::Reflections::quality();
+    if (qualityCombo("Quality", &quality))
+        Renderer::Reflections::setQuality(quality);
+
+    Renderer::Reflections::Settings& settings = Renderer::Reflections::settings();
+    barFloat("Strength", &settings.strength, Values::ReflectionStrength, "%.2f");
+
+    ImGui::EndMenu();
+}
+
 void drawVolumetricsSettings()
 {
     if (!ImGui::BeginMenu("Volumetrics")) return;
@@ -558,6 +576,7 @@ void drawRendererMenu(Context& context)
     drawEnvironmentSettings(context);
     drawGlobalIlluminationSettings(context);
     drawAmbientOcclusionSettings();
+    drawReflectionSettings();
     drawVolumetricsSettings();
     drawGaussianSplatSettings();
     drawVisibilitySettings(context.renderers);
