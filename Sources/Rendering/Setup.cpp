@@ -7,6 +7,7 @@
 #include <Renderer/PathTracer/PathTracer.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
 #include <Renderer/RayTracer/RayTracer.hpp>
+#include <Renderer/Volumetrics/Volumetrics.hpp>
 
 namespace Rendering {
 
@@ -36,6 +37,9 @@ void configure(Renderer::Manager& renderers)
 
     Renderer::GlobalIllumination::settings() =
         Renderer::GlobalIllumination::Settings{};
+
+    Renderer::Volumetrics::settings() = Renderer::Volumetrics::Settings{};
+    Renderer::Volumetrics::settings().enabled = false;
 }
 
 } // namespace Rendering
