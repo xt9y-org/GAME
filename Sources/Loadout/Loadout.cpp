@@ -207,52 +207,108 @@ std::filesystem::path bestModel(
 bool actionMatch(const std::filesystem::path& path, Action action)
 {
     const std::string stem = lower(path.stem().string());
+    const auto has = [&](std::string_view value) {
+        return stem.find(value) != std::string::npos;
+    };
+
     switch (action) {
         case Action::Idle:
-            return stem.starts_with("idle");
+            return has("idle");
         case Action::Shoot:
-            return stem.starts_with("shoot") ||
-                   stem.starts_with("fire") ||
-                   stem.starts_with("attack");
+            return has("shoot") || has("fire") || has("attack");
         case Action::Reload:
-            return stem.starts_with("reload");
+            return has("reload");
         case Action::Inspect:
-            return stem.starts_with("lookat") ||
-                   stem.starts_with("inspect");
+            return has("lookat") || has("inspect");
     }
     return false;
 }
 
-std::filesystem::path bestAnimation(
+bool familyMatches(const std::filesystem::path& family, const WeaponSpec& spec)
+{
+    const std::string name = lower(family.filename().string());
+    const std::string full = pathText(family);
+    if (spec.exclude && full.find(spec.exclude) != std::string::npos) return false;
+
+    const auto matches = [&](const char *token) {
+        if (!token || !*token) return false;
+        const std::string value = lower(token);
+        return name == value ||
+               name.ends_with("_" + value) ||
+               full.find("/" + value + "/") != std::string::npos ||
+               name.find(value) != std::string::npos;
+    };
+
+    return matches(spec.token) || matches(spec.alternate);
+}
+
+std::filesystem::path animationFamily(
     const std::vector<std::filesystem::path>& animations,
-    const WeaponSpec& spec,
-    Action action)
+    const WeaponSpec& spec)
 {
     int best_score = -1;
     std::filesystem::path best;
 
     for (const auto& path : animations) {
-        if (!actionMatch(path, action)) continue;
+        const std::filesystem::path family = path.parent_path();
+        if (!familyMatches(family, spec)) continue;
 
-        const int weapon_score = tokenScore(path, spec);
-        if (weapon_score < 0) continue;
+        const int score = tokenScore(family, spec);
+        if (score > best_score ||
+            (score == best_score && family.generic_string().size() < best.generic_string().size())) {
+            best_score = score;
+            best = family;
+        }
+    }
+
+    return best;
+}
+
+std::filesystem::path bestAnimation(
+    const std::vector<std::filesystem::path>& animations,
+    const std::filesystem::path& family,
+    Action action)
+{
+    if (family.empty()) return {};
+
+    int best_score = -1;
+    std::filesystem::path best;
+
+    for (const auto& path : animations) {
+        if (path.parent_path() != family || !actionMatch(path, action)) continue;
 
         const std::string stem = lower(path.stem().string());
-        int action_score = 0;
-        if (action == Action::Idle && stem == "idle_" + std::string(spec.token))
-            action_score = 30;
-        else if (action == Action::Reload && stem == "reload_" + std::string(spec.token))
-            action_score = 30;
-        else if (action == Action::Shoot && stem == "shoot1_" + std::string(spec.token))
-            action_score = 30;
+        int score = 0;
 
-        const int score = weapon_score + action_score;
+        switch (action) {
+            case Action::Idle:
+                if (stem.starts_with("idle")) score += 30;
+                if (stem.find("idle") != std::string::npos) score += 10;
+                break;
+            case Action::Shoot:
+                if (stem.starts_with("shoot")) score += 30;
+                else if (stem.starts_with("fire")) score += 25;
+                else if (stem.starts_with("attack")) score += 20;
+                if (stem.find("shoot1") != std::string::npos) score += 5;
+                break;
+            case Action::Reload:
+                if (stem.starts_with("reload")) score += 30;
+                if (stem.find("reload") != std::string::npos) score += 10;
+                break;
+            case Action::Inspect:
+                if (stem.starts_with("lookat01")) score += 30;
+                else if (stem.starts_with("lookat")) score += 25;
+                else if (stem.starts_with("inspect")) score += 20;
+                break;
+        }
+
         if (score > best_score ||
             (score == best_score && path.generic_string().size() < best.generic_string().size())) {
             best_score = score;
             best = path;
         }
     }
+
     return best;
 }
 
@@ -271,10 +327,12 @@ std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
         item.name = spec.name;
         item.category = spec.category;
         item.path = bestModel(models, spec);
-        item.idle = bestAnimation(animations, spec, Action::Idle);
-        item.shoot = bestAnimation(animations, spec, Action::Shoot);
-        item.reload = bestAnimation(animations, spec, Action::Reload);
-        item.inspect = bestAnimation(animations, spec, Action::Inspect);
+
+        const std::filesystem::path family = animationFamily(animations, spec);
+        item.idle = bestAnimation(animations, family, Action::Idle);
+        item.shoot = bestAnimation(animations, family, Action::Shoot);
+        item.reload = bestAnimation(animations, family, Action::Reload);
+        item.inspect = bestAnimation(animations, family, Action::Inspect);
 
         if (item.name == "R8 Revolver") {
             const std::filesystem::path model = root / DefaultWeapon;
