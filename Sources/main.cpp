@@ -14,6 +14,7 @@
 
 #include "Debugging/Debugging.hpp"
 #include "Debugging/Values.hpp"
+#include "Loadout/Firing.hpp"
 #include "Loadout/Loadout.hpp"
 #include "Viewmodel/Motion.hpp"
 
@@ -91,6 +92,7 @@ public:
             Window::destroy();
             return std::string("[GAME] [ERROR] Could not load default loadout: ") + error + "\n";
         }
+        Loadout::Firing::Controller firing;
 
         Renderer::Scenes::SceneCache::setMaximumTriangles(
             std::numeric_limits<std::size_t>::max()
@@ -126,6 +128,7 @@ public:
         Debugging::applyStyle();
 
         const Input::Button shoot_button = Input::button("left");
+        const Input::Button alternate_fire_button = Input::button("right");
         const Input::Key reload_key = Input::key("R");
         const Input::Key inspect_key = Input::key("F");
         const Input::Key capture_key = Input::key("Tab");
@@ -154,13 +157,20 @@ public:
             const auto update_begin = Clock::now();
             const Input::Pointer pointer = Input::pointer();
 
-            if (pointer.captured) {
+            if (pointer.captured)
                 camera_controller.update(world, delta);
 
-                if (Input::buttonPressed(shoot_button) &&
-                    !Loadout::shoot(loadout, &error))
-                    break;
+            if (!Loadout::Firing::update(
+                    firing,
+                    loadout,
+                    pointer.captured && Input::buttonPressed(shoot_button),
+                    pointer.captured && Input::buttonDown(shoot_button),
+                    pointer.captured && Input::buttonPressed(alternate_fire_button),
+                    delta,
+                    &error))
+                break;
 
+            if (pointer.captured) {
                 if (Input::keyPressed(reload_key) &&
                     !Loadout::reload(loadout, &error))
                     break;
