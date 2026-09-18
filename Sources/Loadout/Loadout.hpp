@@ -60,6 +60,7 @@ struct State
     Models::ModelHandle inspect = Models::INVALID_MODEL;
 
     bool shooting = false;
+    bool action_active = false;
     std::string error;
 };
 
