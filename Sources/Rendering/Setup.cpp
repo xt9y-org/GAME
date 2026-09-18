@@ -25,11 +25,13 @@ void configure(Renderer::Manager& renderers)
     auto& ray_tracer = renderers.add<Renderer::RayTracer>("Ray Tracer");
     ray_tracer.setEnabled(true);
     ray_tracer.reconstructionSettings() = Renderer::Reconstruction::Settings{};
+    ray_tracer.reconstructionSettings().quality = 0.85f;
 
     auto& path_tracer = renderers.add<Renderer::PathTracer>("Path Tracer");
     path_tracer.setEnabled(true);
     path_tracer.setSamplesPerFrame(1);
     path_tracer.reconstructionSettings() = Renderer::Reconstruction::Settings{};
+    path_tracer.reconstructionSettings().quality = 0.85f;
 
     Renderer::GlobalIllumination::settings() =
         Renderer::GlobalIllumination::Settings{};
