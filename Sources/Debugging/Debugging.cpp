@@ -8,9 +8,10 @@
 #include <Renderer/Components.hpp>
 #include <Renderer/Debug/Debug.hpp>
 #include <Renderer/Environment.hpp>
-#include <Renderer/GaussianSplat/GaussianSplat.hpp>
+#include <Renderer/Features.hpp>
 #include <Renderer/GlobalIllumination/GlobalIllumination.hpp>
 #include <Renderer/Manager.hpp>
+#include <Renderer/Quality.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
 #include <Renderer/Volumetrics/Volumetrics.hpp>
 
@@ -18,7 +19,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <cstdio>
 
 namespace Debugging {
@@ -129,42 +129,15 @@ bool barInt(
     return changed;
 }
 
-bool shadowResolutionBar(int *value)
+bool qualityCombo(const char *label, Renderer::Quality *quality)
 {
-    ImGui::PushID("Shadow Resolution");
-    const float button_width = ImGui::GetFrameHeight();
-    int slider = *value;
-
+    if (!quality) return false;
+    int value = static_cast<int>(*quality);
+    const char *items[] = {"Low", "Medium", "High", "Ultra"};
     scalarWidth();
-    bool changed = ImGui::SliderInt(
-        "##Value",
-        &slider,
-        Values::ShadowResolutions.front(),
-        Values::ShadowResolutions.back(),
-        "%d",
-        ImGuiSliderFlags_AlwaysClamp
-    );
-    if (changed)
-        slider = Values::ShadowResolutions[Values::shadowResolutionIndex(slider)];
-
-    ImGui::SameLine();
-    if (ImGui::Button("-", ImVec2(button_width, 0.0f))) {
-        slider = Values::stepShadowResolution(slider, -1);
-        changed = true;
-    }
-
-    ImGui::SameLine();
-    if (ImGui::Button("+", ImVec2(button_width, 0.0f))) {
-        slider = Values::stepShadowResolution(slider, 1);
-        changed = true;
-    }
-
-    ImGui::SameLine();
-    ImGui::TextUnformatted("Shadow Resolution");
-    ImGui::PopID();
-
-    if (changed) *value = slider;
-    return changed;
+    if (!ImGui::Combo(label, &value, items, 4)) return false;
+    *quality = static_cast<Renderer::Quality>(value);
+    return true;
 }
 
 void pushProfilerStyle()
@@ -292,15 +265,15 @@ void drawCameraMenu(Context& context)
 {
     if (!ImGui::BeginMenu("Camera")) return;
 
-    Camera::CameraComponent *camera = context.world.get<Camera::CameraComponent>(context.camera);
+    bool active = Camera::enabled();
+    if (ImGui::MenuItem("Active", nullptr, &active))
+        Camera::setEnabled(active);
+
+    Camera::CameraComponent *camera =
+        context.world.get<Camera::CameraComponent>(context.camera);
+
     if (camera) {
         if (barFloat("FOV", &camera->fov_degrees, Values::CameraFov, "%.0f deg"))
-            markCamera(context.world);
-
-        if (barFloat("Near Plane", &camera->near_plane, Values::CameraNear, "%.2f"))
-            markCamera(context.world);
-
-        if (barFloat("Far Plane", &camera->far_plane, Values::CameraFar, "%.0f"))
             markCamera(context.world);
 
         int projection = camera->projection == Camera::Projection::Perspective ? 0 : 1;
@@ -313,15 +286,37 @@ void drawCameraMenu(Context& context)
             markCamera(context.world);
         }
 
+        if (barFloat(
+                "Exposure",
+                &camera->exposure_ev,
+                Values::Range<float>{-8.0f, 8.0f, 0.1f},
+                "%.1f EV"))
+            markCamera(context.world);
+
+        int tone_mapping = camera->tone_mapping == Camera::ToneMapping::None ? 0 : 1;
+        const char *tone_mappings[] = {"None", "ACES"};
+        scalarWidth();
+        if (ImGui::Combo("Tone Mapping", &tone_mapping, tone_mappings, 2)) {
+            camera->tone_mapping = tone_mapping == 0
+                ? Camera::ToneMapping::None
+                : Camera::ToneMapping::ACES;
+            markCamera(context.world);
+        }
+
+        if (barFloat("Render Distance", &camera->far_plane, Values::CameraFar, "%.0f"))
+            markCamera(context.world);
+
         if (camera->projection == Camera::Projection::Orthographic) {
             if (barFloat("Width", &camera->xmag, Values::OrthographicSize, "%.1f"))
                 markCamera(context.world);
             if (barFloat("Height", &camera->ymag, Values::OrthographicSize, "%.1f"))
                 markCamera(context.world);
         }
+    } else {
+        ImGui::TextDisabled("No camera component");
     }
 
-    ImGui::Separator();
+    section("Controller");
 
     float speed = context.camera_controller.speed();
     if (barFloat("Speed", &speed, Values::CameraSpeed, "%.0f"))
@@ -335,39 +330,6 @@ void drawCameraMenu(Context& context)
     if (barFloat("Mouse Sensitivity", &sensitivity, Values::MouseSensitivity, "%.2f"))
         context.camera_controller.setMouseSensitivity(sensitivity);
 
-    float pitch[2] = {
-        context.camera_controller.minimumPitch(),
-        context.camera_controller.maximumPitch(),
-    };
-    scalarWidth();
-    if (ImGui::DragFloat2("Pitch Range", pitch, 1.0f, -89.0f, 89.0f, "%.0f"))
-        context.camera_controller.setPitchRange(pitch[0], pitch[1]);
-
-    ImGui::EndMenu();
-}
-
-void drawRendererSelection(Renderer::Manager& renderers)
-{
-    if (!ImGui::BeginMenu("Active Renderer")) return;
-
-    for (std::size_t index = 0u; index < renderers.count(); ++index) {
-        Renderer::Manager::Entry *entry = renderers.entry(index);
-        if (!entry) continue;
-
-        const bool active = index == renderers.activeIndex();
-        if (!entry->available) {
-            ImGui::BeginDisabled();
-            ImGui::MenuItem(entry->name.c_str(), nullptr, active);
-            ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                ImGui::SetTooltip("Renderer could not initialize on the current backend/hardware");
-            continue;
-        }
-
-        if (ImGui::MenuItem(entry->name.c_str(), nullptr, active) && !active)
-            renderers.activate(index);
-    }
-
     ImGui::EndMenu();
 }
 
@@ -376,25 +338,9 @@ void drawRasterizerSettings(Renderer::Manager& renderers)
     Renderer::Rasterizer *renderer = renderers.find<Renderer::Rasterizer>();
     if (!renderer || !ImGui::BeginMenu("Rasterizer")) return;
 
-    bool viewport_culling = renderer->viewportCulling();
-    if (ImGui::MenuItem("Viewport Culling", nullptr, &viewport_culling))
-        renderer->setViewportCulling(viewport_culling);
-
-    int shadow_resolution = renderer->shadowResolution();
-    if (shadowResolutionBar(&shadow_resolution))
-        renderer->setShadowResolution(shadow_resolution);
-
-    int shadow_cascades = renderer->shadowCascades();
-    if (barInt("Shadow Cascades", &shadow_cascades, Values::ShadowCascades))
-        renderer->setShadowCascades(shadow_cascades);
-
-    float shadow_distance = renderer->shadowDistance();
-    if (barFloat("Shadow Distance", &shadow_distance, Values::ShadowDistance, "%.0f"))
-        renderer->setShadowDistance(shadow_distance);
-
-    float shadow_near = renderer->shadowNearPlane();
-    if (barFloat("Shadow Near Plane", &shadow_near, Values::ShadowNear, "%.2f"))
-        renderer->setShadowNearPlane(shadow_near);
+    bool enabled = renderer->enabled();
+    if (ImGui::MenuItem("Enabled", nullptr, &enabled))
+        renderer->setEnabled(enabled);
 
     Renderer::Vec4 clear = renderer->clearColor();
     float clear_color[4] = {clear.x, clear.y, clear.z, clear.w};
@@ -408,199 +354,56 @@ void drawRasterizerSettings(Renderer::Manager& renderers)
     ImGui::EndMenu();
 }
 
-void drawGaussianSplatSettings()
+void drawLightingSettings()
 {
-    if (!ImGui::BeginMenu("Gaussian Splat")) return;
+    if (!ImGui::BeginMenu("Lighting")) return;
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    ImGui::MenuItem("Enabled", nullptr, &features.lighting);
+    ImGui::EndMenu();
+}
 
-    Renderer::GaussianSplat::Settings& settings = Renderer::GaussianSplat::settings();
-    ImGui::MenuItem("Enabled", nullptr, &settings.enabled);
-    barFloat("Radius", &settings.radius, Values::GaussianRadius, "%.1f");
-    barFloat(
-        "Minimum Depth Epsilon",
-        &settings.minimum_depth_epsilon,
-        Values::GaussianMinimumDepthEpsilon,
-        "%.4f"
-    );
-    barFloat(
-        "Relative Depth Epsilon",
-        &settings.relative_depth_epsilon,
-        Values::GaussianRelativeDepthEpsilon,
-        "%.4f"
-    );
+void drawShadowSettings(Renderer::Manager& renderers)
+{
+    Renderer::Rasterizer *renderer = renderers.find<Renderer::Rasterizer>();
+    if (!renderer || !ImGui::BeginMenu("Shadows")) return;
+
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    ImGui::MenuItem("Enabled", nullptr, &features.shadows);
+
+    Renderer::Quality quality = renderer->shadowQuality();
+    if (qualityCombo("Quality", &quality))
+        renderer->setShadowQuality(quality);
+
+    float distance = renderer->shadowDistance();
+    if (barFloat("Distance", &distance, Values::ShadowDistance, "%.0f"))
+        renderer->setShadowDistance(distance);
 
     ImGui::EndMenu();
 }
 
-void drawVolumetricsSettings()
-{
-    if (!ImGui::BeginMenu("Volumetrics")) return;
-
-    Renderer::Volumetrics::Settings& settings = Renderer::Volumetrics::settings();
-    ImGui::MenuItem("Enabled", nullptr, &settings.enabled);
-
-    if (barInt("Resolution Divisor", &settings.resolution_divisor, Values::RendererResolutionDivisor)) {}
-
-    int samples = static_cast<int>(settings.sample_count);
-    if (barInt("Sample Count", &samples, Values::VolumetricSampleCount))
-        settings.sample_count = static_cast<std::uint32_t>(samples);
-
-    int blur = static_cast<int>(settings.blur_passes);
-    if (barInt("Blur Passes", &blur, Values::VolumetricBlurPasses))
-        settings.blur_passes = static_cast<std::uint32_t>(blur);
-
-    barFloat("Density", &settings.density, Values::VolumetricDensity, "%.3f");
-    barFloat("Anisotropy", &settings.anisotropy, Values::VolumetricAnisotropy, "%.2f");
-    barFloat(
-        "Maximum Distance",
-        &settings.maximum_distance,
-        Values::VolumetricMaximumDistance,
-        "%.0f"
-    );
-    barFloat("Jitter", &settings.jitter, Values::VolumetricJitter, "%.2f");
-    barFloat("Depth Falloff", &settings.depth_falloff, Values::VolumetricDepthFalloff, "%.0f");
-
-    ImGui::EndMenu();
-}
-
-void drawGlobalIlluminationSettings(Context& context)
-{
-    if (!ImGui::BeginMenu("Global Illumination")) return;
-
-    bool reset_required = false;
-    Renderer::GlobalIlluminationComponent *component =
-        context.world.get<Renderer::GlobalIlluminationComponent>(context.global_illumination);
-
-    if (component) {
-        if (ImGui::MenuItem("Enabled", nullptr, &component->enabled))
-            reset_required = true;
-        if (barFloat("Intensity", &component->intensity, Values::GiIntensity, "%.2f"))
-            reset_required = true;
-
-        int bounces = static_cast<int>(component->bounces);
-        if (barInt("Bounces", &bounces, Values::GiBounces)) {
-            component->bounces = static_cast<std::uint8_t>(bounces);
-            reset_required = true;
-        }
-
-        if (ImGui::MenuItem("Photon Mapping", nullptr, &component->photon_mapping))
-            reset_required = true;
-
-        int photon_count = static_cast<int>(component->photon_count);
-        if (barInt("Photon Count", &photon_count, Values::GiPhotonCount)) {
-            component->photon_count = static_cast<std::uint32_t>(photon_count);
-            reset_required = true;
-        }
-
-        if (barFloat("Photon Radius", &component->photon_radius, Values::GiPhotonRadius, "%.2f"))
-            reset_required = true;
-    } else {
-        ImGui::TextDisabled("No global illumination component");
-    }
-
-    section("Tuning");
-
-    Renderer::GlobalIllumination::Settings& settings =
-        Renderer::GlobalIllumination::settings();
-
-    bool paused = settings.paused;
-    if (ImGui::MenuItem("Paused", nullptr, &paused))
-        Renderer::GlobalIllumination::setPaused(paused);
-
-    int rays = static_cast<int>(settings.rays_per_probe);
-    if (barInt("Rays / Probe", &rays, Values::GiRaysPerProbe)) {
-        settings.rays_per_probe = static_cast<std::size_t>(rays);
-        reset_required = true;
-    }
-
-    int budget = static_cast<int>(settings.probe_budget_per_frame);
-    if (barInt("Probe Budget / Frame", &budget, Values::GiProbeBudget)) {
-        settings.probe_budget_per_frame = static_cast<std::size_t>(budget);
-        reset_required = true;
-    }
-
-    int minimum_dimension = static_cast<int>(settings.minimum_probe_dimension);
-    if (barInt("Minimum Probe Dimension", &minimum_dimension, Values::GiProbeDimension)) {
-        settings.minimum_probe_dimension = static_cast<std::uint32_t>(minimum_dimension);
-        if (settings.maximum_probe_dimension < settings.minimum_probe_dimension)
-            settings.maximum_probe_dimension = settings.minimum_probe_dimension;
-        reset_required = true;
-    }
-
-    int maximum_dimension = static_cast<int>(settings.maximum_probe_dimension);
-    if (barInt("Maximum Probe Dimension", &maximum_dimension, Values::GiProbeDimension)) {
-        settings.maximum_probe_dimension = static_cast<std::uint32_t>(maximum_dimension);
-        if (settings.minimum_probe_dimension > settings.maximum_probe_dimension)
-            settings.minimum_probe_dimension = settings.maximum_probe_dimension;
-        reset_required = true;
-    }
-
-    if (barFloat(
-            "Bounds Margin Scale",
-            &settings.bounds_margin_scale,
-            Values::GiBoundsMarginScale,
-            "%.2f"))
-        reset_required = true;
-
-    if (barFloat(
-            "Minimum Bounds Margin",
-            &settings.minimum_bounds_margin,
-            Values::GiMinimumBoundsMargin,
-            "%.2f"))
-        reset_required = true;
-
-    if (barFloat("Ray Epsilon", &settings.ray_epsilon, Values::GiRayEpsilon, "%.5f"))
-        reset_required = true;
-
-    int maximum_bounces = static_cast<int>(settings.maximum_bounces);
-    if (barInt("Maximum Bounces", &maximum_bounces, Values::GiMaximumBounces)) {
-        settings.maximum_bounces = static_cast<std::uint8_t>(maximum_bounces);
-        reset_required = true;
-    }
-
-    int maximum_photons = static_cast<int>(settings.maximum_photon_count);
-    if (barInt("Maximum Photon Count", &maximum_photons, Values::GiMaximumPhotonCount)) {
-        settings.maximum_photon_count = static_cast<std::uint32_t>(maximum_photons);
-        reset_required = true;
-    }
-
-    if (reset_required)
-        Renderer::GlobalIllumination::reset();
-
-    ImGui::EndMenu();
-}
-
-void drawRendererMenu(Context& context)
-{
-    if (!ImGui::BeginMenu("Renderer")) return;
-
-    drawRendererSelection(context.renderers);
-    ImGui::Separator();
-    drawRasterizerSettings(context.renderers);
-    ImGui::Separator();
-    drawGaussianSplatSettings();
-    drawVolumetricsSettings();
-    drawGlobalIlluminationSettings(context);
-
-    ImGui::EndMenu();
-}
-
-void drawEnvironmentMenu(Context& context)
+void drawEnvironmentSettings(Context& context)
 {
     if (!ImGui::BeginMenu("Environment")) return;
 
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    if (ImGui::MenuItem("Enabled", nullptr, &features.environment))
+        markLighting(context.world);
+
     Renderer::EnvironmentComponent *environment =
         context.world.get<Renderer::EnvironmentComponent>(context.environment);
-
     if (!environment) {
         ImGui::TextDisabled("No environment component");
         ImGui::EndMenu();
         return;
     }
 
-    if (ImGui::MenuItem("Enabled", nullptr, &environment->enabled))
-        markLighting(context.world);
+    if (features.environment && !environment->enabled)
+        environment->enabled = true;
 
     if (barFloat("Intensity", &environment->intensity, Values::EnvironmentIntensity, "%.1f"))
+        markLighting(context.world);
+
+    if (barFloat("Ambient Strength", &environment->ambient_intensity, Values::AmbientIntensity, "%.2f"))
         markLighting(context.world);
 
     if (barFloat("Rotation", &environment->rotation_degrees, Values::EnvironmentRotation, "%.0f deg"))
@@ -617,20 +420,6 @@ void drawEnvironmentMenu(Context& context)
         markLighting(context.world);
     }
 
-    float ambient[3] = {
-        environment->ambient_color.x,
-        environment->ambient_color.y,
-        environment->ambient_color.z,
-    };
-    scalarWidth();
-    if (ImGui::ColorEdit3("Ambient Color", ambient)) {
-        environment->ambient_color = {ambient[0], ambient[1], ambient[2]};
-        markLighting(context.world);
-    }
-
-    if (barFloat("Ambient Intensity", &environment->ambient_intensity, Values::AmbientIntensity, "%.2f"))
-        markLighting(context.world);
-
     section("Fog");
 
     int fog = static_cast<int>(environment->fog);
@@ -642,17 +431,6 @@ void drawEnvironmentMenu(Context& context)
     }
 
     if (environment->fog != Renderer::FogMode::None) {
-        float fog_color[3] = {
-            environment->fog_color.x,
-            environment->fog_color.y,
-            environment->fog_color.z,
-        };
-        scalarWidth();
-        if (ImGui::ColorEdit3("Fog Color", fog_color)) {
-            environment->fog_color = {fog_color[0], fog_color[1], fog_color[2]};
-            markLighting(context.world);
-        }
-
         if (environment->fog == Renderer::FogMode::Exponential) {
             if (barFloat("Density", &environment->fog_density, Values::FogDensity, "%.3f"))
                 markLighting(context.world);
@@ -667,6 +445,97 @@ void drawEnvironmentMenu(Context& context)
     ImGui::EndMenu();
 }
 
+void drawGlobalIlluminationSettings(Context& context)
+{
+    if (!ImGui::BeginMenu("Global Illumination")) return;
+
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    Renderer::GlobalIlluminationComponent *component =
+        context.world.get<Renderer::GlobalIlluminationComponent>(context.global_illumination);
+
+    bool enabled = features.global_illumination;
+    if (ImGui::MenuItem("Enabled", nullptr, &enabled)) {
+        features.global_illumination = enabled;
+        if (enabled && component && !component->enabled) {
+            component->enabled = true;
+            Renderer::GlobalIllumination::reset();
+        }
+    }
+
+    Renderer::Quality quality = Renderer::GlobalIllumination::quality();
+    if (qualityCombo("Quality", &quality))
+        Renderer::GlobalIllumination::setQuality(quality);
+
+    if (component) {
+        if (barFloat("Strength", &component->intensity, Values::GiIntensity, "%.2f"))
+            Renderer::GlobalIllumination::reset();
+    } else {
+        ImGui::TextDisabled("No global illumination component");
+    }
+
+    ImGui::EndMenu();
+}
+
+void drawVolumetricsSettings()
+{
+    if (!ImGui::BeginMenu("Volumetrics")) return;
+
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    ImGui::MenuItem("Enabled", nullptr, &features.volumetrics);
+
+    Renderer::Quality quality = Renderer::Volumetrics::quality();
+    if (qualityCombo("Quality", &quality))
+        Renderer::Volumetrics::setQuality(quality);
+
+    Renderer::Volumetrics::Settings& settings = Renderer::Volumetrics::settings();
+    barFloat("Density", &settings.density, Values::VolumetricDensity, "%.3f");
+    barFloat(
+        "Distance",
+        &settings.maximum_distance,
+        Values::VolumetricMaximumDistance,
+        "%.0f"
+    );
+
+    ImGui::EndMenu();
+}
+
+void drawGaussianSplatSettings()
+{
+    if (!ImGui::BeginMenu("Gaussian Splat")) return;
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    ImGui::MenuItem("Enabled", nullptr, &features.gaussian_splat);
+    ImGui::EndMenu();
+}
+
+void drawVisibilitySettings(Renderer::Manager& renderers)
+{
+    Renderer::Rasterizer *renderer = renderers.find<Renderer::Rasterizer>();
+    if (!renderer || !ImGui::BeginMenu("Visibility")) return;
+
+    bool viewport_culling = renderer->viewportCulling();
+    if (ImGui::MenuItem("Frustum Culling", nullptr, &viewport_culling))
+        renderer->setViewportCulling(viewport_culling);
+
+    ImGui::EndMenu();
+}
+
+void drawRendererMenu(Context& context)
+{
+    if (!ImGui::BeginMenu("Renderer")) return;
+
+    drawRasterizerSettings(context.renderers);
+    ImGui::Separator();
+    drawLightingSettings();
+    drawShadowSettings(context.renderers);
+    drawEnvironmentSettings(context);
+    drawGlobalIlluminationSettings(context);
+    drawVolumetricsSettings();
+    drawGaussianSplatSettings();
+    drawVisibilitySettings(context.renderers);
+
+    ImGui::EndMenu();
+}
+
 void drawLightMenu(Context& context)
 {
     if (!ImGui::BeginMenu("Light")) return;
@@ -674,6 +543,9 @@ void drawLightMenu(Context& context)
     Renderer::LightComponent *light = context.world.get<Renderer::LightComponent>(context.light);
     Renderer::Transform *transform = context.world.get<Renderer::Transform>(context.light);
     Renderer::ShadowComponent *shadow = context.world.get<Renderer::ShadowComponent>(context.light);
+
+    if (!Renderer::Features::currentSettings().lighting)
+        ImGui::TextDisabled("Global lighting is disabled");
 
     if (!light || !transform) {
         ImGui::TextDisabled("No light component");
@@ -730,13 +602,8 @@ void drawLightMenu(Context& context)
         }
     }
 
-    if (shadow) {
-        section("Shadows");
-        if (ImGui::MenuItem("Enabled##LightShadows", nullptr, &shadow->enabled))
-            markLighting(context.world);
-        if (barFloat("Bias", &shadow->bias, Values::ShadowBias, "%.4f"))
-            markLighting(context.world);
-    }
+    if (shadow && ImGui::MenuItem("Cast Shadows", nullptr, &shadow->enabled))
+        markLighting(context.world);
 
     ImGui::EndMenu();
 }
@@ -749,7 +616,6 @@ void drawTopBar(State& state, Context& context)
     drawLoadoutMenu(context);
     drawCameraMenu(context);
     drawRendererMenu(context);
-    drawEnvironmentMenu(context);
     drawLightMenu(context);
 
     ImGui::EndMainMenuBar();
