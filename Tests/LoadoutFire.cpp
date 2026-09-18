@@ -106,6 +106,35 @@ void alternateFireOnlyTogglesSupportedProfiles()
     assert(near(famas_state.trigger_cooldown, 0.0f));
 }
 
+void cs2ProfilesMatchExpectedModes()
+{
+    const auto glock = Loadout::Fire::profile("Glock-18");
+    assert(glock.mode == Loadout::Fire::Mode::Semi);
+    assert(glock.burst_supported);
+    assert(glock.burst_count == 3u);
+    assert(near(glock.cycle_seconds, 0.15f));
+    assert(near(glock.burst_interval_seconds, 0.05f));
+    assert(near(glock.burst_cycle_seconds, 0.50f));
+
+    const auto famas = Loadout::Fire::profile("FAMAS");
+    assert(famas.mode == Loadout::Fire::Mode::Automatic);
+    assert(famas.burst_supported);
+    assert(near(famas.cycle_seconds, 0.09f));
+    assert(near(famas.burst_interval_seconds, 0.075f));
+    assert(near(famas.burst_cycle_seconds, 0.55f));
+
+    assert(Loadout::Fire::profile("AK-47").mode == Loadout::Fire::Mode::Automatic);
+    assert(Loadout::Fire::profile("MP9").mode == Loadout::Fire::Mode::Automatic);
+    assert(Loadout::Fire::profile("CZ75-Auto").mode == Loadout::Fire::Mode::Automatic);
+    assert(Loadout::Fire::profile("XM1014").mode == Loadout::Fire::Mode::Automatic);
+    assert(Loadout::Fire::profile("M249").mode == Loadout::Fire::Mode::Automatic);
+
+    assert(Loadout::Fire::profile("USP-S").mode == Loadout::Fire::Mode::Semi);
+    assert(Loadout::Fire::profile("Desert Eagle").mode == Loadout::Fire::Mode::Semi);
+    assert(Loadout::Fire::profile("AWP").mode == Loadout::Fire::Mode::Semi);
+    assert(Loadout::Fire::profile("MAG-7").mode == Loadout::Fire::Mode::Semi);
+}
+
 } // namespace
 
 int main()
@@ -114,5 +143,6 @@ int main()
     automaticFireRestartsAtCycleTime();
     burstFiresThreeTimedShots();
     alternateFireOnlyTogglesSupportedProfiles();
+    cs2ProfilesMatchExpectedModes();
     return 0;
 }
