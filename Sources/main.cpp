@@ -7,7 +7,7 @@
 
 #include <Renderer/Components.hpp>
 #include <Renderer/Environment.hpp>
-#include <Renderer/Rasterizer/Rasterizer.hpp>
+#include <Renderer/Manager.hpp>
 #include <Renderer/Scenes/SceneCache.hpp>
 
 #include <UI/UI.hpp>
@@ -16,6 +16,7 @@
 #include "Debugging/Values.hpp"
 #include "Loadout/Firing.hpp"
 #include "Loadout/Loadout.hpp"
+#include "Rendering/Setup.hpp"
 #include "Viewmodel/Motion.hpp"
 
 #include <chrono>
@@ -85,6 +86,19 @@ public:
             Renderer::EnvironmentComponent{}
         );
 
+        const Ecs::Entity global_illumination = world.createEntity();
+        world.add<Renderer::GlobalIlluminationComponent>(
+            global_illumination,
+            Renderer::GlobalIlluminationComponent{
+                .enabled = false,
+                .intensity = 1.0f,
+                .bounces = 1u,
+                .photon_mapping = false,
+                .photon_count = 4096u,
+                .photon_radius = 1.0f,
+            }
+        );
+
         std::string error;
         Loadout::State loadout;
         if (!Loadout::init(loadout, world, viewmodel, "Assets/CS2", &error)) {
@@ -98,27 +112,20 @@ public:
             std::numeric_limits<std::size_t>::max()
         );
 
-        Renderer::Rasterizer renderer;
-        renderer.setEnabled(true);
-        renderer.setViewportCulling(true);
-        renderer.setShadowResolution(Debugging::Values::ShadowResolutionDefault);
-        renderer.setShadowCascades(Debugging::Values::ShadowCascadesDefault);
-        renderer.setShadowDistance(Debugging::Values::ShadowDistanceDefault);
-        renderer.setShadowNearPlane(Debugging::Values::ShadowNearDefault);
-        renderer.setClearColor({0.0f, 0.0f, 0.0f, 0.0f});
-
-        if (!renderer.init()) {
+        Renderer::Manager renderers;
+        Rendering::configure(renderers);
+        if (!renderers.initialize()) {
             Loadout::destroy(loadout, world);
             Window::destroy();
-            return "[GAME] [ERROR] Could not init rasterizer\n";
+            return "[GAME] [ERROR] Could not initialize any renderer\n";
         }
 
         int width  = Window::width();
         int height = Window::height();
-        renderer.resize(width, height);
+        renderers.resize(width, height);
 
         if (!UI::init()) {
-            renderer.shutdown();
+            renderers.shutdown();
             Loadout::destroy(loadout, world);
             Window::destroy();
             return "[GAME] [ERROR] Could not init debug UI\n";
@@ -224,7 +231,7 @@ public:
             if (new_width != width || new_height != height) {
                 width = new_width;
                 height = new_height;
-                renderer.resize(width, height);
+                renderers.resize(width, height);
             }
 
             debugging.update_ms = std::chrono::duration<float, std::milli>(
@@ -240,11 +247,12 @@ public:
             Debugging::Context debug_context{
                 world,
                 camera_controller,
-                renderer,
+                renderers,
                 loadout,
                 camera,
                 environment,
                 light,
+                global_illumination,
                 width,
                 height,
             };
@@ -256,7 +264,7 @@ public:
             ).count();
 
             const auto render_begin = Clock::now();
-            renderer.render(world);
+            renderers.render(world);
             debugging.render_ms = std::chrono::duration<float, std::milli>(
                 Clock::now() - render_begin
             ).count();
@@ -264,7 +272,7 @@ public:
 
         UI::shutdown();
         Loadout::destroy(loadout, world);
-        renderer.shutdown();
+        renderers.shutdown();
         Input::reset();
         Window::destroy();
         return "[GAME] [FINISHED]";
