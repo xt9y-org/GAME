@@ -57,9 +57,6 @@ inline constexpr Range<float> ConeAngle{0.0f, 179.0f, 1.0f};
 inline constexpr Range<float> ShadowBias{0.0f, 0.05f, 0.0001f};
 
 inline constexpr Range<int> RendererResolutionDivisor{1, 8, 1};
-inline constexpr Range<float> ReconstructionQuality{0.0f, 1.0f, 0.05f};
-inline constexpr Range<int> ReconstructionHistory{1, 128, 1};
-inline constexpr Range<int> PathSamplesPerFrame{1, 8, 1};
 
 inline constexpr Range<float> GaussianRadius{0.5f, 6.0f, 0.1f};
 inline constexpr Range<float> GaussianMinimumDepthEpsilon{0.0f, 0.05f, 0.0005f};

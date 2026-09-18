@@ -11,9 +11,7 @@
 #include <Renderer/GaussianSplat/GaussianSplat.hpp>
 #include <Renderer/GlobalIllumination/GlobalIllumination.hpp>
 #include <Renderer/Manager.hpp>
-#include <Renderer/PathTracer/PathTracer.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
-#include <Renderer/RayTracer/RayTracer.hpp>
 #include <Renderer/Volumetrics/Volumetrics.hpp>
 
 #include <imgui.h>
@@ -410,49 +408,6 @@ void drawRasterizerSettings(Renderer::Manager& renderers)
     ImGui::EndMenu();
 }
 
-void drawRayTracerSettings(Renderer::Manager& renderers)
-{
-    Renderer::RayTracer *renderer = renderers.find<Renderer::RayTracer>();
-    if (!renderer || !ImGui::BeginMenu("Ray Tracer")) return;
-
-    Renderer::Reconstruction::Settings& settings = renderer->reconstructionSettings();
-    barFloat("Quality", &settings.quality, Values::ReconstructionQuality, "%.2f");
-    ImGui::MenuItem("Temporal Reuse", nullptr, &settings.temporal_reuse);
-
-    int maximum_history = static_cast<int>(settings.maximum_history);
-    if (barInt("Maximum History", &maximum_history, Values::ReconstructionHistory))
-        settings.maximum_history = static_cast<std::uint32_t>(maximum_history);
-
-    ImGui::MenuItem("Debug Reconstruction", nullptr, &settings.debug_reconstruction);
-    ImGui::TextDisabled("Final output is always native resolution");
-
-    ImGui::EndMenu();
-}
-
-void drawPathTracerSettings(Renderer::Manager& renderers)
-{
-    Renderer::PathTracer *renderer = renderers.find<Renderer::PathTracer>();
-    if (!renderer || !ImGui::BeginMenu("Path Tracer")) return;
-
-    Renderer::Reconstruction::Settings& settings = renderer->reconstructionSettings();
-    barFloat("Quality", &settings.quality, Values::ReconstructionQuality, "%.2f");
-
-    int samples = renderer->samplesPerFrame();
-    if (barInt("Samples / Frame", &samples, Values::PathSamplesPerFrame))
-        renderer->setSamplesPerFrame(samples);
-
-    ImGui::MenuItem("Temporal Reuse", nullptr, &settings.temporal_reuse);
-
-    int maximum_history = static_cast<int>(settings.maximum_history);
-    if (barInt("Maximum History", &maximum_history, Values::ReconstructionHistory))
-        settings.maximum_history = static_cast<std::uint32_t>(maximum_history);
-
-    ImGui::MenuItem("Debug Reconstruction", nullptr, &settings.debug_reconstruction);
-    ImGui::TextDisabled("Final output is always native resolution");
-
-    ImGui::EndMenu();
-}
-
 void drawGaussianSplatSettings()
 {
     if (!ImGui::BeginMenu("Gaussian Splat")) return;
@@ -621,8 +576,6 @@ void drawRendererMenu(Context& context)
     drawRendererSelection(context.renderers);
     ImGui::Separator();
     drawRasterizerSettings(context.renderers);
-    drawRayTracerSettings(context.renderers);
-    drawPathTracerSettings(context.renderers);
     ImGui::Separator();
     drawGaussianSplatSettings();
     drawVolumetricsSettings();
