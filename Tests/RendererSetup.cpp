@@ -29,15 +29,19 @@ int main()
     assert(ray_tracer);
     assert(path_tracer);
     assert(rasterizer->enabled());
+
     assert(ray_tracer->enabled());
-    assert(ray_tracer->resolutionDivisor() == 4);
+    assert(ray_tracer->reconstructionSettings().quality == 0.50f);
+    assert(ray_tracer->reconstructionSettings().maximum_history == 32u);
+    assert(ray_tracer->reconstructionSettings().temporal_reuse);
+    assert(!ray_tracer->reconstructionSettings().debug_reconstruction);
+
     assert(path_tracer->enabled());
-    assert(path_tracer->resolutionDivisor() == 2);
-    assert(path_tracer->samplesPerFrame() == 2);
-    assert(path_tracer->stationaryPhaseGrid() == 2);
-    assert(path_tracer->resetPhaseGrid() == 1);
-    assert(path_tracer->movingPhaseGrid() == 4);
-    assert(path_tracer->movingDepthBlock() == 2);
+    assert(path_tracer->samplesPerFrame() == 1);
+    assert(path_tracer->reconstructionSettings().quality == 0.50f);
+    assert(path_tracer->reconstructionSettings().maximum_history == 32u);
+    assert(path_tracer->reconstructionSettings().temporal_reuse);
+    assert(!path_tracer->reconstructionSettings().debug_reconstruction);
 
     assert(!Renderer::Volumetrics::currentSettings().enabled);
 
