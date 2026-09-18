@@ -2,6 +2,7 @@
 #define GAME_LOADOUT_FIRE_HPP
 
 #include <cstdint>
+#include <string_view>
 
 namespace Loadout::Fire {
 
@@ -35,6 +36,7 @@ struct Result
     std::uint8_t shots = 0u;
 };
 
+Profile profile(std::string_view weapon_name);
 void reset(State& state, const Profile& profile);
 bool toggle(State& state, const Profile& profile);
 Result step(
