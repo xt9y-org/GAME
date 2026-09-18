@@ -2,6 +2,7 @@
 
 #include "../Debugging/Values.hpp"
 
+#include <Renderer/AmbientOcclusion/AmbientOcclusion.hpp>
 #include <Renderer/Features.hpp>
 #include <Renderer/GaussianSplat/GaussianSplat.hpp>
 #include <Renderer/GlobalIllumination/GlobalIllumination.hpp>
@@ -23,6 +24,10 @@ void configure(Renderer::Manager& renderers)
     rasterizer.setShadowDistance(Debugging::Values::ShadowDistanceDefault);
     rasterizer.setShadowNearPlane(Debugging::Values::ShadowNearDefault);
     rasterizer.setClearColor({0.0f, 0.0f, 0.0f, 0.0f});
+
+    Renderer::AmbientOcclusion::settings() =
+        Renderer::AmbientOcclusion::Settings{};
+    Renderer::AmbientOcclusion::setQuality(Renderer::Quality::High);
 
     Renderer::GlobalIllumination::settings() =
         Renderer::GlobalIllumination::Settings{};
