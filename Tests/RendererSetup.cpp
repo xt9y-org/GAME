@@ -4,6 +4,7 @@
 #include <Renderer/PathTracer/PathTracer.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
 #include <Renderer/RayTracer/RayTracer.hpp>
+#include <Renderer/Volumetrics/Volumetrics.hpp>
 
 #include <cassert>
 
@@ -37,6 +38,8 @@ int main()
     assert(path_tracer->resetPhaseGrid() == 1);
     assert(path_tracer->movingPhaseGrid() == 4);
     assert(path_tracer->movingDepthBlock() == 2);
+
+    assert(!Renderer::Volumetrics::currentSettings().enabled);
 
     return 0;
 }
