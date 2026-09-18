@@ -5,6 +5,7 @@
 #include <Renderer/ModelScene.hpp>
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -12,10 +13,31 @@
 
 namespace Loadout {
 
+enum class WeaponCategory : std::uint8_t
+{
+    Pistols,
+    Smgs,
+    Rifles,
+    Snipers,
+    Shotguns,
+    MachineGuns,
+};
+
 struct Item
 {
     std::string name;
     std::filesystem::path path;
+};
+
+struct WeaponItem
+{
+    std::string name;
+    WeaponCategory category = WeaponCategory::Pistols;
+    std::filesystem::path path;
+    std::filesystem::path idle;
+    std::filesystem::path shoot;
+    std::filesystem::path reload;
+    std::filesystem::path inspect;
 };
 
 struct State
@@ -23,7 +45,7 @@ struct State
     std::filesystem::path root;
     Ecs::Entity parent = Ecs::INVALID_ENTITY;
 
-    std::vector<Item> weapons;
+    std::vector<WeaponItem> weapons;
     std::vector<Item> arms;
     std::size_t weapon = 0u;
     std::size_t arm = 0u;
@@ -39,6 +61,8 @@ struct State
 
     std::string error;
 };
+
+const char *categoryName(WeaponCategory category);
 
 bool init(
     State& state,
