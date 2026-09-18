@@ -5,6 +5,7 @@
 #include "../Loadout/Loadout.hpp"
 
 #include <Camera/Camera.hpp>
+#include <Renderer/AmbientOcclusion/AmbientOcclusion.hpp>
 #include <Renderer/Components.hpp>
 #include <Renderer/Debug/Debug.hpp>
 #include <Renderer/Environment.hpp>
@@ -470,6 +471,35 @@ void drawGlobalIlluminationSettings(Context& context)
     ImGui::EndMenu();
 }
 
+void drawAmbientOcclusionSettings()
+{
+    if (!ImGui::BeginMenu("Ambient Occlusion")) return;
+
+    Renderer::Features::Settings& features = Renderer::Features::settings();
+    ImGui::MenuItem("Enabled", nullptr, &features.ambient_occlusion);
+
+    Renderer::Quality quality = Renderer::AmbientOcclusion::quality();
+    if (qualityCombo("Quality", &quality))
+        Renderer::AmbientOcclusion::setQuality(quality);
+
+    Renderer::AmbientOcclusion::Settings& settings =
+        Renderer::AmbientOcclusion::settings();
+    barFloat(
+        "Strength",
+        &settings.strength,
+        Values::AmbientOcclusionStrength,
+        "%.2f"
+    );
+    barFloat(
+        "Radius",
+        &settings.radius,
+        Values::AmbientOcclusionRadius,
+        "%.2f"
+    );
+
+    ImGui::EndMenu();
+}
+
 void drawVolumetricsSettings()
 {
     if (!ImGui::BeginMenu("Volumetrics")) return;
@@ -527,6 +557,7 @@ void drawRendererMenu(Context& context)
     drawShadowSettings(context.renderers);
     drawEnvironmentSettings(context);
     drawGlobalIlluminationSettings(context);
+    drawAmbientOcclusionSettings();
     drawVolumetricsSettings();
     drawGaussianSplatSettings();
     drawVisibilitySettings(context.renderers);
