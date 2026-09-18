@@ -1,0 +1,225 @@
+# Renderer Manager Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Restore GAME's complete Horse renderer-manager integration and expose backend plus shared Gaussian Splat, Volumetrics, and Global Illumination controls under Debug -> Renderer without adding post-processing effects.
+
+**Architecture:** Horse remains the owner of renderer implementations and shared frame systems. GAME configures the existing `Renderer::Manager`, drives lifecycle only through it, and edits Horse settings directly from the debug UI. Gaussian Splat and GI receive only the minimal missing public settings surfaces required by the approved design.
+
+**Tech Stack:** C++20, Horse, SDL3/SDL_GPU, ImGui, C-BuildSystem.
+
+**Spec:** `RENDERER_MANAGER_PLAN`
+
+## Global Constraints
+
+- Renderer backend order is Rasterizer, Ray Tracer, Path Tracer.
+- Rasterizer is the initial renderer when available.
+- Gaussian Splat, Volumetrics, and GI stay shared systems and never become Manager entries.
+- GAME must not duplicate Horse rendering state.
+- Unavailable backends stay visible but disabled in Debug -> Renderer.
+- Post processing is not implemented or changed.
+- Existing camera, viewmodel, loadout, firing, lighting, environment, animation, and gameplay behavior stays intact.
+
+---
+
+### Task 1: Expose shared Horse renderer settings
+
+**Files:**
+- Create: `xt9y/Horse/Tests/RendererSettings.cpp`
+- Modify: `xt9y/Horse/build.c`
+- Modify: `xt9y/Horse/Sources/Renderer/GaussianSplat/GaussianSplat.hpp`
+- Modify: `xt9y/Horse/Sources/Renderer/GaussianSplat/GaussianSplat.cpp`
+- Modify: `xt9y/Horse/Sources/Renderer/GaussianSplat/GaussianSplatSDLGPU.cpp`
+- Modify: `xt9y/Horse/Sources/Renderer/GlobalIllumination/GlobalIllumination.hpp`
+- Modify: `xt9y/Horse/Sources/Renderer/GlobalIllumination/GlobalIllumination.cpp`
+
+**Interfaces:**
+- Produces: `Renderer::GaussianSplat::Settings& settings()`, `const Settings& currentSettings()`.
+- Produces: `Renderer::GlobalIllumination::Settings& settings()`, `const Settings& currentSettings()` while preserving every existing setter.
+
+- [ ] **Step 1: Write failing settings tests**
+
+```cpp
+#include <Renderer/GaussianSplat/GaussianSplat.hpp>
+#include <Renderer/GlobalIllumination/GlobalIllumination.hpp>
+#include <cassert>
+
+int main()
+{
+    auto& splat = Renderer::GaussianSplat::settings();
+    assert(splat.enabled);
+    assert(splat.radius == 3.0f);
+
+    auto& gi = Renderer::GlobalIllumination::settings();
+    Renderer::GlobalIllumination::setRaysPerProbe(96u);
+    assert(gi.rays_per_probe == 96u);
+    Renderer::GlobalIllumination::setPaused(true);
+    assert(Renderer::GlobalIllumination::currentSettings().paused);
+    Renderer::GlobalIllumination::setPaused(false);
+    return 0;
+}
+```
+
+- [ ] **Step 2: Verify RED**
+
+Run `c run HorseRendererSettingsTests` in Horse. Expected before implementation: compile failure because both settings APIs do not exist.
+
+- [ ] **Step 3: Implement Gaussian settings**
+
+Add exactly:
+
+```cpp
+struct Settings {
+    bool enabled = true;
+    float radius = 3.0f;
+    float minimum_depth_epsilon = 0.0025f;
+    float relative_depth_epsilon = 0.0005f;
+};
+```
+
+Own one namespace-global instance in `GaussianSplat.cpp`, bypass the pass when disabled, and make SDL_GPU consume radius/depth values instead of literals. Radius must affect both tile bounds and shader cutoff.
+
+- [ ] **Step 4: Implement GI settings**
+
+Replace the private `Tuning` type with the public `Settings` type. Keep existing setters as direct assignments into the same object. Defaults are those approved in `RENDERER_MANAGER_PLAN`.
+
+- [ ] **Step 5: Verify GREEN**
+
+Run `c run HorseRendererSettingsTests` and `c test` in Horse. Expected: all pass.
+
+- [ ] **Step 6: Commit Horse changes**
+
+Commit message: `Expose shared renderer settings`.
+
+---
+
+### Task 2: Centralize GAME renderer configuration
+
+**Files:**
+- Create: `Sources/Rendering/Setup.hpp`
+- Create: `Sources/Rendering/Setup.cpp`
+- Create: `Tests/RendererSetup.cpp`
+- Modify: `build.c`
+
+**Interfaces:**
+- Produces: `void Rendering::configure(Renderer::Manager& renderers)`.
+
+- [ ] **Step 1: Write failing setup test**
+
+The test constructs a `Renderer::Manager`, calls `Rendering::configure`, then asserts count/order and concrete settings through `find<T>()` without calling `initialize()`.
+
+Required assertions:
+
+```cpp
+assert(renderers.count() == 3u);
+assert(renderers.entry(0)->name == "Rasterizer");
+assert(renderers.entry(1)->name == "Ray Tracer");
+assert(renderers.entry(2)->name == "Path Tracer");
+assert(renderers.find<Renderer::RayTracer>()->resolutionDivisor() == 4);
+assert(renderers.find<Renderer::PathTracer>()->resolutionDivisor() == 2);
+assert(renderers.find<Renderer::PathTracer>()->samplesPerFrame() == 2);
+```
+
+- [ ] **Step 2: Verify RED**
+
+Run `c run renderer-setup-test`. Expected: compile failure because `Rendering::configure` does not exist.
+
+- [ ] **Step 3: Implement minimal setup module**
+
+`Rendering::configure` adds Rasterizer, Ray Tracer, Path Tracer in that order, restores the approved defaults, and configures GI tuning defaults. It does not initialize, resize, render, or shutdown anything.
+
+- [ ] **Step 4: Verify GREEN**
+
+Run `c run renderer-setup-test`. Expected: pass.
+
+- [ ] **Step 5: Commit**
+
+Commit message: `Centralize renderer manager setup`.
+
+---
+
+### Task 3: Migrate GAME runtime to Renderer::Manager
+
+**Files:**
+- Modify: `Sources/main.cpp`
+- Modify: `Sources/Debugging/Debugging.hpp`
+
+**Interfaces:**
+- Consumes: `Rendering::configure(Renderer::Manager&)`.
+- Produces: `Debugging::Context::renderers` and `Debugging::Context::global_illumination`.
+
+- [ ] **Step 1: Replace concrete renderer lifecycle**
+
+Create `Renderer::Manager renderers;`, call `Rendering::configure(renderers)`, then use only `renderers.initialize()`, `renderers.resize(...)`, `renderers.render(world)`, and `renderers.shutdown()`.
+
+- [ ] **Step 2: Add the GI entity**
+
+Create one `GlobalIlluminationComponent` with the approved component defaults and keep it disabled initially.
+
+- [ ] **Step 3: Update Debugging::Context**
+
+Replace `Renderer::Rasterizer& renderer` with `Renderer::Manager& renderers` and add the GI entity handle.
+
+- [ ] **Step 4: Verify build**
+
+Run `c build`. Expected: compile succeeds before the debug menu refactor by updating any stale context references in the same task if required.
+
+- [ ] **Step 5: Commit**
+
+Commit message: `Drive GAME rendering through Manager`.
+
+---
+
+### Task 4: Implement complete Renderer debug menu
+
+**Files:**
+- Modify: `Sources/Debugging/Values.hpp`
+- Modify: `Sources/Debugging/Debugging.cpp`
+
+**Interfaces:**
+- Consumes: `Renderer::Manager`, concrete backend `find<T>()`, Gaussian/GI settings APIs, existing `Volumetrics::settings()`.
+
+- [ ] **Step 1: Add centralized ranges**
+
+Add the exact approved ranges from `RENDERER_MANAGER_PLAN` for tracer, Gaussian Splat, Volumetrics, GI component, and GI tuning values.
+
+- [ ] **Step 2: Add active renderer selector**
+
+Iterate `context.renderers.entry(index)` in registration order. Available entries call `activate(index)`; unavailable entries are disabled, remain visible, and show an unavailable tooltip.
+
+- [ ] **Step 3: Add backend submenus**
+
+Rasterizer exposes existing controls; Ray Tracer exposes resolution divisor; Path Tracer exposes all six existing current settings. Obtain each object with `context.renderers.find<T>()`.
+
+- [ ] **Step 4: Add Gaussian Splat submenu**
+
+Edit Horse's shared settings directly: Enabled, Radius, Minimum Depth Epsilon, Relative Depth Epsilon.
+
+- [ ] **Step 5: Add Volumetrics submenu**
+
+Edit all nine fields on `Renderer::Volumetrics::settings()` directly.
+
+- [ ] **Step 6: Add Global Illumination submenu**
+
+Edit the GAME GI component plus Horse GI tuning. Call `GlobalIllumination::reset()` after generated-data settings change, but not when only Paused changes. Keep probe min/max valid when either endpoint is moved.
+
+- [ ] **Step 7: Verify**
+
+Run `c build`, `c test`, `c build run`. Runtime checks: all three backend names are visible; unavailable backends remain disabled; available backend switching works; every approved shared settings section is visible; no Post Processing section exists.
+
+- [ ] **Step 8: Commit**
+
+Commit message: `Restore renderer debug controls`.
+
+---
+
+### Task 5: Final verification
+
+**Files:** no production changes unless verification identifies a defect.
+
+- [ ] Run Horse renderer-settings test and Horse test suite.
+- [ ] Run GAME `renderer-setup-test`, existing motion/fire tests, full `c test`, and `c build`.
+- [ ] Run GAME and manually switch among every available backend after a resize.
+- [ ] Confirm Rasterizer settings survive switching away/back.
+- [ ] Confirm Gaussian Splat, Volumetrics, and GI remain shared across switches.
+- [ ] Confirm post processing was not added or modified.
