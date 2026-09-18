@@ -56,6 +56,35 @@ inline constexpr Range<float> LocalLightRange{0.0f, 10000.0f, 10.0f};
 inline constexpr Range<float> ConeAngle{0.0f, 179.0f, 1.0f};
 inline constexpr Range<float> ShadowBias{0.0f, 0.05f, 0.0001f};
 
+inline constexpr Range<int> RendererResolutionDivisor{1, 8, 1};
+inline constexpr Range<int> PathSamplesPerFrame{1, 16, 1};
+inline constexpr Range<int> PathSchedulingValue{1, 8, 1};
+
+inline constexpr Range<float> GaussianRadius{0.5f, 6.0f, 0.1f};
+inline constexpr Range<float> GaussianMinimumDepthEpsilon{0.0f, 0.05f, 0.0005f};
+inline constexpr Range<float> GaussianRelativeDepthEpsilon{0.0f, 0.01f, 0.0001f};
+
+inline constexpr Range<int> VolumetricSampleCount{1, 128, 1};
+inline constexpr Range<int> VolumetricBlurPasses{0, 8, 1};
+inline constexpr Range<float> VolumetricDensity{0.0f, 0.5f, 0.005f};
+inline constexpr Range<float> VolumetricAnisotropy{-0.95f, 0.95f, 0.05f};
+inline constexpr Range<float> VolumetricMaximumDistance{1.0f, 1000.0f, 1.0f};
+inline constexpr Range<float> VolumetricJitter{0.0f, 2.0f, 0.05f};
+inline constexpr Range<float> VolumetricDepthFalloff{0.0f, 128.0f, 1.0f};
+
+inline constexpr Range<float> GiIntensity{0.0f, 10.0f, 0.05f};
+inline constexpr Range<int> GiBounces{1, 8, 1};
+inline constexpr Range<int> GiPhotonCount{1, 1000000, 1000};
+inline constexpr Range<float> GiPhotonRadius{0.01f, 100.0f, 0.01f};
+inline constexpr Range<int> GiRaysPerProbe{1, 2048, 1};
+inline constexpr Range<int> GiProbeBudget{1, 1024, 1};
+inline constexpr Range<int> GiProbeDimension{2, 64, 1};
+inline constexpr Range<float> GiBoundsMarginScale{0.0f, 1.0f, 0.01f};
+inline constexpr Range<float> GiMinimumBoundsMargin{0.0f, 100.0f, 0.05f};
+inline constexpr Range<float> GiRayEpsilon{0.00001f, 0.1f, 0.00001f};
+inline constexpr Range<int> GiMaximumBounces{1, 8, 1};
+inline constexpr Range<int> GiMaximumPhotonCount{1, 1000000, 1000};
+
 inline constexpr std::array<int, 6> ShadowResolutions{
     128, 256, 512, 1024, 2048, 4096
 };
