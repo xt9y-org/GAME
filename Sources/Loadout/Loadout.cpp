@@ -548,6 +548,42 @@ bool bind(
     return true;
 }
 
+bool validateAnimationSet(
+    State& state,
+    Renderer::ModelScene::Animation& animation,
+    const AnimationHandles& handles,
+    std::string *error)
+{
+    const std::array<std::pair<const char *, Models::ModelHandle>, 4> clips{{
+        {"idle", handles.idle},
+        {"shoot", handles.shoot},
+        {"reload", handles.reload},
+        {"inspect", handles.inspect},
+    }};
+
+    std::string message;
+    for (const auto& [name, clip] : clips) {
+        if (clip == Models::INVALID_MODEL ||
+            !Renderer::ModelScene::play(animation, clip, 0u, false, &message))
+            return fail(
+                state,
+                message.empty()
+                    ? "Could not bind " + std::string(name) + " viewmodel animation"
+                    : message,
+                error
+            );
+    }
+
+    if (!Renderer::ModelScene::play(animation, handles.idle, 0u, true, &message))
+        return fail(
+            state,
+            message.empty() ? "Could not restore viewmodel idle animation" : message,
+            error
+        );
+
+    return true;
+}
+
 bool play(State& state, Models::ModelHandle animation, std::string *error)
 {
     std::string message;
@@ -641,7 +677,8 @@ bool init(
             *state.arm_instance,
             *state.weapon_instance,
             handles.idle,
-            error))
+            error) ||
+        !validateAnimationSet(state, animation, handles, error))
         return false;
 
     state.idle = handles.idle;
@@ -689,7 +726,8 @@ bool selectWeapon(State& state, Ecs::World& world, std::size_t index)
             *state.arm_instance,
             *replacement,
             handles.idle,
-            &message)) {
+            &message) ||
+        !validateAnimationSet(state, animation, handles, &message)) {
         Renderer::ModelScene::destroy(world, *replacement);
         return false;
     }
@@ -736,6 +774,11 @@ bool selectArms(State& state, Ecs::World& world, std::size_t index)
             *replacement,
             *state.weapon_instance,
             state.idle,
+            &message) ||
+        !validateAnimationSet(
+            state,
+            animation,
+            AnimationHandles{state.idle, state.shoot, state.reload, state.inspect},
             &message)) {
         Renderer::ModelScene::destroy(world, *replacement);
         return false;
