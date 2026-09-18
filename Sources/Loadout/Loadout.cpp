@@ -116,7 +116,7 @@ bool modelFile(const std::filesystem::path& path)
 bool ignoredModel(const std::filesystem::path& path)
 {
     const std::string stem = lower(path.stem().string());
-    static constexpr std::array<std::string_view, 10> ignored{{
+    static constexpr std::array<std::string_view, 9> ignored{{
         "_physics",
         "_phys",
         "_mag",
@@ -124,12 +124,11 @@ bool ignoredModel(const std::filesystem::path& path)
         "_clip",
         "_shell",
         "_scope",
-        "_silencer",
         "_slide",
         "_lod",
     }};
     for (std::string_view token : ignored)
-        if (stem.find(token) != std::string::npos) return true;
+        if (stem.ends_with(token)) return true;
     return false;
 }
 
