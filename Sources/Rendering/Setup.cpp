@@ -17,6 +17,7 @@ void configure(Renderer::Manager& renderers)
     auto& rasterizer = renderers.add<Renderer::Rasterizer>("Rasterizer");
     rasterizer.setEnabled(true);
     rasterizer.setViewportCulling(true);
+    rasterizer.setOcclusionCulling(true);
     rasterizer.setShadowQuality(Renderer::Quality::High);
     rasterizer.setShadowDistance(Debugging::Values::ShadowDistanceDefault);
     rasterizer.setShadowNearPlane(Debugging::Values::ShadowNearDefault);
