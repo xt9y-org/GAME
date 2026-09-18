@@ -1,0 +1,72 @@
+# Rasterizer-Only Renderer Cleanup Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Remove Horse's selectable Ray Tracer, Path Tracer, and their reconstruction stack, leaving Rasterizer as the only renderer backend while preserving shared rendering systems such as GI, Volumetrics, Gaussian Splat, lighting, shadows, environment, scene resources, and any internal ray-query/BVH code those systems still require.
+
+**Architecture:** `Renderer::Manager` remains generic, but GAME registers only `Renderer::Rasterizer`. Backend-specific trace/reconstruction code is deleted. Shared GI/BVH/trace-query infrastructure is kept only where it is consumed independently by the rasterizer/shared systems. No post-processing changes are part of this cleanup.
+
+**Tech Stack:** C++20, Horse, SDL3 GPU, SDL_shadercross, custom `c` build system.
+
+**Spec:** User-approved conversation design from 2026-09-18.
+
+## Global Constraints
+
+- Rasterizer output and behavior must remain unchanged.
+- Keep `Renderer::Manager`; GAME registers one backend only.
+- Delete Ray/Path backend source, dedicated reconstruction source/shaders/tests, and obsolete backend documentation from Horse.
+- Do not delete generic BVH/trace-query infrastructure required by Global Illumination or other shared systems.
+- Remove all GAME setup/debug/test dependencies on the deleted backends.
+- Keep Volumetrics, Gaussian Splat, GI, environment, lighting, shadows, models, scene resources, and PostProcess untouched except for compile fallout caused by deleted includes.
+- Verify repository searches contain no active RayTracer/PathTracer/Reconstruction backend references after cleanup.
+
+---
+
+### Task 1: Remove Horse backend and reconstruction ownership
+
+**Files:**
+- Delete: `Sources/Renderer/RayTracer/RayTracer.hpp`
+- Delete: `Sources/Renderer/RayTracer/RayTracerSDLGPU.cpp`
+- Delete: `Sources/Renderer/PathTracer/PathTracer.hpp`
+- Delete: `Sources/Renderer/PathTracer/PathTracerSDLGPU.cpp`
+- Delete: `Sources/Renderer/Reconstruction/Reconstruction.hpp`
+- Delete: `Sources/Renderer/Reconstruction/Reconstruction.cpp`
+- Delete: `Sources/Renderer/Reconstruction/ReconstructionSDLGPU.cpp`
+- Delete: `Sources/Renderer/Internal/ReconstructionSDLGPU.hpp`
+- Delete: `Sources/Renderer/SDLGPU/ReconstructionShaders.hpp`
+- Delete: `Sources/Renderer/SDLGPU/ReconstructionTraceShaders.hpp`
+- Delete: `Sources/Renderer/SDLGPU/PBRTraceShaders.hpp`
+- Delete: `Tests/Reconstruction.cpp`
+- Delete: `RAY_PATH_RECONSTRUCTION_PLAN`
+- Delete: `RAY_PATH_RECONSTRUCTION_IMPLEMENTATION_PLAN`
+- Modify: `Sources/Renderer/Render.hpp`
+- Modify: `Sources/Renderer/SDLGPU/Shaders.hpp`
+- Modify: `Tests/RendererSettings.cpp`
+- Modify: `build.c`
+
+- [ ] Remove backend/reconstruction files.
+- [ ] Remove the Ray/Path includes from `Render.hpp`.
+- [ ] Remove `PBRTraceShaders.hpp`, `TraceSource`, `Trace`, and `PathResolve` from `Shaders.hpp` while preserving Shadow, Raster, and Sky shaders.
+- [ ] Remove Ray/Path settings assertions and the dedicated HLSL trace compatibility assertion from `Tests/RendererSettings.cpp`.
+- [ ] Remove `HorseReconstructionTests` from `build.c`.
+
+### Task 2: Make GAME rasterizer-only
+
+**Files:**
+- Modify: `Sources/Rendering/Setup.cpp`
+- Modify: `Sources/Debugging/Debugging.cpp`
+- Modify: `Sources/Debugging/Values.hpp`
+- Modify: `Tests/RendererSetup.cpp`
+
+- [ ] Register only `Renderer::Rasterizer` in `Rendering::configure`.
+- [ ] Remove Ray/Path debug submenus and includes.
+- [ ] Remove reconstruction/path-only debug ranges, keeping `RendererResolutionDivisor` because Volumetrics still uses it.
+- [ ] Change renderer setup test from three registered backends to one Rasterizer backend while preserving Volumetrics-disabled defaults.
+
+### Task 3: Source and runtime verification
+
+- [ ] Search Horse for `RayTracer`, `PathTracer`, `ReconstructionTraceShaders`, `ReconstructionSDLGPU`, and `PBRTraceShaders`; expect no active source references.
+- [ ] Search GAME for `RayTracer`, `PathTracer`, `reconstructionSettings`, `Stationary Phase Grid`, and `Debug Reconstruction`; expect no active source references.
+- [ ] Run on the target machine: `c update build run`.
+- [ ] Confirm startup initializes only SDL_GPU + Rasterizer and no Ray/Path shader compilation occurs.
+- [ ] Confirm Rasterizer FPS matches the clean baseline.
