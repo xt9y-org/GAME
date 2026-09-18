@@ -12,7 +12,62 @@ float tick(float value, float delta_seconds)
     return std::max(value - std::max(delta_seconds, 0.0f), 0.0f);
 }
 
+Profile automatic(float cycle_seconds)
+{
+    return Profile{
+        .mode = Mode::Automatic,
+        .cycle_seconds = cycle_seconds,
+    };
+}
+
+Profile burstable(
+    Mode mode,
+    float cycle_seconds,
+    float burst_cycle_seconds,
+    float burst_interval_seconds)
+{
+    return Profile{
+        .mode = mode,
+        .cycle_seconds = cycle_seconds,
+        .burst_supported = true,
+        .burst_count = 3u,
+        .burst_cycle_seconds = burst_cycle_seconds,
+        .burst_interval_seconds = burst_interval_seconds,
+    };
+}
+
 } // namespace
+
+Profile profile(std::string_view weapon_name)
+{
+    if (weapon_name == "Glock-18")
+        return burstable(Mode::Semi, 0.15f, 0.50f, 0.05f);
+    if (weapon_name == "CZ75-Auto") return automatic(0.10f);
+
+    if (weapon_name == "MAC-10") return automatic(0.075f);
+    if (weapon_name == "MP9") return automatic(0.070f);
+    if (weapon_name == "MP7") return automatic(0.080f);
+    if (weapon_name == "MP5-SD") return automatic(0.080f);
+    if (weapon_name == "UMP-45") return automatic(0.090f);
+    if (weapon_name == "P90") return automatic(0.070f);
+    if (weapon_name == "PP-Bizon") return automatic(0.080f);
+
+    if (weapon_name == "Galil AR") return automatic(0.090f);
+    if (weapon_name == "FAMAS")
+        return burstable(Mode::Automatic, 0.090f, 0.55f, 0.075f);
+    if (weapon_name == "AK-47") return automatic(0.100f);
+    if (weapon_name == "M4A4") return automatic(0.090f);
+    if (weapon_name == "M4A1-S") return automatic(0.100f);
+    if (weapon_name == "AUG") return automatic(0.100f);
+    if (weapon_name == "SG 553") return automatic(0.110f);
+
+    if (weapon_name == "XM1014") return automatic(0.350f);
+
+    if (weapon_name == "M249") return automatic(0.080f);
+    if (weapon_name == "Negev") return automatic(0.080f);
+
+    return {};
+}
 
 void reset(State& state, const Profile& profile)
 {
