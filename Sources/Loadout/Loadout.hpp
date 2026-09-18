@@ -59,6 +59,7 @@ struct State
     Models::ModelHandle reload = Models::INVALID_MODEL;
     Models::ModelHandle inspect = Models::INVALID_MODEL;
 
+    bool shooting = false;
     std::string error;
 };
 
