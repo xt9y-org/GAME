@@ -294,9 +294,12 @@ std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
             if (std::filesystem::is_regular_file(inspect, error)) item.inspect = inspect.lexically_normal();
         }
 
-        if (item.path.empty() || item.idle.empty() || item.shoot.empty() || item.reload.empty())
+        if (item.path.empty() ||
+            item.idle.empty() ||
+            item.shoot.empty() ||
+            item.reload.empty() ||
+            item.inspect.empty())
             continue;
-        if (item.inspect.empty()) item.inspect = item.idle;
         result.push_back(std::move(item));
     }
 
