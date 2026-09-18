@@ -415,9 +415,16 @@ void drawRayTracerSettings(Renderer::Manager& renderers)
     Renderer::RayTracer *renderer = renderers.find<Renderer::RayTracer>();
     if (!renderer || !ImGui::BeginMenu("Ray Tracer")) return;
 
-    int divisor = renderer->resolutionDivisor();
-    if (barInt("Resolution Divisor", &divisor, Values::RendererResolutionDivisor))
-        renderer->setResolutionDivisor(divisor);
+    Renderer::Reconstruction::Settings& settings = renderer->reconstructionSettings();
+    barFloat("Quality", &settings.quality, Values::ReconstructionQuality, "%.2f");
+    ImGui::MenuItem("Temporal Reuse", nullptr, &settings.temporal_reuse);
+
+    int maximum_history = static_cast<int>(settings.maximum_history);
+    if (barInt("Maximum History", &maximum_history, Values::ReconstructionHistory))
+        settings.maximum_history = static_cast<std::uint32_t>(maximum_history);
+
+    ImGui::MenuItem("Debug Reconstruction", nullptr, &settings.debug_reconstruction);
+    ImGui::TextDisabled("Final output is always native resolution");
 
     ImGui::EndMenu();
 }
@@ -427,29 +434,21 @@ void drawPathTracerSettings(Renderer::Manager& renderers)
     Renderer::PathTracer *renderer = renderers.find<Renderer::PathTracer>();
     if (!renderer || !ImGui::BeginMenu("Path Tracer")) return;
 
-    int divisor = renderer->resolutionDivisor();
-    if (barInt("Resolution Divisor", &divisor, Values::RendererResolutionDivisor))
-        renderer->setResolutionDivisor(divisor);
+    Renderer::Reconstruction::Settings& settings = renderer->reconstructionSettings();
+    barFloat("Quality", &settings.quality, Values::ReconstructionQuality, "%.2f");
 
     int samples = renderer->samplesPerFrame();
     if (barInt("Samples / Frame", &samples, Values::PathSamplesPerFrame))
         renderer->setSamplesPerFrame(samples);
 
-    int stationary = renderer->stationaryPhaseGrid();
-    if (barInt("Stationary Phase Grid", &stationary, Values::PathSchedulingValue))
-        renderer->setStationaryPhaseGrid(stationary);
+    ImGui::MenuItem("Temporal Reuse", nullptr, &settings.temporal_reuse);
 
-    int reset = renderer->resetPhaseGrid();
-    if (barInt("Reset Phase Grid", &reset, Values::PathSchedulingValue))
-        renderer->setResetPhaseGrid(reset);
+    int maximum_history = static_cast<int>(settings.maximum_history);
+    if (barInt("Maximum History", &maximum_history, Values::ReconstructionHistory))
+        settings.maximum_history = static_cast<std::uint32_t>(maximum_history);
 
-    int moving = renderer->movingPhaseGrid();
-    if (barInt("Moving Phase Grid", &moving, Values::PathSchedulingValue))
-        renderer->setMovingPhaseGrid(moving);
-
-    int depth = renderer->movingDepthBlock();
-    if (barInt("Moving Depth Block", &depth, Values::PathSchedulingValue))
-        renderer->setMovingDepthBlock(depth);
+    ImGui::MenuItem("Debug Reconstruction", nullptr, &settings.debug_reconstruction);
+    ImGui::TextDisabled("Final output is always native resolution");
 
     ImGui::EndMenu();
 }
