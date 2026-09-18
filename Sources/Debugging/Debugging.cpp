@@ -397,9 +397,6 @@ void drawEnvironmentSettings(Context& context)
         return;
     }
 
-    if (features.environment && !environment->enabled)
-        environment->enabled = true;
-
     if (barFloat("Intensity", &environment->intensity, Values::EnvironmentIntensity, "%.1f"))
         markLighting(context.world);
 
@@ -456,10 +453,7 @@ void drawGlobalIlluminationSettings(Context& context)
     bool enabled = features.global_illumination;
     if (ImGui::MenuItem("Enabled", nullptr, &enabled)) {
         features.global_illumination = enabled;
-        if (enabled && component && !component->enabled) {
-            component->enabled = true;
-            Renderer::GlobalIllumination::reset();
-        }
+        if (enabled) Renderer::GlobalIllumination::reset();
     }
 
     Renderer::Quality quality = Renderer::GlobalIllumination::quality();
@@ -515,6 +509,10 @@ void drawVisibilitySettings(Renderer::Manager& renderers)
     bool viewport_culling = renderer->viewportCulling();
     if (ImGui::MenuItem("Frustum Culling", nullptr, &viewport_culling))
         renderer->setViewportCulling(viewport_culling);
+
+    bool occlusion_culling = renderer->occlusionCulling();
+    if (ImGui::MenuItem("Occlusion Culling", nullptr, &occlusion_culling))
+        renderer->setOcclusionCulling(occlusion_culling);
 
     ImGui::EndMenu();
 }
