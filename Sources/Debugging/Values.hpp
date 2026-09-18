@@ -28,10 +28,10 @@ inline constexpr int ShadowResolutionDefault = 512;
 inline constexpr int ShadowCascadesDefault = 4;
 inline constexpr float ShadowDistanceDefault = 1600.0f;
 inline constexpr float ShadowNearDefault = 0.05f;
-inline constexpr float LightIntensityDefault = 1.1f;
-inline constexpr float LightRotationXDefault = 65.0f;
-inline constexpr float LightRotationYDefault = -40.0f;
-inline constexpr float LightRotationZDefault = -40.0f;
+inline constexpr float LightIntensityDefault = 1.0f;
+inline constexpr float LightRotationXDefault = 0.45f;
+inline constexpr float LightRotationYDefault = 0.45f;
+inline constexpr float LightRotationZDefault = 0.45f;
 inline constexpr float ShadowBiasDefault = 0.002f;
 
 inline constexpr Range<float> CameraFov{30.0f, 120.0f, 1.0f};
