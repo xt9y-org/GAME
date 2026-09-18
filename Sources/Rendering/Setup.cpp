@@ -24,16 +24,12 @@ void configure(Renderer::Manager& renderers)
 
     auto& ray_tracer = renderers.add<Renderer::RayTracer>("Ray Tracer");
     ray_tracer.setEnabled(true);
-    ray_tracer.setResolutionDivisor(4);
+    ray_tracer.reconstructionSettings() = Renderer::Reconstruction::Settings{};
 
     auto& path_tracer = renderers.add<Renderer::PathTracer>("Path Tracer");
     path_tracer.setEnabled(true);
-    path_tracer.setResolutionDivisor(2);
-    path_tracer.setSamplesPerFrame(2);
-    path_tracer.setStationaryPhaseGrid(2);
-    path_tracer.setResetPhaseGrid(1);
-    path_tracer.setMovingPhaseGrid(4);
-    path_tracer.setMovingDepthBlock(2);
+    path_tracer.setSamplesPerFrame(1);
+    path_tracer.reconstructionSettings() = Renderer::Reconstruction::Settings{};
 
     Renderer::GlobalIllumination::settings() =
         Renderer::GlobalIllumination::Settings{};
