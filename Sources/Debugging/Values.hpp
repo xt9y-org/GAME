@@ -21,7 +21,7 @@ constexpr T stepValue(T value, T step, T minimum, T maximum, int direction)
     return std::clamp(value + step * static_cast<T>(direction), minimum, maximum);
 }
 
-inline constexpr float CameraFovDefault = 70.0f;
+inline constexpr float CameraFovDefault = 43.0f;
 inline constexpr float CameraNearDefault = 0.1f;
 inline constexpr float CameraFarDefault = 0.0f;
 inline constexpr int ShadowResolutionDefault = 512;
