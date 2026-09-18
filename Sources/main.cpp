@@ -80,6 +80,13 @@ public:
             .enabled = true,
             .bias = Debugging::Values::ShadowBiasDefault,
         });
+        world.add<Renderer::VolumetricLightComponent>(
+            light,
+            Renderer::VolumetricLightComponent{
+                .enabled = true,
+                .intensity = 1.0f,
+            }
+        );
 
         const Ecs::Entity environment = world.createEntity();
         world.add<Renderer::EnvironmentComponent>(
