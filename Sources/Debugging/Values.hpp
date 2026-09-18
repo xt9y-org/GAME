@@ -60,6 +60,7 @@ inline constexpr Range<int> RendererResolutionDivisor{1, 8, 1};
 
 inline constexpr Range<float> AmbientOcclusionStrength{0.0f, 3.0f, 0.05f};
 inline constexpr Range<float> AmbientOcclusionRadius{0.05f, 10.0f, 0.05f};
+inline constexpr Range<float> ReflectionStrength{0.0f, 3.0f, 0.05f};
 
 inline constexpr Range<float> GaussianRadius{0.5f, 6.0f, 0.1f};
 inline constexpr Range<float> GaussianMinimumDepthEpsilon{0.0f, 0.05f, 0.0005f};
