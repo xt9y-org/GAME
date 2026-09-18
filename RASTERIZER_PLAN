@@ -221,7 +221,7 @@ GAME:
 - [x] Add quality preset API for Shadows, GI and Volumetrics.
 - [x] Simplify Renderer Debug menu.
 - [x] Simplify Camera Debug menu.
-- [ ] Remove the last GAME Debug paths that mutate local Environment/GI component enable state when a global override is toggled.
+- [x] Remove the last GAME Debug paths that mutate local Environment/GI component enable state when a global override is toggled.
 
 ## Phase 2 — GPU Profiling
 
@@ -299,37 +299,51 @@ PBR vertex/fragment path
 - Current GPU visibility removes expensive shaded contribution but does not yet compact CPU draw calls.
 - Preserve CPU fallback where backend capability requires it.
 
+GPU-driven submission must not be implemented as a cosmetic swap from `SDL_DrawGPUPrimitives` to an indirect call. Horse's current raster draw representation still pushes a per-draw vertex offset through `VDraw.x`, indexes storage-backed vertices from `SV_VertexID`, and rebinds material textures per draw range. A useful GPU-driven path therefore needs a compact GPU draw list plus a material/draw batching representation that removes those CPU-side per-draw dependencies. Until that exists, keep the current explicit submission path rather than adding a misleading `GPU Driven` switch.
+
 - [x] Add object bounds buffer.
 - [x] Add GPU Hi-Z visibility compute pass.
 - [ ] Add compact visible instance/draw list.
 - [x] Connect GPU visibility results to Rasterizer shading through the existing entity visibility buffer.
+- [ ] Redesign eligible raster batches so draw metadata and material selection can be consumed without per-draw CPU uniform/texture rebinding.
 - [ ] Move eligible batches to indirect/GPU-driven submission so hidden objects also stop consuming draw/vertex work.
 
 ## Phase 5 — Forward+ / Clustered Lighting
 
 **Goal:** Keep PBR cost scalable as scenes gain many lights.
 
+The first implementation is tiled Forward+: 32x32 screen tiles with GPU-generated per-tile light lists. This deliberately establishes the scalable light-list path before adding depth slices. Depth-clustered refinement can be added later if measurements show the extra assignment complexity is useful.
+
 ```text
 camera frustum
     ↓
-screen tiles / depth clusters
+32x32 screen tiles
     ↓
-light assignment compute
+GPU light assignment
     ↓
-per-cluster light lists
+per-tile light lists
     ↓
 PBR shades only relevant lights
 ```
 
 - Keep `LightComponent` API unchanged.
-- Do not make game code understand clusters.
-- Directional lights remain globally available where appropriate.
-- Point/spot lights are culled into screen/depth clusters.
+- Do not make game code understand tiles/clusters.
+- Reuse Horse's existing packed shading/light buffer rather than introduce another light representation.
+- Directional lights remain globally available.
+- Point/spot lights are conservatively projected from their range and assigned only to overlapping screen tiles.
+- Each tile currently stores up to 64 light indices. If a tile overflows, it is marked as overflow and PBR falls back to Horse's original full-light loop for that tile rather than dropping lighting.
+- If Forward+ initialization or assignment fails, Rasterizer disables it and uses the original full-light loop.
+- Forward+ is an internal rasterizer optimization, not another game-facing rendering system or normal Debug quality control.
 
-- [ ] Add cluster grid and buffers.
-- [ ] Add light-cluster assignment.
-- [ ] Change PBR light loop to cluster-local lights.
-- [ ] Stress-test many point/spot lights.
+**Status:** implementation is staged on `main`, but the new SDL_shadercross HLSL compute/fragment resource layout has not yet been compiled and run on the Metal backend. Do not treat Phase 5 as runtime-verified until the Mac build succeeds.
+
+- [x] Add tiled Forward+ grid and GPU tile buffers.
+- [x] Add GPU light-to-tile assignment using the shared shading/light buffer.
+- [x] Change PBR direct-light loop to tile-local light indices with conservative full-loop fallback.
+- [x] Add Forward+ grid/settings tests.
+- [ ] Verify Forward+ HLSL and resource binding on Metal through a real GAME build/run.
+- [ ] Stress-test many point/spot lights and compare frame cost against the full-light fallback.
+- [ ] Add depth slices only if profiling shows 2D tiles are insufficient.
 
 ## Phase 6 — Shadow System Upgrade
 
