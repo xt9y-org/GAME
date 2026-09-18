@@ -34,12 +34,13 @@ struct WeaponSpec
     const char *token;
     const char *alternate;
     const char *exclude;
+    const char *animation_family = nullptr;
 };
 
 constexpr std::array<WeaponSpec, 34> WeaponSpecs{{
     {"Glock-18",       WeaponCategory::Pistols,     "glock",          nullptr,       nullptr},
     {"P2000",          WeaponCategory::Pistols,     "hkp2000",        "p2000",       nullptr},
-    {"USP-S",          WeaponCategory::Pistols,     "usp_silencer",   "usp",         nullptr},
+    {"USP-S",          WeaponCategory::Pistols,     "usp_silencer",   "usp",         nullptr,      "pistol/_default_pistol"},
     {"Dual Berettas",  WeaponCategory::Pistols,     "elite",          "dual",        nullptr},
     {"P250",           WeaponCategory::Pistols,     "p250",           nullptr,       nullptr},
     {"Five-SeveN",     WeaponCategory::Pistols,     "fiveseven",      "five_seven",  nullptr},
@@ -58,9 +59,9 @@ constexpr std::array<WeaponSpec, 34> WeaponSpecs{{
 
     {"Galil AR",       WeaponCategory::Rifles,      "galilar",        "galil",       nullptr},
     {"FAMAS",          WeaponCategory::Rifles,      "famas",          nullptr,       nullptr},
-    {"AK-47",          WeaponCategory::Rifles,      "ak47",           "ak_47",       nullptr},
+    {"AK-47",          WeaponCategory::Rifles,      "ak47",           "ak_47",       nullptr,      "rifle/rifle_ak"},
     {"M4A4",           WeaponCategory::Rifles,      "m4a1",           "m4a4",        "silencer"},
-    {"M4A1-S",         WeaponCategory::Rifles,      "m4a1_silencer",  "m4a1s",       nullptr},
+    {"M4A1-S",         WeaponCategory::Rifles,      "m4a1_silencer",  "m4a1s",       nullptr,      "rifle/_default_rifle"},
     {"AUG",            WeaponCategory::Rifles,      "aug",            nullptr,       nullptr},
     {"SG 553",         WeaponCategory::Rifles,      "sg556",          "sg553",       nullptr},
 
@@ -288,6 +289,19 @@ std::filesystem::path animationFamily(
     const std::vector<std::filesystem::path>& animations,
     const WeaponSpec& spec)
 {
+    if (spec.animation_family && *spec.animation_family) {
+        const std::string wanted = lower(spec.animation_family);
+        for (const auto& path : animations) {
+            const std::filesystem::path family = path.parent_path();
+            const std::string family_text = lower(family.generic_string());
+            if (!family_text.ends_with(wanted)) continue;
+            if (familyHasAction(animations, family, Action::Idle) &&
+                familyHasAction(animations, family, Action::Shoot) &&
+                familyHasAction(animations, family, Action::Reload))
+                return family;
+        }
+    }
+
     int best_score = -1;
     std::filesystem::path best;
 
