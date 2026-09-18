@@ -13,6 +13,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 
 namespace Debugging {
