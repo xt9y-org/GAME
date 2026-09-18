@@ -31,14 +31,14 @@ int main()
     assert(rasterizer->enabled());
 
     assert(ray_tracer->enabled());
-    assert(ray_tracer->reconstructionSettings().quality == 0.50f);
+    assert(ray_tracer->reconstructionSettings().quality == 0.85f);
     assert(ray_tracer->reconstructionSettings().maximum_history == 32u);
     assert(ray_tracer->reconstructionSettings().temporal_reuse);
     assert(!ray_tracer->reconstructionSettings().debug_reconstruction);
 
     assert(path_tracer->enabled());
     assert(path_tracer->samplesPerFrame() == 1);
-    assert(path_tracer->reconstructionSettings().quality == 0.50f);
+    assert(path_tracer->reconstructionSettings().quality == 0.85f);
     assert(path_tracer->reconstructionSettings().maximum_history == 32u);
     assert(path_tracer->reconstructionSettings().temporal_reuse);
     assert(!path_tracer->reconstructionSettings().debug_reconstruction);
