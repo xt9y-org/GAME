@@ -673,7 +673,6 @@ bool update(State& state, Ecs::World& world, float delta_seconds, std::string *e
             error
         );
 
-    state.error.clear();
     if (error) error->clear();
     return true;
 }
