@@ -4,7 +4,7 @@
 name = "Horse"
 url = "https://github.com/xt9y/Horse.git"
 requested = "main"
-resolved = "cb3741d591537f02bd0518db56ded339f30406b2"
+resolved = "a8edb30ee19e9a82e4d98eaddb971ba38d48ff2a"
 
 [[dependency]]
 name = "imgui"
