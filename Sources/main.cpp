@@ -15,6 +15,7 @@
 #include "Debugging/Debugging.hpp"
 #include "Debugging/Values.hpp"
 #include "Loadout/Loadout.hpp"
+#include "Viewmodel/Motion.hpp"
 
 #include <chrono>
 #include <filesystem>
@@ -54,6 +55,9 @@ public:
         world.add<Renderer::RenderLayerComponent>(viewmodel, Renderer::RenderLayerComponent{
             .layer = Renderer::RenderLayer::Overlay,
         });
+
+        Viewmodel::Motion::Settings motion_settings;
+        Viewmodel::Motion::State motion_state;
 
         const Ecs::Entity light = world.createEntity();
         world.add<Renderer::Transform>(light, Renderer::Transform{
@@ -125,6 +129,11 @@ public:
         const Input::Key reload_key = Input::key("R");
         const Input::Key inspect_key = Input::key("F");
         const Input::Key capture_key = Input::key("Tab");
+        const Input::Key forward_key = Input::key("W");
+        const Input::Key backward_key = Input::key("S");
+        const Input::Key left_key = Input::key("A");
+        const Input::Key right_key = Input::key("D");
+        const Input::Key sprint_key = Input::key("Left Shift");
         Input::setPointerCaptured(true);
 
         using Clock = std::chrono::steady_clock;
@@ -143,8 +152,9 @@ public:
                 Input::setPointerCaptured(!Input::pointer().captured);
 
             const auto update_begin = Clock::now();
+            const Input::Pointer pointer = Input::pointer();
 
-            if (Input::pointer().captured) {
+            if (pointer.captured) {
                 camera_controller.update(world, delta);
 
                 if (Input::buttonPressed(shoot_button) &&
@@ -162,6 +172,41 @@ public:
 
             if (!Loadout::update(loadout, world, delta, &error))
                 break;
+
+            const Renderer::Transform *camera_transform =
+                world.get<Renderer::Transform>(camera);
+            if (!camera_transform) {
+                error = "Could not read camera transform for viewmodel motion";
+                break;
+            }
+
+            Viewmodel::Motion::Sample motion_sample;
+            motion_sample.camera_pitch = camera_transform->rotation.x;
+            motion_sample.action_active =
+                loadout.animation.active && loadout.animation.model != loadout.idle;
+
+            if (pointer.captured) {
+                motion_sample.mouse_dx = static_cast<float>(pointer.dx);
+                motion_sample.mouse_dy = static_cast<float>(pointer.dy);
+                motion_sample.move_x =
+                    (Input::keyDown(right_key) ? 1.0f : 0.0f) -
+                    (Input::keyDown(left_key) ? 1.0f : 0.0f);
+                motion_sample.move_y =
+                    (Input::keyDown(forward_key) ? 1.0f : 0.0f) -
+                    (Input::keyDown(backward_key) ? 1.0f : 0.0f);
+                motion_sample.sprint = Input::keyDown(sprint_key);
+            }
+
+            const Viewmodel::Motion::Pose motion_pose = Viewmodel::Motion::step(
+                motion_state,
+                motion_settings,
+                motion_sample,
+                delta
+            );
+            if (!Viewmodel::Motion::apply(world, viewmodel, motion_pose)) {
+                error = "Could not apply viewmodel motion";
+                break;
+            }
 
             const int new_width  = Window::width();
             const int new_height = Window::height();
