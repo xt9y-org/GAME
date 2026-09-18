@@ -41,4 +41,12 @@ void build(C_Build *b)
     c_link_system(motion_test, "dl");
     c_link_system(motion_test, "pthread");
     c_use(motion_test, horse);
+
+    C_Target *fire_test = c_test(b, "loadout-fire-test");
+    c_sources(fire_test, "Tests/LoadoutFire.cpp");
+    c_sources(fire_test, "Sources/Loadout/Fire.cpp");
+    c_include(fire_test, "Sources");
+    c_flag(fire_test, "-std=c++20");
+    c_link_system(fire_test, "stdc++");
+    c_link_system(fire_test, "m");
 }
