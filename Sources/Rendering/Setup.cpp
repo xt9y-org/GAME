@@ -9,6 +9,7 @@
 #include <Renderer/Manager.hpp>
 #include <Renderer/Quality.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
+#include <Renderer/Reflections/Reflections.hpp>
 #include <Renderer/Volumetrics/Volumetrics.hpp>
 
 namespace Rendering {
@@ -28,6 +29,9 @@ void configure(Renderer::Manager& renderers)
     Renderer::AmbientOcclusion::settings() =
         Renderer::AmbientOcclusion::Settings{};
     Renderer::AmbientOcclusion::setQuality(Renderer::Quality::High);
+
+    Renderer::Reflections::settings() = Renderer::Reflections::Settings{};
+    Renderer::Reflections::setQuality(Renderer::Quality::High);
 
     Renderer::GlobalIllumination::settings() =
         Renderer::GlobalIllumination::Settings{};
