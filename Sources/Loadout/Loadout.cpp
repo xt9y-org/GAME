@@ -102,18 +102,6 @@ std::string lower(std::string value)
     return value;
 }
 
-std::string compact(std::string value)
-{
-    value = lower(std::move(value));
-    value.erase(
-        std::remove_if(value.begin(), value.end(), [](unsigned char c) {
-            return c == '_' || c == '-' || c == ' ' || c == '.';
-        }),
-        value.end()
-    );
-    return value;
-}
-
 std::string pathText(const std::filesystem::path& path)
 {
     return lower(path.generic_string());
@@ -184,27 +172,13 @@ int tokenScore(const std::filesystem::path& path, const WeaponSpec& spec)
     const auto score = [&](const char *token) {
         if (!token || !*token) return -1;
         const std::string value = lower(token);
-        const std::string compact_value = compact(value);
-        const std::string compact_parent = compact(parent);
-        const std::string compact_stem = compact(stem);
-        const std::string compact_full = compact(full);
         int result = -1;
 
-        if (parent == value || compact_parent == compact_value)
-            result = std::max(result, 140);
-        if (stem == value ||
-            stem.ends_with("_" + value) ||
-            compact_stem == compact_value ||
-            compact_stem.ends_with(compact_value))
-            result = std::max(result, 130);
-        if (full.find("/" + value + "/") != std::string::npos)
-            result = std::max(result, 120);
-        if (stem.find(value) != std::string::npos ||
-            compact_stem.find(compact_value) != std::string::npos)
-            result = std::max(result, 90);
-        if (full.find(value) != std::string::npos ||
-            compact_full.find(compact_value) != std::string::npos)
-            result = std::max(result, 60);
+        if (parent == value) result = std::max(result, 120);
+        if (stem == value || stem.ends_with("_" + value)) result = std::max(result, 110);
+        if (full.find("/" + value + "/") != std::string::npos) result = std::max(result, 100);
+        if (stem.find(value) != std::string::npos) result = std::max(result, 70);
+        if (full.find(value) != std::string::npos) result = std::max(result, 40);
         return result;
     };
 
@@ -249,106 +223,45 @@ bool actionMatch(const std::filesystem::path& path, Action action)
     return false;
 }
 
-bool familyHasAction(
-    const std::vector<std::filesystem::path>& animations,
-    const std::filesystem::path& family,
-    Action action)
-{
-    return std::any_of(
-        animations.begin(),
-        animations.end(),
-        [&](const std::filesystem::path& path) {
-            return path.parent_path() == family && actionMatch(path, action);
-        }
-    );
-}
-
-std::filesystem::path bestAnimationFamily(
-    const std::vector<std::filesystem::path>& animations,
-    const WeaponSpec& spec)
-{
-    std::vector<std::filesystem::path> families;
-    families.reserve(animations.size());
-    for (const auto& path : animations) {
-        const std::filesystem::path family = path.parent_path();
-        if (std::find(families.begin(), families.end(), family) == families.end())
-            families.push_back(family);
-    }
-
-    int best_score = -1;
-    std::filesystem::path best;
-    for (const auto& family : families) {
-        if (!familyHasAction(animations, family, Action::Idle) ||
-            !familyHasAction(animations, family, Action::Shoot) ||
-            !familyHasAction(animations, family, Action::Reload))
-            continue;
-
-        const int score = tokenScore(family, spec);
-        if (score < 0) continue;
-
-        if (score > best_score ||
-            (score == best_score && family.generic_string().size() < best.generic_string().size())) {
-            best_score = score;
-            best = family;
-        }
-    }
-    return best;
-}
-
 std::filesystem::path bestAnimation(
     const std::vector<std::filesystem::path>& animations,
-    const std::filesystem::path& family,
+    const WeaponSpec& spec,
     Action action)
 {
-    if (family.empty()) return {};
-
     int best_score = -1;
     std::filesystem::path best;
 
     for (const auto& path : animations) {
-        if (path.parent_path() != family || !actionMatch(path, action)) continue;
+        if (!actionMatch(path, action)) continue;
+
+        const int weapon_score = tokenScore(path, spec);
+        if (weapon_score < 0) continue;
 
         const std::string stem = lower(path.stem().string());
-        int score = 0;
-        switch (action) {
-            case Action::Idle:
-                if (stem == "idle") score += 40;
-                if (stem.starts_with("idle")) score += 20;
-                break;
-            case Action::Shoot:
-                if (stem == "shoot") score += 40;
-                if (stem == "shoot1") score += 35;
-                if (stem.starts_with("shoot")) score += 25;
-                if (stem.starts_with("fire")) score += 20;
-                if (stem.starts_with("attack")) score += 15;
-                break;
-            case Action::Reload:
-                if (stem == "reload") score += 40;
-                if (stem.starts_with("reload")) score += 20;
-                break;
-            case Action::Inspect:
-                if (stem.starts_with("lookat01")) score += 40;
-                if (stem.starts_with("lookat")) score += 30;
-                if (stem.starts_with("inspect")) score += 20;
-                break;
-        }
+        int action_score = 0;
+        if (action == Action::Idle && stem == "idle_" + std::string(spec.token))
+            action_score = 30;
+        else if (action == Action::Reload && stem == "reload_" + std::string(spec.token))
+            action_score = 30;
+        else if (action == Action::Shoot && stem == "shoot1_" + std::string(spec.token))
+            action_score = 30;
 
+        const int score = weapon_score + action_score;
         if (score > best_score ||
             (score == best_score && path.generic_string().size() < best.generic_string().size())) {
             best_score = score;
             best = path;
         }
     }
-
     return best;
 }
 
 std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
 {
     const std::vector<std::filesystem::path> models =
-        files(root / "Models", true);
+        files(root / "Models/weapons/models", true);
     const std::vector<std::filesystem::path> animations =
-        files(root / "Anim");
+        files(root / "Anim/animation/anims/viewmodel");
 
     std::vector<WeaponItem> result;
     result.reserve(WeaponSpecs.size());
@@ -358,13 +271,10 @@ std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
         item.name = spec.name;
         item.category = spec.category;
         item.path = bestModel(models, spec);
-
-        const std::filesystem::path animation_family =
-            bestAnimationFamily(animations, spec);
-        item.idle = bestAnimation(animations, animation_family, Action::Idle);
-        item.shoot = bestAnimation(animations, animation_family, Action::Shoot);
-        item.reload = bestAnimation(animations, animation_family, Action::Reload);
-        item.inspect = bestAnimation(animations, animation_family, Action::Inspect);
+        item.idle = bestAnimation(animations, spec, Action::Idle);
+        item.shoot = bestAnimation(animations, spec, Action::Shoot);
+        item.reload = bestAnimation(animations, spec, Action::Reload);
+        item.inspect = bestAnimation(animations, spec, Action::Inspect);
 
         if (item.name == "R8 Revolver") {
             const std::filesystem::path model = root / DefaultWeapon;
@@ -384,10 +294,13 @@ std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
             if (std::filesystem::is_regular_file(inspect, error)) item.inspect = inspect.lexically_normal();
         }
 
-        if (item.path.empty())
+        if (item.path.empty() ||
+            item.idle.empty() ||
+            item.shoot.empty() ||
+            item.reload.empty())
             continue;
 
-        if (item.inspect.empty() && !item.idle.empty())
+        if (item.inspect.empty())
             item.inspect = item.idle;
 
         result.push_back(std::move(item));
@@ -548,42 +461,6 @@ bool bind(
     return true;
 }
 
-bool validateAnimationSet(
-    State& state,
-    Renderer::ModelScene::Animation& animation,
-    const AnimationHandles& handles,
-    std::string *error)
-{
-    const std::array<std::pair<const char *, Models::ModelHandle>, 4> clips{{
-        {"idle", handles.idle},
-        {"shoot", handles.shoot},
-        {"reload", handles.reload},
-        {"inspect", handles.inspect},
-    }};
-
-    std::string message;
-    for (const auto& [name, clip] : clips) {
-        if (clip == Models::INVALID_MODEL ||
-            !Renderer::ModelScene::play(animation, clip, 0u, false, &message))
-            return fail(
-                state,
-                message.empty()
-                    ? "Could not bind " + std::string(name) + " viewmodel animation"
-                    : message,
-                error
-            );
-    }
-
-    if (!Renderer::ModelScene::play(animation, handles.idle, 0u, true, &message))
-        return fail(
-            state,
-            message.empty() ? "Could not restore viewmodel idle animation" : message,
-            error
-        );
-
-    return true;
-}
-
 bool play(State& state, Models::ModelHandle animation, std::string *error)
 {
     std::string message;
@@ -677,8 +554,7 @@ bool init(
             *state.arm_instance,
             *state.weapon_instance,
             handles.idle,
-            error) ||
-        !validateAnimationSet(state, animation, handles, error))
+            error))
         return false;
 
     state.idle = handles.idle;
@@ -726,8 +602,7 @@ bool selectWeapon(State& state, Ecs::World& world, std::size_t index)
             *state.arm_instance,
             *replacement,
             handles.idle,
-            &message) ||
-        !validateAnimationSet(state, animation, handles, &message)) {
+            &message)) {
         Renderer::ModelScene::destroy(world, *replacement);
         return false;
     }
@@ -774,11 +649,6 @@ bool selectArms(State& state, Ecs::World& world, std::size_t index)
             *replacement,
             *state.weapon_instance,
             state.idle,
-            &message) ||
-        !validateAnimationSet(
-            state,
-            animation,
-            AnimationHandles{state.idle, state.shoot, state.reload, state.inspect},
             &message)) {
         Renderer::ModelScene::destroy(world, *replacement);
         return false;
