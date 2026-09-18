@@ -8,12 +8,19 @@
 #include <Renderer/Components.hpp>
 #include <Renderer/Debug/Debug.hpp>
 #include <Renderer/Environment.hpp>
+#include <Renderer/GaussianSplat/GaussianSplat.hpp>
+#include <Renderer/GlobalIllumination/GlobalIllumination.hpp>
+#include <Renderer/Manager.hpp>
+#include <Renderer/PathTracer/PathTracer.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
+#include <Renderer/RayTracer/RayTracer.hpp>
+#include <Renderer/Volumetrics/Volumetrics.hpp>
 
 #include <imgui.h>
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstdio>
 
 namespace Debugging {
@@ -341,38 +348,286 @@ void drawCameraMenu(Context& context)
     ImGui::EndMenu();
 }
 
+void drawRendererSelection(Renderer::Manager& renderers)
+{
+    if (!ImGui::BeginMenu("Active Renderer")) return;
+
+    for (std::size_t index = 0u; index < renderers.count(); ++index) {
+        Renderer::Manager::Entry *entry = renderers.entry(index);
+        if (!entry) continue;
+
+        const bool active = index == renderers.activeIndex();
+        if (!entry->available) {
+            ImGui::BeginDisabled();
+            ImGui::MenuItem(entry->name.c_str(), nullptr, active);
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("Renderer could not initialize on the current backend/hardware");
+            continue;
+        }
+
+        if (ImGui::MenuItem(entry->name.c_str(), nullptr, active) && !active)
+            renderers.activate(index);
+    }
+
+    ImGui::EndMenu();
+}
+
+void drawRasterizerSettings(Renderer::Manager& renderers)
+{
+    Renderer::Rasterizer *renderer = renderers.find<Renderer::Rasterizer>();
+    if (!renderer || !ImGui::BeginMenu("Rasterizer")) return;
+
+    bool viewport_culling = renderer->viewportCulling();
+    if (ImGui::MenuItem("Viewport Culling", nullptr, &viewport_culling))
+        renderer->setViewportCulling(viewport_culling);
+
+    int shadow_resolution = renderer->shadowResolution();
+    if (shadowResolutionBar(&shadow_resolution))
+        renderer->setShadowResolution(shadow_resolution);
+
+    int shadow_cascades = renderer->shadowCascades();
+    if (barInt("Shadow Cascades", &shadow_cascades, Values::ShadowCascades))
+        renderer->setShadowCascades(shadow_cascades);
+
+    float shadow_distance = renderer->shadowDistance();
+    if (barFloat("Shadow Distance", &shadow_distance, Values::ShadowDistance, "%.0f"))
+        renderer->setShadowDistance(shadow_distance);
+
+    float shadow_near = renderer->shadowNearPlane();
+    if (barFloat("Shadow Near Plane", &shadow_near, Values::ShadowNear, "%.2f"))
+        renderer->setShadowNearPlane(shadow_near);
+
+    Renderer::Vec4 clear = renderer->clearColor();
+    float clear_color[4] = {clear.x, clear.y, clear.z, clear.w};
+    scalarWidth();
+    if (ImGui::ColorEdit4("Clear Color", clear_color)) {
+        renderer->setClearColor({
+            clear_color[0], clear_color[1], clear_color[2], clear_color[3]
+        });
+    }
+
+    ImGui::EndMenu();
+}
+
+void drawRayTracerSettings(Renderer::Manager& renderers)
+{
+    Renderer::RayTracer *renderer = renderers.find<Renderer::RayTracer>();
+    if (!renderer || !ImGui::BeginMenu("Ray Tracer")) return;
+
+    int divisor = renderer->resolutionDivisor();
+    if (barInt("Resolution Divisor", &divisor, Values::RendererResolutionDivisor))
+        renderer->setResolutionDivisor(divisor);
+
+    ImGui::EndMenu();
+}
+
+void drawPathTracerSettings(Renderer::Manager& renderers)
+{
+    Renderer::PathTracer *renderer = renderers.find<Renderer::PathTracer>();
+    if (!renderer || !ImGui::BeginMenu("Path Tracer")) return;
+
+    int divisor = renderer->resolutionDivisor();
+    if (barInt("Resolution Divisor", &divisor, Values::RendererResolutionDivisor))
+        renderer->setResolutionDivisor(divisor);
+
+    int samples = renderer->samplesPerFrame();
+    if (barInt("Samples / Frame", &samples, Values::PathSamplesPerFrame))
+        renderer->setSamplesPerFrame(samples);
+
+    int stationary = renderer->stationaryPhaseGrid();
+    if (barInt("Stationary Phase Grid", &stationary, Values::PathSchedulingValue))
+        renderer->setStationaryPhaseGrid(stationary);
+
+    int reset = renderer->resetPhaseGrid();
+    if (barInt("Reset Phase Grid", &reset, Values::PathSchedulingValue))
+        renderer->setResetPhaseGrid(reset);
+
+    int moving = renderer->movingPhaseGrid();
+    if (barInt("Moving Phase Grid", &moving, Values::PathSchedulingValue))
+        renderer->setMovingPhaseGrid(moving);
+
+    int depth = renderer->movingDepthBlock();
+    if (barInt("Moving Depth Block", &depth, Values::PathSchedulingValue))
+        renderer->setMovingDepthBlock(depth);
+
+    ImGui::EndMenu();
+}
+
+void drawGaussianSplatSettings()
+{
+    if (!ImGui::BeginMenu("Gaussian Splat")) return;
+
+    Renderer::GaussianSplat::Settings& settings = Renderer::GaussianSplat::settings();
+    ImGui::MenuItem("Enabled", nullptr, &settings.enabled);
+    barFloat("Radius", &settings.radius, Values::GaussianRadius, "%.1f");
+    barFloat(
+        "Minimum Depth Epsilon",
+        &settings.minimum_depth_epsilon,
+        Values::GaussianMinimumDepthEpsilon,
+        "%.4f"
+    );
+    barFloat(
+        "Relative Depth Epsilon",
+        &settings.relative_depth_epsilon,
+        Values::GaussianRelativeDepthEpsilon,
+        "%.4f"
+    );
+
+    ImGui::EndMenu();
+}
+
+void drawVolumetricsSettings()
+{
+    if (!ImGui::BeginMenu("Volumetrics")) return;
+
+    Renderer::Volumetrics::Settings& settings = Renderer::Volumetrics::settings();
+    ImGui::MenuItem("Enabled", nullptr, &settings.enabled);
+
+    if (barInt("Resolution Divisor", &settings.resolution_divisor, Values::RendererResolutionDivisor)) {}
+
+    int samples = static_cast<int>(settings.sample_count);
+    if (barInt("Sample Count", &samples, Values::VolumetricSampleCount))
+        settings.sample_count = static_cast<std::uint32_t>(samples);
+
+    int blur = static_cast<int>(settings.blur_passes);
+    if (barInt("Blur Passes", &blur, Values::VolumetricBlurPasses))
+        settings.blur_passes = static_cast<std::uint32_t>(blur);
+
+    barFloat("Density", &settings.density, Values::VolumetricDensity, "%.3f");
+    barFloat("Anisotropy", &settings.anisotropy, Values::VolumetricAnisotropy, "%.2f");
+    barFloat(
+        "Maximum Distance",
+        &settings.maximum_distance,
+        Values::VolumetricMaximumDistance,
+        "%.0f"
+    );
+    barFloat("Jitter", &settings.jitter, Values::VolumetricJitter, "%.2f");
+    barFloat("Depth Falloff", &settings.depth_falloff, Values::VolumetricDepthFalloff, "%.0f");
+
+    ImGui::EndMenu();
+}
+
+void drawGlobalIlluminationSettings(Context& context)
+{
+    if (!ImGui::BeginMenu("Global Illumination")) return;
+
+    bool reset_required = false;
+    Renderer::GlobalIlluminationComponent *component =
+        context.world.get<Renderer::GlobalIlluminationComponent>(context.global_illumination);
+
+    if (component) {
+        if (ImGui::MenuItem("Enabled", nullptr, &component->enabled))
+            reset_required = true;
+        if (barFloat("Intensity", &component->intensity, Values::GiIntensity, "%.2f"))
+            reset_required = true;
+
+        int bounces = static_cast<int>(component->bounces);
+        if (barInt("Bounces", &bounces, Values::GiBounces)) {
+            component->bounces = static_cast<std::uint8_t>(bounces);
+            reset_required = true;
+        }
+
+        if (ImGui::MenuItem("Photon Mapping", nullptr, &component->photon_mapping))
+            reset_required = true;
+
+        int photon_count = static_cast<int>(component->photon_count);
+        if (barInt("Photon Count", &photon_count, Values::GiPhotonCount)) {
+            component->photon_count = static_cast<std::uint32_t>(photon_count);
+            reset_required = true;
+        }
+
+        if (barFloat("Photon Radius", &component->photon_radius, Values::GiPhotonRadius, "%.2f"))
+            reset_required = true;
+    } else {
+        ImGui::TextDisabled("No global illumination component");
+    }
+
+    section("Tuning");
+
+    Renderer::GlobalIllumination::Settings& settings =
+        Renderer::GlobalIllumination::settings();
+
+    bool paused = settings.paused;
+    if (ImGui::MenuItem("Paused", nullptr, &paused))
+        Renderer::GlobalIllumination::setPaused(paused);
+
+    int rays = static_cast<int>(settings.rays_per_probe);
+    if (barInt("Rays / Probe", &rays, Values::GiRaysPerProbe)) {
+        settings.rays_per_probe = static_cast<std::size_t>(rays);
+        reset_required = true;
+    }
+
+    int budget = static_cast<int>(settings.probe_budget_per_frame);
+    if (barInt("Probe Budget / Frame", &budget, Values::GiProbeBudget)) {
+        settings.probe_budget_per_frame = static_cast<std::size_t>(budget);
+        reset_required = true;
+    }
+
+    int minimum_dimension = static_cast<int>(settings.minimum_probe_dimension);
+    if (barInt("Minimum Probe Dimension", &minimum_dimension, Values::GiProbeDimension)) {
+        settings.minimum_probe_dimension = static_cast<std::uint32_t>(minimum_dimension);
+        if (settings.maximum_probe_dimension < settings.minimum_probe_dimension)
+            settings.maximum_probe_dimension = settings.minimum_probe_dimension;
+        reset_required = true;
+    }
+
+    int maximum_dimension = static_cast<int>(settings.maximum_probe_dimension);
+    if (barInt("Maximum Probe Dimension", &maximum_dimension, Values::GiProbeDimension)) {
+        settings.maximum_probe_dimension = static_cast<std::uint32_t>(maximum_dimension);
+        if (settings.minimum_probe_dimension > settings.maximum_probe_dimension)
+            settings.minimum_probe_dimension = settings.maximum_probe_dimension;
+        reset_required = true;
+    }
+
+    if (barFloat(
+            "Bounds Margin Scale",
+            &settings.bounds_margin_scale,
+            Values::GiBoundsMarginScale,
+            "%.2f"))
+        reset_required = true;
+
+    if (barFloat(
+            "Minimum Bounds Margin",
+            &settings.minimum_bounds_margin,
+            Values::GiMinimumBoundsMargin,
+            "%.2f"))
+        reset_required = true;
+
+    if (barFloat("Ray Epsilon", &settings.ray_epsilon, Values::GiRayEpsilon, "%.5f"))
+        reset_required = true;
+
+    int maximum_bounces = static_cast<int>(settings.maximum_bounces);
+    if (barInt("Maximum Bounces", &maximum_bounces, Values::GiMaximumBounces)) {
+        settings.maximum_bounces = static_cast<std::uint8_t>(maximum_bounces);
+        reset_required = true;
+    }
+
+    int maximum_photons = static_cast<int>(settings.maximum_photon_count);
+    if (barInt("Maximum Photon Count", &maximum_photons, Values::GiMaximumPhotonCount)) {
+        settings.maximum_photon_count = static_cast<std::uint32_t>(maximum_photons);
+        reset_required = true;
+    }
+
+    if (reset_required)
+        Renderer::GlobalIllumination::reset();
+
+    ImGui::EndMenu();
+}
+
 void drawRendererMenu(Context& context)
 {
     if (!ImGui::BeginMenu("Renderer")) return;
 
-    bool viewport_culling = context.renderer.viewportCulling();
-    if (ImGui::MenuItem("Viewport Culling", nullptr, &viewport_culling))
-        context.renderer.setViewportCulling(viewport_culling);
-
-    int shadow_resolution = context.renderer.shadowResolution();
-    if (shadowResolutionBar(&shadow_resolution))
-        context.renderer.setShadowResolution(shadow_resolution);
-
-    int shadow_cascades = context.renderer.shadowCascades();
-    if (barInt("Shadow Cascades", &shadow_cascades, Values::ShadowCascades))
-        context.renderer.setShadowCascades(shadow_cascades);
-
-    float shadow_distance = context.renderer.shadowDistance();
-    if (barFloat("Shadow Distance", &shadow_distance, Values::ShadowDistance, "%.0f"))
-        context.renderer.setShadowDistance(shadow_distance);
-
-    float shadow_near = context.renderer.shadowNearPlane();
-    if (barFloat("Shadow Near Plane", &shadow_near, Values::ShadowNear, "%.2f"))
-        context.renderer.setShadowNearPlane(shadow_near);
-
-    Renderer::Vec4 clear = context.renderer.clearColor();
-    float clear_color[4] = {clear.x, clear.y, clear.z, clear.w};
-    scalarWidth();
-    if (ImGui::ColorEdit4("Clear Color", clear_color)) {
-        context.renderer.setClearColor({
-            clear_color[0], clear_color[1], clear_color[2], clear_color[3]
-        });
-    }
+    drawRendererSelection(context.renderers);
+    ImGui::Separator();
+    drawRasterizerSettings(context.renderers);
+    drawRayTracerSettings(context.renderers);
+    drawPathTracerSettings(context.renderers);
+    ImGui::Separator();
+    drawGaussianSplatSettings();
+    drawVolumetricsSettings();
+    drawGlobalIlluminationSettings(context);
 
     ImGui::EndMenu();
 }
