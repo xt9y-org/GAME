@@ -285,9 +285,9 @@ std::filesystem::path bestAnimation(
 std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
 {
     const std::vector<std::filesystem::path> models =
-        files(root / "Models/weapons/models", true);
+        files(root / "Models", true);
     const std::vector<std::filesystem::path> animations =
-        files(root / "Anim/animation/anims/viewmodel");
+        files(root / "Anim");
 
     std::vector<WeaponItem> result;
     result.reserve(WeaponSpecs.size());
@@ -320,13 +320,10 @@ std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
             if (std::filesystem::is_regular_file(inspect, error)) item.inspect = inspect.lexically_normal();
         }
 
-        if (item.path.empty() ||
-            item.idle.empty() ||
-            item.shoot.empty() ||
-            item.reload.empty())
+        if (item.path.empty())
             continue;
 
-        if (item.inspect.empty())
+        if (item.inspect.empty() && !item.idle.empty())
             item.inspect = item.idle;
 
         result.push_back(std::move(item));
@@ -419,13 +416,28 @@ bool loadAnimations(
     if (!handles) return fail(state, "Animation output is null", error);
     *handles = {};
 
+    const auto missing = [&](const char *action) {
+        return fail(
+            state,
+            "Could not resolve " + std::string(action) + " animation for " + weapon.name,
+            error
+        );
+    };
+
+    if (weapon.idle.empty()) return missing("idle");
+    if (weapon.shoot.empty()) return missing("shoot");
+    if (weapon.reload.empty()) return missing("reload");
+
+    const std::filesystem::path inspect =
+        weapon.inspect.empty() ? weapon.idle : weapon.inspect;
+
     handles->idle = load(state, weapon.idle, error);
     if (handles->idle == Models::INVALID_MODEL) return false;
     handles->shoot = load(state, weapon.shoot, error);
     if (handles->shoot == Models::INVALID_MODEL) return false;
     handles->reload = load(state, weapon.reload, error);
     if (handles->reload == Models::INVALID_MODEL) return false;
-    handles->inspect = load(state, weapon.inspect, error);
+    handles->inspect = load(state, inspect, error);
     if (handles->inspect == Models::INVALID_MODEL) return false;
     return true;
 }
