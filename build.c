@@ -49,4 +49,15 @@ void build(C_Build *b)
     c_flag(fire_test, "-std=c++20");
     c_link_system(fire_test, "stdc++");
     c_link_system(fire_test, "m");
+
+    C_Target *renderer_setup_test = c_test(b, "renderer-setup-test");
+    c_sources(renderer_setup_test, "Tests/RendererSetup.cpp");
+    c_sources(renderer_setup_test, "Sources/Rendering/Setup.cpp");
+    c_include(renderer_setup_test, "Sources");
+    c_flag(renderer_setup_test, "-std=c++20");
+    c_link_system(renderer_setup_test, "stdc++");
+    c_link_system(renderer_setup_test, "m");
+    c_link_system(renderer_setup_test, "dl");
+    c_link_system(renderer_setup_test, "pthread");
+    c_use(renderer_setup_test, horse);
 }
