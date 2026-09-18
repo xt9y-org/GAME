@@ -42,6 +42,7 @@ Horse
     ├── Lighting
     ├── Environment
     ├── GlobalIllumination
+    ├── AmbientOcclusion
     ├── Volumetrics
     ├── GaussianSplat
     └── Debug
@@ -89,7 +90,7 @@ Renderer
 │   ├── Quality          Low / Medium / High / Ultra
 │   └── Strength
 │
-├── Ambient Occlusion    once implemented
+├── Ambient Occlusion
 │   ├── Enabled
 │   ├── Quality
 │   ├── Strength
@@ -201,12 +202,13 @@ This avoids baking duplicate mesh instances into world-space triangle arrays and
 **Goal:** Establish one clean master-control API before adding more renderer systems.
 
 Horse:
-- Add a shared renderer feature settings object with non-destructive master overrides for Lighting, Shadows, Environment, Global Illumination, Volumetrics and Gaussian Splat.
+- Add a shared renderer feature settings object with non-destructive master overrides for Lighting, Shadows, Environment, Global Illumination, Ambient Occlusion, Volumetrics and Gaussian Splat.
 - Add a shared `Renderer::Quality` enum for systems that map a player-facing quality setting to internal tuning.
 - Lighting off returns no effective lights without modifying ECS lights.
 - Shadows off keeps lights but suppresses all effective shadow casting.
 - Environment off suppresses environment/ambient contribution without modifying the `EnvironmentComponent`.
 - GI off skips all GI build/update work.
+- AO off skips the screen-space AO compute/filter work while retaining its configuration.
 - Volumetrics off skips the volumetric pass.
 - Gaussian Splat off skips that pass.
 - Add a non-destructive Camera master Active override.
@@ -218,7 +220,7 @@ GAME:
 - [x] Add renderer feature override API and tests.
 - [x] Add Camera master override and tests.
 - [x] Gate all current systems through the master overrides.
-- [x] Add quality preset API for Shadows, GI and Volumetrics.
+- [x] Add quality preset API for Shadows, GI, AO and Volumetrics.
 - [x] Simplify Renderer Debug menu.
 - [x] Simplify Camera Debug menu.
 - [x] Remove the last GAME Debug paths that mutate local Environment/GI component enable state when a global override is toggled.
@@ -335,13 +337,13 @@ PBR shades only relevant lights
 - If Forward+ initialization or assignment fails, Rasterizer disables it and uses the original full-light loop.
 - Forward+ is an internal rasterizer optimization, not another game-facing rendering system or normal Debug quality control.
 
-**Status:** implementation is staged on `main`, but the new SDL_shadercross HLSL compute/fragment resource layout has not yet been compiled and run on the Metal backend. Do not treat Phase 5 as runtime-verified until the Mac build succeeds.
+**Status:** Forward+ HLSL/resource binding has been compiled and run successfully through the real GAME Metal backend. Stress testing with many point/spot lights is still outstanding.
 
 - [x] Add tiled Forward+ grid and GPU tile buffers.
 - [x] Add GPU light-to-tile assignment using the shared shading/light buffer.
 - [x] Change PBR direct-light loop to tile-local light indices with conservative full-loop fallback.
 - [x] Add Forward+ grid/settings tests.
-- [ ] Verify Forward+ HLSL and resource binding on Metal through a real GAME build/run.
+- [x] Verify Forward+ HLSL and resource binding on Metal through a real GAME build/run.
 - [ ] Stress-test many point/spot lights and compare frame cost against the full-light fallback.
 - [ ] Add depth slices only if profiling shows 2D tiles are insufficient.
 
@@ -357,25 +359,26 @@ Shadows
 │   ├── cascade blending
 │   └── filtered sampling
 ├── Spot
-│   └── atlas allocation
+│   └── array allocation
 ├── Point
-│   └── array/cubemap allocation
+│   └── array/cubemap faces
 └── Cache
-    └── redraw only when light/casters change
+    └── redraw only dirty layers
 ```
 
 Player controls remain only Enabled, Quality, Distance and visible Softness where supported.
 
 - [x] Directional cascades already use texel snapping.
-- [ ] Add explicit cascade transition blending.
+- [x] Add explicit cascade transition blending.
 - [x] Current comparison sampler already provides filtered shadow sampling.
-- [ ] Add shadow atlas/caching for local lights.
+- [x] Cache local point/spot shadow layers independently so camera-only movement does not redraw them.
+- [ ] Add a dedicated local-light shadow atlas only if profiling shows the current array allocation is a meaningful limitation.
 
 ## Phase 7 — Ambient Occlusion
 
 **Goal:** Add contact grounding and local depth without ray tracing.
 
-Preferred direction: GTAO-style screen-space ambient occlusion using depth + normal information.
+Current implementation is a GTAO-style screen-space pass that reuses the opaque depth prepass and a world-normal target. AO is computed and depth/normal-aware filtered on SDL_GPU compute, then supplied to PBR through a graphics storage buffer. It modulates diffuse GI/ambient contribution only; it does not incorrectly darken direct light. Camera-layer/viewmodel geometry does not consume world AO.
 
 Player controls:
 - Enabled
@@ -383,9 +386,13 @@ Player controls:
 - Strength
 - Radius
 
-- [ ] Add AO pass.
-- [ ] Add depth/normal-aware filtering.
-- [ ] Composite AO into PBR indirect/ambient contribution.
+- [x] Add AO master feature and quality presets.
+- [x] Add AO pass using existing depth prepass + world normals.
+- [x] Add depth/normal-aware filtering.
+- [x] Composite AO into PBR indirect/ambient contribution.
+- [x] Add GAME Debug controls without exposing internal sample counts.
+- [x] Keep AO inside the existing 16-sampler raster budget by using a storage buffer for the filtered result.
+- [ ] Verify AO compute shaders, storage-buffer binding and visual result on Metal through a real GAME build/run.
 
 ## Phase 8 — Reflections + Better IBL
 
