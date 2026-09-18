@@ -1,6 +1,8 @@
 #ifndef GAME_LOADOUT_LOADOUT_HPP
 #define GAME_LOADOUT_LOADOUT_HPP
 
+#include "Fire.hpp"
+
 #include <Ecs/Ecs.hpp>
 #include <Renderer/ModelScene.hpp>
 
@@ -38,6 +40,7 @@ struct WeaponItem
     std::filesystem::path shoot;
     std::filesystem::path reload;
     std::filesystem::path inspect;
+    Fire::Profile fire;
 };
 
 struct State
@@ -59,6 +62,7 @@ struct State
     Models::ModelHandle reload = Models::INVALID_MODEL;
     Models::ModelHandle inspect = Models::INVALID_MODEL;
 
+    Fire::State fire;
     bool shooting = false;
     std::string error;
 };
@@ -76,6 +80,14 @@ bool init(
 bool selectWeapon(State& state, Ecs::World& world, std::size_t index);
 bool selectArms(State& state, Ecs::World& world, std::size_t index);
 
+bool fire(
+    State& state,
+    bool pressed,
+    bool held,
+    float delta_seconds,
+    std::string *error = nullptr
+);
+bool toggleFireMode(State& state);
 bool shoot(State& state, std::string *error = nullptr);
 bool reload(State& state, std::string *error = nullptr);
 bool inspect(State& state, std::string *error = nullptr);
