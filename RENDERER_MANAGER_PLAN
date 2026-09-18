@@ -1,0 +1,268 @@
+# Renderer Manager Integration
+
+## Goal
+
+Restore all Horse renderer backends in GAME and make Renderer::Manager the only owner/lifecycle entry point for rendering.
+
+GAME must support the complete current IRenderer set:
+
+- Rasterizer
+- Ray Tracer
+- Path Tracer
+
+Rasterizer remains the default renderer because it is registered first.
+
+The Debug -> Renderer menu must always list all registered renderers. A renderer that cannot initialize stays visible but disabled and marked unavailable.
+
+## Architecture
+
+GAME must not own a concrete renderer as its main renderer anymore.
+
+Current:
+
+    Renderer::Rasterizer renderer;
+    renderer.init();
+    renderer.resize(...);
+    renderer.render(world);
+    renderer.shutdown();
+
+Target:
+
+    Renderer::Manager renderers;
+    Renderer::Rasterizer& rasterizer = renderers.add<Renderer::Rasterizer>("Rasterizer");
+    Renderer::RayTracer& ray_tracer = renderers.add<Renderer::RayTracer>("Ray Tracer");
+    Renderer::PathTracer& path_tracer = renderers.add<Renderer::PathTracer>("Path Tracer");
+
+    renderers.initialize();
+    renderers.resize(...);
+    renderers.render(world);
+    renderers.shutdown();
+
+Manager owns every renderer instance, tracks availability, performs activate/deactivate transitions, and keeps the previous renderer active if switching to another renderer fails.
+
+GAME may retain references returned by Manager::add only for initial/default backend settings. Runtime debug code must resolve backend-specific interfaces through Manager rather than owning duplicate renderer state.
+
+No second renderer abstraction, wrapper, registry, or GAME-side lifecycle state should be introduced.
+
+## Initialization
+
+Renderer registration order is fixed:
+
+1. Rasterizer
+2. Ray Tracer
+3. Path Tracer
+
+Rasterizer receives the existing GAME defaults before Manager::initialize:
+
+- enabled = true
+- viewport culling = true
+- shadow resolution = Debugging::Values::ShadowResolutionDefault
+- shadow cascades = Debugging::Values::ShadowCascadesDefault
+- shadow distance = Debugging::Values::ShadowDistanceDefault
+- shadow near plane = Debugging::Values::ShadowNearDefault
+- clear color = transparent black
+
+Ray Tracer and Path Tracer keep their Horse defaults unless GAME already has an explicit corresponding debug/default value.
+
+Manager::initialize initializes every registered backend. Initialization failure for one backend does not fail GAME as long as at least one renderer is available. Because Rasterizer is first, it becomes the initial renderer whenever available.
+
+If no renderer is available, GAME exits with a renderer-manager initialization error.
+
+## Frame Lifecycle
+
+All renderer lifecycle calls in GAME go through Renderer::Manager:
+
+- startup: Manager::initialize
+- resize: Manager::resize
+- frame rendering: Manager::render
+- shutdown: Manager::shutdown
+
+GAME must no longer call init, resize, render, activate, deactivate, or shutdown directly on the concrete active renderer.
+
+Existing world state, ECS lighting, environment, model scenes, viewmodel motion, loadout, firing, UI, and camera code remain renderer-independent.
+
+## Debugging Context
+
+Debugging::Context changes from:
+
+    Renderer::Rasterizer& renderer
+
+to:
+
+    Renderer::Manager& renderers
+
+Debugging code obtains backend-specific settings only through:
+
+    renderers.find<Renderer::Rasterizer>()
+    renderers.find<Renderer::RayTracer>()
+    renderers.find<Renderer::PathTracer>()
+
+The Manager remains the source of truth for which renderer is active and which renderers are available.
+
+## Debug -> Renderer Menu
+
+The menu is divided into renderer selection and backend-specific controls.
+
+### Active Renderer
+
+Always show one menu entry per Manager entry in registration order.
+
+Example:
+
+    Renderer
+      Active
+        Rasterizer        [selected]
+        Ray Tracer
+        Path Tracer       [Unavailable]
+
+Available entries are selectable. Selecting one calls Manager::activate(index).
+
+Unavailable entries are disabled but remain visible. Their tooltip states that the renderer could not initialize on the current graphics backend/hardware.
+
+If activation fails, the menu does not implement custom rollback. Manager::activate already attempts to reactivate the previous renderer and remains the authority for activeIndex().
+
+### Rasterizer Controls
+
+Show the existing controls when a Rasterizer instance exists:
+
+- Viewport Culling
+- Shadow Resolution
+- Shadow Cascades
+- Shadow Distance
+- Shadow Near Plane
+- Clear Color
+
+These controls edit the Rasterizer object obtained from Manager::find<Renderer::Rasterizer>().
+
+They remain editable even when Rasterizer is not currently active, so settings are preserved and ready when switching back.
+
+### Ray Tracer Controls
+
+Expose only settings currently supported by Horse::RayTracer:
+
+- Resolution Divisor
+
+Do not invent controls unsupported by the backend.
+
+### Path Tracer Controls
+
+Expose only settings currently supported by Horse::PathTracer:
+
+- Resolution Divisor
+- Samples Per Frame
+- Stationary Phase Grid
+- Reset Phase Grid
+- Moving Phase Grid
+- Moving Depth Block
+
+Do not add renderer-specific lighting, shadow, material, environment, or scene controls. Those remain shared engine/world systems.
+
+## Renderer Independence
+
+Renderer backends are presentation/rendering implementations only.
+
+Shared systems remain shared:
+
+- ECS world
+- Transform hierarchy
+- Camera
+- Models / ModelScene
+- Materials
+- Lights
+- Shadows where supported by the active backend
+- Environment
+- Animation
+- Viewmodel motion
+- Loadout/firing
+- Debug scene inspection
+
+GAME must not create renderer-specific copies of scene state when switching backends.
+
+Switching renderers must reuse the same Ecs::World and current gameplay state in-place.
+
+## Availability and Failure Behavior
+
+Manager Entry::available is the only availability flag used by GAME.
+
+Unavailable renderer:
+
+- stays listed in Debug -> Renderer
+- cannot be selected
+- does not abort GAME when another renderer is available
+
+Activation failure:
+
+- Manager attempts to restore the previous active renderer
+- UI selection follows Manager::activeIndex after the call
+- no duplicated GAME rollback state
+
+Resize applies to every initialized/available renderer through Manager::resize so switching after a window resize uses correct dimensions immediately.
+
+## Files
+
+Expected GAME changes:
+
+- Sources/main.cpp
+  - register all three backends in Renderer::Manager
+  - initialize/render/resize/shutdown only through Manager
+  - pass Manager into Debugging::Context
+
+- Sources/Debugging/Debugging.hpp
+  - replace Rasterizer forward declaration/reference with Renderer::Manager
+
+- Sources/Debugging/Debugging.cpp
+  - renderer-selection menu
+  - unavailable renderer presentation
+  - Rasterizer settings through Manager::find
+  - Ray Tracer settings through Manager::find
+  - Path Tracer settings through Manager::find
+
+- Sources/Debugging/Values.hpp
+  - add ranges only where required for already-existing RayTracer/PathTracer numeric settings
+
+- Tests/RendererManager.cpp or equivalent focused test
+  - verify registration order/selection helper behavior without depending on ImGui rendering
+
+Horse changes are not required by default because Renderer::Manager already owns IRenderer instances, initializes all entries, tracks availability, resizes all available renderers, renders only the active entry, and rolls back failed activation. Horse is changed only if implementation/tests reveal a concrete Manager defect.
+
+## Tests
+
+Use test-first changes for behavior that can be isolated.
+
+Required coverage:
+
+1. Renderer menu model preserves Manager registration order.
+2. Unavailable entries remain represented but cannot be activated from UI selection logic.
+3. Active selection reflects Manager::activeIndex.
+4. Backend-specific settings are routed to the renderer instance owned by Manager.
+5. GAME has no direct concrete renderer render/resize/shutdown path after migration.
+
+Manager lifecycle behavior should be covered in Horse only if no existing tests cover it and a concrete Manager change becomes necessary.
+
+Integration verification on the actual GAME build:
+
+    c build
+    c test
+    c build run
+
+Runtime checks:
+
+- GAME starts on Rasterizer.
+- Renderer menu lists Rasterizer, Ray Tracer, Path Tracer.
+- Unsupported backends remain visible as unavailable.
+- Switching to each available renderer works without recreating world/game state.
+- Switching back to Rasterizer preserves its configured settings.
+- Window resize followed by renderer switching uses the new size.
+- Existing viewmodel, animation, lighting, environment, loadout, firing, and debug behavior remains intact.
+
+## Non-Goals
+
+This change does not:
+
+- create new rendering backends
+- duplicate renderer implementations in GAME
+- move lighting/shadows/environment into backend-specific GAME code
+- redesign Horse IRenderer
+- add unsupported debug controls
+- add a second renderer manager
+- change gameplay, input, camera, loadout, or viewmodel behavior
