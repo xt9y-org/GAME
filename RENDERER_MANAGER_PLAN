@@ -2,9 +2,9 @@
 
 ## Goal
 
-Restore all Horse renderer backends in GAME and make Renderer::Manager the only owner/lifecycle entry point for rendering.
+Restore all current Horse renderer backends in GAME and make `Renderer::Manager` the only owner/lifecycle entry point for backend rendering.
 
-GAME must support the complete current IRenderer set:
+GAME supports the complete current `IRenderer` set:
 
 - Rasterizer
 - Ray Tracer
@@ -12,11 +12,19 @@ GAME must support the complete current IRenderer set:
 
 Rasterizer remains the default renderer because it is registered first.
 
-The Debug -> Renderer menu must always list all registered renderers. A renderer that cannot initialize stays visible but disabled and marked unavailable.
+The Debug -> Renderer menu also exposes the shared rendering systems that run around the selected backend:
 
-This restores the earlier GAME architecture where the renderer set was registered through Renderer::Manager, adapted to the current GAME debug UI and current Horse renderer APIs.
+- Gaussian Splat
+- Volumetrics
+- Global Illumination
 
-## Architecture
+Post processing is explicitly outside this implementation. Horse keeps its current generic `PostProcess::Pipeline`, but GAME does not create passes or add post-processing controls in this work.
+
+The Debug -> Renderer menu always lists all registered renderer backends. A backend that cannot initialize stays visible but disabled and marked unavailable.
+
+This restores the earlier GAME architecture where the renderer set was registered through `Renderer::Manager`, adapted to the current GAME debug UI and current Horse renderer APIs.
+
+## Rendering Architecture
 
 GAME must not own a concrete renderer as its main renderer anymore.
 
@@ -42,11 +50,28 @@ Target:
 
 Manager owns every renderer instance, tracks availability, performs activate/deactivate transitions, and keeps the previous renderer active if switching to another renderer fails.
 
-GAME may retain references returned by Manager::add only for initial/default backend settings. Runtime debug code resolves backend-specific interfaces through Manager rather than owning duplicate renderer state.
+GAME may retain references returned by `Manager::add` only for initial/default backend settings. Runtime debug code resolves backend-specific interfaces through Manager rather than owning duplicate renderer state.
 
-No second renderer abstraction, wrapper, registry, or GAME-side lifecycle state is introduced.
+No second renderer abstraction, wrapper, registry, or GAME-side backend lifecycle state is introduced.
 
-## Initialization
+## Shared Frame Systems
+
+Gaussian Splat, Volumetrics, and Global Illumination are not renderer backends and must not be registered in `Renderer::Manager`.
+
+They remain shared systems in Horse's existing frame path:
+
+    Global Illumination update
+        -> active Rasterizer / Ray Tracer / Path Tracer
+        -> Gaussian Splat
+        -> Volumetrics
+        -> existing PostProcess pipeline hook, if one is supplied
+        -> display / composition / debug / UI / present
+
+The same shared-system state is used regardless of the active backend.
+
+Switching renderer backends never recreates, copies, or forks Gaussian Splat, Volumetrics, GI, lighting, environment, models, animations, or gameplay state.
+
+## Backend Initialization
 
 Renderer registration order is fixed:
 
@@ -54,16 +79,16 @@ Renderer registration order is fixed:
 2. Ray Tracer
 3. Path Tracer
 
-All three registered renderers are configured `enabled = true` before Manager::initialize(). The enabled flag means the backend is allowed to render when selected; Manager remains the sole selector and calls render only on the active entry.
+All three registered renderers are configured `enabled = true` before `Manager::initialize()`. The enabled flag means the backend is allowed to render when selected; Manager remains the sole selector and calls render only on the active entry.
 
-Rasterizer receives the current GAME defaults before Manager::initialize:
+Rasterizer receives the current GAME defaults before `Manager::initialize()`:
 
 - enabled = true
 - viewport culling = true
-- shadow resolution = Debugging::Values::ShadowResolutionDefault
-- shadow cascades = Debugging::Values::ShadowCascadesDefault
-- shadow distance = Debugging::Values::ShadowDistanceDefault
-- shadow near plane = Debugging::Values::ShadowNearDefault
+- shadow resolution = `Debugging::Values::ShadowResolutionDefault`
+- shadow cascades = `Debugging::Values::ShadowCascadesDefault`
+- shadow distance = `Debugging::Values::ShadowDistanceDefault`
+- shadow near plane = `Debugging::Values::ShadowNearDefault`
 - clear color = transparent black
 
 Ray Tracer restores the earlier GAME working default:
@@ -83,26 +108,26 @@ Path Tracer restores the earlier GAME working scheduling defaults:
 
 These tracer values are required before init because current Horse tracer backends deliberately reject unconfigured zero-valued settings.
 
-Manager::initialize initializes every registered backend. Initialization failure for one backend does not fail GAME as long as at least one renderer is available. Because Rasterizer is first, it becomes the initial renderer whenever available.
+`Manager::initialize()` initializes every registered backend. Initialization failure for one backend does not fail GAME as long as at least one renderer is available. Because Rasterizer is first, it becomes the initial renderer whenever available.
 
 If no renderer is available, GAME exits with a renderer-manager initialization error.
 
 ## Frame Lifecycle
 
-All renderer lifecycle calls in GAME go through Renderer::Manager:
+All backend lifecycle calls in GAME go through `Renderer::Manager`:
 
-- startup: Manager::initialize
-- resize: Manager::resize
-- frame rendering: Manager::render
-- shutdown: Manager::shutdown
+- startup: `Manager::initialize`
+- resize: `Manager::resize`
+- frame rendering: `Manager::render`
+- shutdown: `Manager::shutdown`
 
-GAME must no longer call init, resize, render, activate, deactivate, or shutdown directly on a concrete renderer.
+GAME no longer calls `init`, `resize`, `render`, `activate`, `deactivate`, or `shutdown` directly on a concrete backend.
 
 Existing world state, ECS lighting, environment, model scenes, viewmodel motion, loadout, firing, UI, and camera code remain renderer-independent.
 
 ## Debugging Context
 
-Debugging::Context changes from:
+`Debugging::Context` changes from:
 
     Renderer::Rasterizer& renderer
 
@@ -110,17 +135,45 @@ to:
 
     Renderer::Manager& renderers
 
+It also carries the GAME-owned Global Illumination entity so the Renderer menu can edit the shared `GlobalIlluminationComponent` without searching for or duplicating it.
+
 Debugging code obtains backend-specific settings only through:
 
     renderers.find<Renderer::Rasterizer>()
     renderers.find<Renderer::RayTracer>()
     renderers.find<Renderer::PathTracer>()
 
-The Manager remains the source of truth for which renderer is active and which renderers are available.
+The Manager remains the source of truth for which renderer is active and which renderer backends are available.
 
 ## Debug -> Renderer Menu
 
-The menu is divided into renderer selection and backend-specific controls.
+The menu structure is:
+
+    Renderer
+      Active Renderer
+        Rasterizer
+        Ray Tracer
+        Path Tracer
+
+      Rasterizer
+        ...
+
+      Ray Tracer
+        ...
+
+      Path Tracer
+        ...
+
+      Gaussian Splat
+        ...
+
+      Volumetrics
+        ...
+
+      Global Illumination
+        ...
+
+There is no Post Processing section in this implementation.
 
 ### Active Renderer
 
@@ -129,20 +182,20 @@ Always show one menu entry per Manager entry in registration order.
 Example:
 
     Renderer
-      Active
+      Active Renderer
         Rasterizer        [selected]
         Ray Tracer
         Path Tracer       [Unavailable]
 
-Available entries are selectable. Selecting one calls Manager::activate(index).
+Available entries are selectable. Selecting one calls `Manager::activate(index)`.
 
 Unavailable entries are disabled but remain visible. Their tooltip states that the renderer could not initialize on the current graphics backend/hardware.
 
-If activation fails, the menu does not implement custom rollback. Manager::activate already attempts to reactivate the previous renderer and remains the authority for activeIndex().
+If activation fails, the menu does not implement custom rollback. `Manager::activate` already attempts to reactivate the previous renderer and remains the authority for `activeIndex()`.
 
 ### Rasterizer Controls
 
-Show the existing controls when a Rasterizer instance exists:
+Expose the existing Rasterizer controls:
 
 - Viewport Culling
 - Shadow Resolution
@@ -151,7 +204,7 @@ Show the existing controls when a Rasterizer instance exists:
 - Shadow Near Plane
 - Clear Color
 
-These controls edit the Rasterizer object obtained from Manager::find<Renderer::Rasterizer>().
+These controls edit the Rasterizer object obtained from `Manager::find<Renderer::Rasterizer>()`.
 
 They remain editable even when Rasterizer is not currently active, so settings are preserved and ready when switching back.
 
@@ -161,12 +214,9 @@ Expose only settings currently supported by Horse::RayTracer:
 
 - Resolution Divisor
 
-Resolution divisor range:
+Range:
 
-- minimum = 1
-- maximum = 8
-
-Do not invent controls unsupported by the current backend API.
+- resolution divisor: 1..8
 
 ### Path Tracer Controls
 
@@ -179,9 +229,9 @@ Expose only settings currently supported by Horse::PathTracer:
 - Moving Phase Grid
 - Moving Depth Block
 
-Initial values are the restored working GAME values listed under Initialization.
+Initial values are the restored working GAME values listed under Backend Initialization.
 
-Required debug ranges:
+Ranges:
 
 - resolution divisor: 1..8
 - samples per frame: 1..16
@@ -190,9 +240,188 @@ Required debug ranges:
 - moving phase grid: 1..8
 - moving depth block: 1..8
 
-All ranges stay centralized in Debugging::Values.
+All ranges stay centralized in `Debugging::Values`.
 
-Do not add renderer-specific lighting, shadow, material, environment, or scene controls. Those remain shared engine/world systems.
+## Gaussian Splat Settings
+
+Horse currently renders Gaussian splats as a shared pass, but its public renderer surface has only `render()` and `shutdown()`. Several meaningful visual thresholds are hardcoded in the SDL_GPU implementation.
+
+Promote only useful runtime controls into a minimal Horse settings API:
+
+    namespace Renderer::GaussianSplat {
+
+    struct Settings {
+        bool enabled = true;
+        float radius = 3.0f;
+        float minimum_depth_epsilon = 0.0025f;
+        float relative_depth_epsilon = 0.0005f;
+    };
+
+    Settings& settings();
+    const Settings& currentSettings();
+
+    }
+
+Meaning:
+
+- Enabled: bypasses the Gaussian Splat frame pass when false.
+- Radius: Gaussian cutoff radius in sigma units. Current hardcoded behavior is 3.0 sigma because the shader rejects radius squared greater than 9.0.
+- Minimum Depth Epsilon: minimum depth separation used for splat/surface occlusion. Current hardcoded value is 0.0025.
+- Relative Depth Epsilon: surface-depth-relative epsilon scale. Current hardcoded value is 0.0005.
+
+The shader receives the three numeric settings through uniforms rather than compile-time literals.
+
+Do not expose structural implementation constants such as tile size or compute workgroup size. Those are implementation details, not renderer tuning.
+
+GAME Renderer -> Gaussian Splat exposes:
+
+- Enabled
+- Radius
+- Minimum Depth Epsilon
+- Relative Depth Epsilon
+
+Debug ranges:
+
+- radius: 0.5..6.0, step 0.1
+- minimum depth epsilon: 0.0..0.05, step 0.0005
+- relative depth epsilon: 0.0..0.01, step 0.0001
+
+## Volumetrics Settings
+
+Horse already exposes `Renderer::Volumetrics::Settings`, so no duplicate GAME settings object is created.
+
+Renderer -> Volumetrics exposes the complete current public settings surface:
+
+- Enabled
+- Resolution Divisor
+- Sample Count
+- Blur Passes
+- Density
+- Anisotropy
+- Maximum Distance
+- Jitter
+- Depth Falloff
+
+Current Horse defaults remain the initial values:
+
+- enabled = true
+- resolution divisor = 2
+- sample count = 32
+- blur passes = 4
+- density = 0.035
+- anisotropy = 0.2
+- maximum distance = 120.0
+- jitter = 1.0
+- depth falloff = 24.0
+
+GAME edits `Renderer::Volumetrics::settings()` directly.
+
+Debug ranges:
+
+- resolution divisor: 1..8
+- sample count: 1..128
+- blur passes: 0..8
+- density: 0.0..0.5, step 0.005
+- anisotropy: -0.95..0.95, step 0.05
+- maximum distance: 1.0..1000.0, step 1.0
+- jitter: 0.0..2.0, step 0.05
+- depth falloff: 0.0..128.0, step 1.0
+
+## Global Illumination Settings
+
+Global Illumination has two existing layers of state:
+
+1. per-world `Renderer::GlobalIlluminationComponent`
+2. renderer-wide tuning currently stored privately inside `GlobalIllumination.cpp`
+
+The debug menu exposes both layers without maintaining a GAME-side shadow copy.
+
+### GI Component
+
+GAME creates one dedicated GI entity at startup with a `GlobalIlluminationComponent` so the system can be enabled and configured from the Renderer menu.
+
+It starts disabled so adding the debug surface does not silently change the current scene's rendering cost or appearance.
+
+Initial component values:
+
+- enabled = false
+- intensity = 1.0
+- bounces = 1
+- photon mapping = false
+- photon count = 4096
+- photon radius = 1.0
+
+Renderer -> Global Illumination exposes:
+
+- Enabled
+- Intensity
+- Bounces
+- Photon Mapping
+- Photon Count
+- Photon Radius
+
+Component ranges:
+
+- intensity: 0.0..10.0, step 0.05
+- bounces: 1..8
+- photon count: 1..1000000
+- photon radius: 0.01..100.0, step 0.01
+
+### GI Tuning
+
+Refactor Horse's private `Tuning` into a public settings surface while keeping the existing setter functions working for compatibility:
+
+    namespace Renderer::GlobalIllumination {
+
+    struct Settings {
+        std::size_t rays_per_probe = 64u;
+        std::size_t probe_budget_per_frame = 4u;
+        std::uint32_t minimum_probe_dimension = 4u;
+        std::uint32_t maximum_probe_dimension = 12u;
+        float bounds_margin_scale = 0.05f;
+        float minimum_bounds_margin = 0.25f;
+        float ray_epsilon = 0.001f;
+        std::uint8_t maximum_bounces = 2u;
+        std::uint32_t maximum_photon_count = 100000u;
+        bool paused = false;
+    };
+
+    Settings& settings();
+    const Settings& currentSettings();
+
+    }
+
+The existing setter functions become thin assignments into this same settings object. There is only one source of truth.
+
+These defaults make the system valid/configured while the GI component remains disabled until explicitly enabled by the user.
+
+Renderer -> Global Illumination also exposes:
+
+- Paused
+- Rays Per Probe
+- Probe Budget / Frame
+- Minimum Probe Dimension
+- Maximum Probe Dimension
+- Bounds Margin Scale
+- Minimum Bounds Margin
+- Ray Epsilon
+- Maximum Bounces
+- Maximum Photon Count
+
+Tuning ranges:
+
+- rays per probe: 1..2048
+- probe budget / frame: 1..1024
+- probe dimensions: 2..64
+- bounds margin scale: 0.0..1.0, step 0.01
+- minimum bounds margin: 0.0..100.0, step 0.05
+- ray epsilon: 0.00001..0.1, step 0.00001
+- maximum bounces: 1..8
+- maximum photon count: 1..1000000
+
+When minimum probe dimension is edited above maximum, maximum is raised to match. When maximum is edited below minimum, minimum is lowered to match. Invalid dimension pairs are never written to Horse.
+
+Changing GI settings that affect generated data calls `Renderer::GlobalIllumination::reset()` so stale fields are not reused. Toggling only `Paused` does not reset GI.
 
 ## Renderer Independence
 
@@ -208,6 +437,9 @@ Shared systems remain shared:
 - Lights
 - Shadows where supported by the active backend
 - Environment
+- Global Illumination
+- Gaussian Splat
+- Volumetrics
 - Animation
 - Viewmodel motion
 - Loadout/firing
@@ -215,13 +447,13 @@ Shared systems remain shared:
 
 GAME must not create renderer-specific copies of scene state when switching backends.
 
-Switching renderers must reuse the same Ecs::World and current gameplay state in-place.
+Switching renderers reuses the same `Ecs::World` and current gameplay/render-system state in place.
 
 ## Availability and Failure Behavior
 
-Manager Entry::available is the only availability flag used by GAME.
+Manager `Entry::available` is the only backend availability flag used by GAME.
 
-Unavailable renderer:
+Unavailable backend:
 
 - stays listed in Debug -> Renderer
 - cannot be selected
@@ -230,55 +462,98 @@ Unavailable renderer:
 Activation failure:
 
 - Manager attempts to restore the previous active renderer
-- UI selection follows Manager::activeIndex after the call
+- UI selection follows `Manager::activeIndex()` after the call
 - no duplicated GAME rollback state
 
-Resize applies to every initialized/available renderer through Manager::resize so switching after a window resize uses correct dimensions immediately.
+Resize applies to every initialized/available renderer through `Manager::resize()` so switching after a window resize uses correct dimensions immediately.
+
+Shared systems remain configurable even if a specific backend is unavailable.
 
 ## Horse Boundary
 
-Horse already contains the required abstraction:
+Horse already contains the required backend abstraction:
 
-- IRenderer
-- Renderer::Manager
+- `IRenderer`
+- `Renderer::Manager`
 - Rasterizer
 - RayTracer
 - PathTracer
 
-No Horse architectural rewrite is required.
+Horse also already owns the shared systems:
 
-The current tracer implementations require valid non-zero configuration before init and require `enabled = true` to render. GAME provides that configuration before Manager::initialize, matching the earlier working GAME Manager integration.
+- Gaussian Splat
+- Volumetrics
+- Global Illumination
+- generic PostProcess pipeline hook
 
-Horse is modified only if test-first implementation reveals a concrete Manager defect unrelated to configuration.
+Required Horse changes are deliberately small:
 
-## Files
+1. Gaussian Splat: promote existing hardcoded visual thresholds plus an enabled toggle into `GaussianSplat::Settings`.
+2. Global Illumination: expose the existing private tuning state as `GlobalIllumination::Settings`, with existing setters preserved as wrappers.
 
-Expected GAME changes:
+No renderer architecture rewrite is required.
 
-- Sources/main.cpp
+The current tracer implementations require valid non-zero configuration before init and require `enabled = true` to render. GAME provides that configuration before `Manager::initialize()`, matching the earlier working GAME Manager integration.
+
+Post processing receives no implementation change in this work.
+
+## Expected Horse Files
+
+- `Sources/Renderer/GaussianSplat/GaussianSplat.hpp`
+  - public `Settings`
+  - `settings()` / `currentSettings()`
+
+- `Sources/Renderer/GaussianSplat/GaussianSplat.cpp`
+  - shared enabled bypass if appropriate
+  - settings ownership
+
+- `Sources/Renderer/GaussianSplat/GaussianSplatSDLGPU.cpp`
+  - consume radius/depth settings through uniforms instead of hardcoded literals
+
+- `Sources/Renderer/GlobalIllumination/GlobalIllumination.hpp`
+  - public `Settings`
+  - `settings()` / `currentSettings()`
+  - preserve existing setter declarations
+
+- `Sources/Renderer/GlobalIllumination/GlobalIllumination.cpp`
+  - replace private `Tuning` with the public settings object
+  - preserve setter behavior
+
+- Horse tests
+  - Gaussian settings default/current behavior
+  - GI settings and legacy setters share one source of truth
+
+## Expected GAME Files
+
+- `Sources/main.cpp`
   - include Manager/RayTracer/PathTracer
-  - register all three backends in Renderer::Manager
-  - restore the proven tracer configuration values
+  - register all three backends in `Renderer::Manager`
+  - restore proven tracer configuration values
   - initialize/render/resize/shutdown only through Manager
-  - pass Manager into Debugging::Context
+  - create disabled GI configuration entity
+  - pass Manager and GI entity into `Debugging::Context`
 
-- Sources/Debugging/Debugging.hpp
-  - replace Rasterizer forward declaration/reference with Renderer::Manager
+- `Sources/Debugging/Debugging.hpp`
+  - replace Rasterizer reference with `Renderer::Manager`
+  - add GI entity to Context
 
-- Sources/Debugging/Debugging.cpp
+- `Sources/Debugging/Debugging.cpp`
   - renderer-selection menu
-  - unavailable renderer presentation
+  - unavailable backend presentation
   - Rasterizer settings through Manager::find
   - Ray Tracer settings through Manager::find
   - Path Tracer settings through Manager::find
+  - Gaussian Splat settings
+  - Volumetrics settings
+  - Global Illumination component + tuning settings
 
-- Sources/Debugging/Values.hpp
-  - add centralized ranges for already-existing RayTracer/PathTracer numeric settings
+- `Sources/Debugging/Values.hpp`
+  - centralized ranges/defaults for all newly exposed controls
 
-- Tests/RendererManager.cpp or equivalent focused test
-  - verify registration/selection UI-model behavior without depending on ImGui rendering
-
-Horse changes are not required by default.
+- focused GAME tests
+  - backend registration/selection model
+  - shared-system default configuration
+  - GI dimension-clamping/reset policy helper if extracted
 
 ## Tests
 
@@ -287,13 +562,18 @@ Use test-first changes for behavior that can be isolated.
 Required coverage:
 
 1. Renderer menu model preserves Manager registration order.
-2. Unavailable entries remain represented but cannot be activated from UI selection logic.
-3. Active selection reflects Manager::activeIndex.
-4. Backend-specific settings are routed to the renderer instance owned by Manager.
-5. GAME configures both tracers with valid non-zero settings before Manager::initialize.
+2. Unavailable backend entries remain represented but cannot be activated from UI selection logic.
+3. Active selection reflects `Manager::activeIndex()`.
+4. Backend-specific settings are routed to renderer instances owned by Manager.
+5. GAME configures both tracers with valid non-zero settings before `Manager::initialize()`.
 6. GAME has no direct concrete renderer render/resize/shutdown path after migration.
-
-Manager lifecycle behavior is covered in Horse only if a concrete Manager change becomes necessary.
+7. Gaussian Splat settings preserve current visual constants by default.
+8. Gaussian Splat disabled state bypasses the shared pass.
+9. GI public settings and legacy setters mutate the same Horse state.
+10. GI minimum/maximum probe dimensions cannot become invalid through GAME debug controls.
+11. GI changes that invalidate generated fields call reset; Pause does not.
+12. Volumetrics debug controls mutate Horse's existing shared settings directly.
+13. Renderer switching does not create renderer-specific copies of Gaussian/Volumetrics/GI state.
 
 Integration verification on the actual GAME build:
 
@@ -309,6 +589,9 @@ Runtime checks:
 - Switching to each available renderer produces that renderer's actual output.
 - Switching back to Rasterizer preserves its configured settings.
 - Window resize followed by renderer switching uses the new size.
+- Gaussian Splat controls affect splats regardless of active backend.
+- Volumetrics controls affect the shared volumetric pass regardless of active backend.
+- GI can be enabled from its disabled default and its settings are shared across backend switches.
 - Existing viewmodel, animation, lighting, environment, loadout, firing, and debug behavior remains intact.
 
 ## Non-Goals
@@ -316,10 +599,13 @@ Runtime checks:
 This change does not:
 
 - create new rendering backends
+- register Gaussian Splat, Volumetrics, or GI as renderer backends
 - duplicate renderer implementations in GAME
 - move lighting/shadows/environment into backend-specific GAME code
-- redesign Horse IRenderer
+- redesign Horse `IRenderer`
 - redefine Horse renderer enabled semantics
-- add unsupported debug controls
+- expose Gaussian compute tile/workgroup internals
+- implement or restore Bloom, Motion Blur, FXAA, Tonemapping, or any other concrete post-processing effect
+- add Post Processing controls to GAME
 - add a second renderer manager
 - change gameplay, input, camera, loadout, or viewmodel behavior
