@@ -30,4 +30,15 @@ void build(C_Build *b)
     c_use(game, horse);
     c_use(game, imgui);
     c_default_target(b, game);
+
+    C_Target *motion_test = c_test(b, "viewmodel-motion-test");
+    c_sources(motion_test, "Tests/ViewmodelMotion.cpp");
+    c_sources(motion_test, "Sources/Viewmodel/Motion.cpp");
+    c_include(motion_test, "Sources");
+    c_flag(motion_test, "-std=c++20");
+    c_link_system(motion_test, "stdc++");
+    c_link_system(motion_test, "m");
+    c_link_system(motion_test, "dl");
+    c_link_system(motion_test, "pthread");
+    c_use(motion_test, horse);
 }
