@@ -14,6 +14,8 @@ Rasterizer remains the default renderer because it is registered first.
 
 The Debug -> Renderer menu must always list all registered renderers. A renderer that cannot initialize stays visible but disabled and marked unavailable.
 
+This restores the earlier GAME architecture where the renderer set was registered through Renderer::Manager, adapted to the current GAME debug UI and current Horse renderer APIs.
+
 ## Architecture
 
 GAME must not own a concrete renderer as its main renderer anymore.
@@ -40,9 +42,9 @@ Target:
 
 Manager owns every renderer instance, tracks availability, performs activate/deactivate transitions, and keeps the previous renderer active if switching to another renderer fails.
 
-GAME may retain references returned by Manager::add only for initial/default backend settings. Runtime debug code must resolve backend-specific interfaces through Manager rather than owning duplicate renderer state.
+GAME may retain references returned by Manager::add only for initial/default backend settings. Runtime debug code resolves backend-specific interfaces through Manager rather than owning duplicate renderer state.
 
-No second renderer abstraction, wrapper, registry, or GAME-side lifecycle state should be introduced.
+No second renderer abstraction, wrapper, registry, or GAME-side lifecycle state is introduced.
 
 ## Initialization
 
@@ -52,7 +54,9 @@ Renderer registration order is fixed:
 2. Ray Tracer
 3. Path Tracer
 
-Rasterizer receives the existing GAME defaults before Manager::initialize:
+All three registered renderers are configured `enabled = true` before Manager::initialize(). The enabled flag means the backend is allowed to render when selected; Manager remains the sole selector and calls render only on the active entry.
+
+Rasterizer receives the current GAME defaults before Manager::initialize:
 
 - enabled = true
 - viewport culling = true
@@ -62,7 +66,22 @@ Rasterizer receives the existing GAME defaults before Manager::initialize:
 - shadow near plane = Debugging::Values::ShadowNearDefault
 - clear color = transparent black
 
-Ray Tracer and Path Tracer keep their Horse defaults unless GAME already has an explicit corresponding debug/default value.
+Ray Tracer restores the earlier GAME working default:
+
+- enabled = true
+- resolution divisor = 4
+
+Path Tracer restores the earlier GAME working scheduling defaults:
+
+- enabled = true
+- resolution divisor = 2
+- samples per frame = 2
+- stationary phase grid = 2
+- reset phase grid = 1
+- moving phase grid = 4
+- moving depth block = 2
+
+These tracer values are required before init because current Horse tracer backends deliberately reject unconfigured zero-valued settings.
 
 Manager::initialize initializes every registered backend. Initialization failure for one backend does not fail GAME as long as at least one renderer is available. Because Rasterizer is first, it becomes the initial renderer whenever available.
 
@@ -77,7 +96,7 @@ All renderer lifecycle calls in GAME go through Renderer::Manager:
 - frame rendering: Manager::render
 - shutdown: Manager::shutdown
 
-GAME must no longer call init, resize, render, activate, deactivate, or shutdown directly on the concrete active renderer.
+GAME must no longer call init, resize, render, activate, deactivate, or shutdown directly on a concrete renderer.
 
 Existing world state, ECS lighting, environment, model scenes, viewmodel motion, loadout, firing, UI, and camera code remain renderer-independent.
 
@@ -142,7 +161,12 @@ Expose only settings currently supported by Horse::RayTracer:
 
 - Resolution Divisor
 
-Do not invent controls unsupported by the backend.
+Resolution divisor range:
+
+- minimum = 1
+- maximum = 8
+
+Do not invent controls unsupported by the current backend API.
 
 ### Path Tracer Controls
 
@@ -154,6 +178,14 @@ Expose only settings currently supported by Horse::PathTracer:
 - Reset Phase Grid
 - Moving Phase Grid
 - Moving Depth Block
+
+Initial values are the restored working GAME values listed under Initialization.
+
+Required debug ranges:
+
+- resolution divisor: 1..8
+- samples per frame: 1..16
+- phase-grid/depth-block controls: positive integer ranges that include the restored defaults; keep the ranges centralized in Debugging::Values
 
 Do not add renderer-specific lighting, shadow, material, environment, or scene controls. Those remain shared engine/world systems.
 
@@ -198,12 +230,30 @@ Activation failure:
 
 Resize applies to every initialized/available renderer through Manager::resize so switching after a window resize uses correct dimensions immediately.
 
+## Horse Boundary
+
+Horse already contains the required abstraction:
+
+- IRenderer
+- Renderer::Manager
+- Rasterizer
+- RayTracer
+- PathTracer
+
+No Horse architectural rewrite is required.
+
+The current tracer implementations require valid non-zero configuration before init and require `enabled = true` to render. GAME provides that configuration before Manager::initialize, matching the earlier working GAME Manager integration.
+
+Horse is modified only if test-first implementation reveals a concrete Manager defect unrelated to configuration.
+
 ## Files
 
 Expected GAME changes:
 
 - Sources/main.cpp
+  - include Manager/RayTracer/PathTracer
   - register all three backends in Renderer::Manager
+  - restore the proven tracer configuration values
   - initialize/render/resize/shutdown only through Manager
   - pass Manager into Debugging::Context
 
@@ -218,12 +268,12 @@ Expected GAME changes:
   - Path Tracer settings through Manager::find
 
 - Sources/Debugging/Values.hpp
-  - add ranges only where required for already-existing RayTracer/PathTracer numeric settings
+  - add centralized ranges for already-existing RayTracer/PathTracer numeric settings
 
 - Tests/RendererManager.cpp or equivalent focused test
-  - verify registration order/selection helper behavior without depending on ImGui rendering
+  - verify registration/selection UI-model behavior without depending on ImGui rendering
 
-Horse changes are not required by default because Renderer::Manager already owns IRenderer instances, initializes all entries, tracks availability, resizes all available renderers, renders only the active entry, and rolls back failed activation. Horse is changed only if implementation/tests reveal a concrete Manager defect.
+Horse changes are not required by default.
 
 ## Tests
 
@@ -235,9 +285,10 @@ Required coverage:
 2. Unavailable entries remain represented but cannot be activated from UI selection logic.
 3. Active selection reflects Manager::activeIndex.
 4. Backend-specific settings are routed to the renderer instance owned by Manager.
-5. GAME has no direct concrete renderer render/resize/shutdown path after migration.
+5. GAME configures both tracers with valid non-zero settings before Manager::initialize.
+6. GAME has no direct concrete renderer render/resize/shutdown path after migration.
 
-Manager lifecycle behavior should be covered in Horse only if no existing tests cover it and a concrete Manager change becomes necessary.
+Manager lifecycle behavior is covered in Horse only if a concrete Manager change becomes necessary.
 
 Integration verification on the actual GAME build:
 
@@ -250,7 +301,7 @@ Runtime checks:
 - GAME starts on Rasterizer.
 - Renderer menu lists Rasterizer, Ray Tracer, Path Tracer.
 - Unsupported backends remain visible as unavailable.
-- Switching to each available renderer works without recreating world/game state.
+- Switching to each available renderer produces that renderer's actual output.
 - Switching back to Rasterizer preserves its configured settings.
 - Window resize followed by renderer switching uses the new size.
 - Existing viewmodel, animation, lighting, environment, loadout, firing, and debug behavior remains intact.
@@ -263,6 +314,7 @@ This change does not:
 - duplicate renderer implementations in GAME
 - move lighting/shadows/environment into backend-specific GAME code
 - redesign Horse IRenderer
+- redefine Horse renderer enabled semantics
 - add unsupported debug controls
 - add a second renderer manager
 - change gameplay, input, camera, loadout, or viewmodel behavior
