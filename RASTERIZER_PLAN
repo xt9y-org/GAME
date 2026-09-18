@@ -43,6 +43,7 @@ Horse
     ├── Environment
     ├── GlobalIllumination
     ├── AmbientOcclusion
+    ├── Reflections
     ├── Volumetrics
     ├── GaussianSplat
     └── Debug
@@ -96,7 +97,7 @@ Renderer
 │   ├── Strength
 │   └── Radius
 │
-├── Reflections          once implemented
+├── Reflections
 │   ├── Enabled
 │   ├── Quality
 │   └── Strength
@@ -202,13 +203,14 @@ This avoids baking duplicate mesh instances into world-space triangle arrays and
 **Goal:** Establish one clean master-control API before adding more renderer systems.
 
 Horse:
-- Add a shared renderer feature settings object with non-destructive master overrides for Lighting, Shadows, Environment, Global Illumination, Ambient Occlusion, Volumetrics and Gaussian Splat.
+- Add a shared renderer feature settings object with non-destructive master overrides for Lighting, Shadows, Environment, Global Illumination, Ambient Occlusion, Reflections, Volumetrics and Gaussian Splat.
 - Add a shared `Renderer::Quality` enum for systems that map a player-facing quality setting to internal tuning.
 - Lighting off returns no effective lights without modifying ECS lights.
 - Shadows off keeps lights but suppresses all effective shadow casting.
 - Environment off suppresses environment/ambient contribution without modifying the `EnvironmentComponent`.
 - GI off skips all GI build/update work.
 - AO off skips the screen-space AO compute/filter work while retaining its configuration.
+- Reflections off suppresses specular environment reflection without modifying environment or material state.
 - Volumetrics off skips the volumetric pass.
 - Gaussian Splat off skips that pass.
 - Add a non-destructive Camera master Active override.
@@ -220,7 +222,7 @@ GAME:
 - [x] Add renderer feature override API and tests.
 - [x] Add Camera master override and tests.
 - [x] Gate all current systems through the master overrides.
-- [x] Add quality preset API for Shadows, GI, AO and Volumetrics.
+- [x] Add quality preset API for Shadows, GI, AO, Reflections and Volumetrics.
 - [x] Simplify Renderer Debug menu.
 - [x] Simplify Camera Debug menu.
 - [x] Remove the last GAME Debug paths that mutate local Environment/GI component enable state when a global override is toggled.
@@ -404,13 +406,22 @@ Priority:
 3. Selective planar reflection support if later required by a renderer feature.
 4. SSR only if it complements probes cleanly and does not become the primary reflection source.
 
+Current first-stage implementation reuses Horse's existing environment texture and sampler instead of introducing another backend-specific reflection resource. The active environment texture receives a physical mip chain; Reflection quality limits the usable roughness mip range. PBR selects an explicit environment LOD from material roughness and applies an analytic split-sum BRDF approximation. Reflection enabled/strength/quality state is packed into the existing shared shading-state header, so no extra raster sampler or descriptor set is consumed.
+
+This first stage is intentionally an IBL foundation rather than the final environment prefilter. Standard generated mips are not a replacement for a dedicated GGX-prefiltered environment representation, and local reflection probes still require their own scene representation and blending policy.
+
 Player controls:
 - Enabled
 - Quality
 - Strength
 
-- [ ] Add irradiance/specular environment preprocessing or cached equivalents.
-- [ ] Add BRDF integration data.
+- [x] Add non-destructive reflection feature/settings API and quality policy tests.
+- [x] Generate an environment mip chain without consuming another raster sampler.
+- [x] Add roughness-aware environment LOD selection.
+- [x] Replace the previous ad-hoc environment roughness loss with analytic split-sum BRDF integration.
+- [x] Add GAME Reflections controls without exposing mip/internal sampling details.
+- [ ] Verify environment mip generation, HLSL `SampleLevel` path and visual controls on the Metal backend through a real GAME build/run.
+- [ ] Add dedicated irradiance + GGX-prefiltered environment preprocessing or an equivalent cached representation if measurements/quality justify it.
 - [ ] Add local reflection probe representation and blending.
 
 ## Phase 9 — Global Illumination Cleanup
