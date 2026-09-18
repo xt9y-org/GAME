@@ -102,6 +102,18 @@ std::string lower(std::string value)
     return value;
 }
 
+std::string compact(std::string value)
+{
+    value = lower(std::move(value));
+    value.erase(
+        std::remove_if(value.begin(), value.end(), [](unsigned char c) {
+            return c == '_' || c == '-' || c == ' ' || c == '.';
+        }),
+        value.end()
+    );
+    return value;
+}
+
 std::string pathText(const std::filesystem::path& path)
 {
     return lower(path.generic_string());
@@ -172,13 +184,27 @@ int tokenScore(const std::filesystem::path& path, const WeaponSpec& spec)
     const auto score = [&](const char *token) {
         if (!token || !*token) return -1;
         const std::string value = lower(token);
+        const std::string compact_value = compact(value);
+        const std::string compact_parent = compact(parent);
+        const std::string compact_stem = compact(stem);
+        const std::string compact_full = compact(full);
         int result = -1;
 
-        if (parent == value) result = std::max(result, 120);
-        if (stem == value || stem.ends_with("_" + value)) result = std::max(result, 110);
-        if (full.find("/" + value + "/") != std::string::npos) result = std::max(result, 100);
-        if (stem.find(value) != std::string::npos) result = std::max(result, 70);
-        if (full.find(value) != std::string::npos) result = std::max(result, 40);
+        if (parent == value || compact_parent == compact_value)
+            result = std::max(result, 140);
+        if (stem == value ||
+            stem.ends_with("_" + value) ||
+            compact_stem == compact_value ||
+            compact_stem.ends_with(compact_value))
+            result = std::max(result, 130);
+        if (full.find("/" + value + "/") != std::string::npos)
+            result = std::max(result, 120);
+        if (stem.find(value) != std::string::npos ||
+            compact_stem.find(compact_value) != std::string::npos)
+            result = std::max(result, 90);
+        if (full.find(value) != std::string::npos ||
+            compact_full.find(compact_value) != std::string::npos)
+            result = std::max(result, 60);
         return result;
     };
 
@@ -297,9 +323,12 @@ std::vector<WeaponItem> discoverWeapons(const std::filesystem::path& root)
         if (item.path.empty() ||
             item.idle.empty() ||
             item.shoot.empty() ||
-            item.reload.empty() ||
-            item.inspect.empty())
+            item.reload.empty())
             continue;
+
+        if (item.inspect.empty())
+            item.inspect = item.idle;
+
         result.push_back(std::move(item));
     }
 
