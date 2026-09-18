@@ -242,6 +242,48 @@ bool familyMatches(const std::filesystem::path& family, const WeaponSpec& spec)
     return matches(spec.token) || matches(spec.alternate);
 }
 
+std::filesystem::path matchingFamily(
+    const std::filesystem::path& animation,
+    const WeaponSpec& spec)
+{
+    for (std::filesystem::path family = animation.parent_path();
+         !family.empty();
+         family = family.parent_path()) {
+        if (familyMatches(family, spec))
+            return family;
+    }
+    return {};
+}
+
+bool insideFamily(
+    const std::filesystem::path& path,
+    const std::filesystem::path& family)
+{
+    if (family.empty()) return false;
+
+    const std::filesystem::path relative = path.lexically_relative(family);
+    if (relative.empty() || relative.is_absolute()) return false;
+
+    for (const auto& part : relative)
+        if (part == "..") return false;
+
+    return true;
+}
+
+bool familyHasAction(
+    const std::vector<std::filesystem::path>& animations,
+    const std::filesystem::path& family,
+    Action action)
+{
+    return std::any_of(
+        animations.begin(),
+        animations.end(),
+        [&](const std::filesystem::path& path) {
+            return insideFamily(path, family) && actionMatch(path, action);
+        }
+    );
+}
+
 std::filesystem::path animationFamily(
     const std::vector<std::filesystem::path>& animations,
     const WeaponSpec& spec)
@@ -250,8 +292,12 @@ std::filesystem::path animationFamily(
     std::filesystem::path best;
 
     for (const auto& path : animations) {
-        const std::filesystem::path family = path.parent_path();
-        if (!familyMatches(family, spec)) continue;
+        const std::filesystem::path family = matchingFamily(path, spec);
+        if (family.empty() ||
+            !familyHasAction(animations, family, Action::Idle) ||
+            !familyHasAction(animations, family, Action::Shoot) ||
+            !familyHasAction(animations, family, Action::Reload))
+            continue;
 
         const int score = tokenScore(family, spec);
         if (score > best_score ||
@@ -275,7 +321,7 @@ std::filesystem::path bestAnimation(
     std::filesystem::path best;
 
     for (const auto& path : animations) {
-        if (path.parent_path() != family || !actionMatch(path, action)) continue;
+        if (!insideFamily(path, family) || !actionMatch(path, action)) continue;
 
         const std::string stem = lower(path.stem().string());
         int score = 0;
