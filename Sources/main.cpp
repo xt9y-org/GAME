@@ -20,6 +20,7 @@
 #include "Viewmodel/Motion.hpp"
 
 #include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <limits>
 #include <string>
@@ -281,5 +282,8 @@ public:
 
 int main()
 {
-    return GAME::start() == "[GAME] [FINISHED]" ? 0 : 1;
+    const std::string result = GAME::start();
+    if (result == "[GAME] [FINISHED]") return 0;
+    std::fputs(result.c_str(), stderr);
+    return 1;
 }
