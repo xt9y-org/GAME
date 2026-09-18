@@ -185,7 +185,12 @@ Required debug ranges:
 
 - resolution divisor: 1..8
 - samples per frame: 1..16
-- phase-grid/depth-block controls: positive integer ranges that include the restored defaults; keep the ranges centralized in Debugging::Values
+- stationary phase grid: 1..8
+- reset phase grid: 1..8
+- moving phase grid: 1..8
+- moving depth block: 1..8
+
+All ranges stay centralized in Debugging::Values.
 
 Do not add renderer-specific lighting, shadow, material, environment, or scene controls. Those remain shared engine/world systems.
 
