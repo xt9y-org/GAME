@@ -562,6 +562,10 @@ void drawVisibilitySettings(Renderer::Manager& renderers)
     if (ImGui::MenuItem("Occlusion Culling", nullptr, &occlusion_culling))
         renderer->setOcclusionCulling(occlusion_culling);
 
+    bool gpu_driven = renderer->gpuDriven();
+    if (ImGui::MenuItem("GPU Driven", nullptr, &gpu_driven))
+        renderer->setGpuDriven(gpu_driven);
+
     ImGui::EndMenu();
 }
 
