@@ -67,24 +67,6 @@ void addVolumetricLight(Ecs::World& world)
 
 bool sampleMode(
     Renderer::Manager& renderers,
-    bool enabled,
-    Samples& samples)
-{
-    Renderer::Features::settings().volumetrics = enabled;
-
-    for (std::size_t frame = 0u; frame < WarmupFrames + SampleFrames; ++frame) {
-        if (!Window::poll()) return false;
-
-        const Clock::time_point started = Clock::now();
-        renderers.render(*static_cast<Ecs::World *>(nullptr));
-        (void)started;
-        return false;
-    }
-    return true;
-}
-
-bool sampleMode(
-    Renderer::Manager& renderers,
     Ecs::World& world,
     bool enabled,
     Samples& samples)
