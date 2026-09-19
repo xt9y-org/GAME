@@ -10,6 +10,7 @@
 #include <Renderer/Debug/Debug.hpp>
 #include <Renderer/Environment.hpp>
 #include <Renderer/Features.hpp>
+#include <Renderer/GlobalIllumination/Debug.hpp>
 #include <Renderer/GlobalIllumination/GlobalIllumination.hpp>
 #include <Renderer/Manager.hpp>
 #include <Renderer/Quality.hpp>
@@ -697,6 +698,7 @@ void drawPerformance(State& state)
 {
     if (!state.show_fps) return;
 
+    const Renderer::Features::Settings& features = Renderer::Features::currentSettings();
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(
         ImVec2(io.DisplaySize.x - Layout::PanelPadding, ImGui::GetFrameHeight() + Layout::PanelPadding),
@@ -704,7 +706,10 @@ void drawPerformance(State& state)
         ImVec2(1.0f, 0.0f)
     );
     ImGui::SetNextWindowSize(
-        ImVec2(Layout::PanelWidth, Layout::PerformanceHeight),
+        ImVec2(
+            Layout::PanelWidth,
+            Layout::PerformanceHeight + (features.global_illumination ? 88.0f : 0.0f)
+        ),
         ImGuiCond_Always
     );
 
@@ -747,6 +752,16 @@ void drawPerformance(State& state)
         metric("Update", state.update_ms);
         metric("Renderer", state.render_ms);
         metric("Debug UI", state.ui_ms);
+
+        if (features.global_illumination) {
+            const Renderer::GlobalIllumination::Debug::Statistics gi =
+                Renderer::GlobalIllumination::Debug::statistics();
+            ImGui::Separator();
+            ImGui::TextColored(heading_color, "%s", "Global Illumination CPU");
+            metric("Last Scene Sync", static_cast<float>(gi.scene_build_ms));
+            metric("Probe Update", static_cast<float>(gi.probe_update_ms));
+            metric("Last Photon Build", static_cast<float>(gi.photon_build_ms));
+        }
     }
     ImGui::End();
     popProfilerStyle();
