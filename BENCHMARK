@@ -24,13 +24,13 @@ Volumetrics
   Sweeps Low / Medium / High / Ultra.
   Compares Volumetrics disabled vs enabled for every quality level.
 
-  2026-09-19 MacBook Air M2 / Metal, 2560x1440 framebuffer:
-    Low       16.555 ms enabled / 16.791 ms disabled median
-    Medium    16.736 ms enabled / 16.817 ms disabled median
-    High      16.595 ms enabled / 16.797 ms disabled median
-    Ultra     46.336 ms enabled / 16.825 ms disabled median
+  2026-09-19 MacBook Air M2 / Metal, 2560x1440 framebuffer after shared TLAS/BLAS migration:
+    Low       16.676 ms enabled / 16.673 ms disabled median
+    Medium    16.583 ms enabled / 16.767 ms disabled median
+    High      16.572 ms enabled / 16.878 ms disabled median
+    Ultra     56.785 ms enabled / 16.753 ms disabled median
 
-  The ~16.8 ms floor is consistent with VSYNC and prevents precise sub-frame overhead measurement for Low/Medium/High. Ultra clearly exceeds that floor by ~29.5 ms.
+  The ~16.8 ms floor is consistent with VSYNC and prevents precise sub-frame overhead measurement for Low/Medium/High. Ultra clearly exceeds that floor by ~40.0 ms.
 
   Decision:
     Keep the existing march/blur architecture for Low/Medium/High.
@@ -85,18 +85,28 @@ GI / acceleration CPU
       refit           2.675 ms median CPU
       probe           0.008 ms median CPU
 
-  Decision from the sweep:
+  After TLAS/BLAS migration, the same synthetic scene measured:
+    rigid acceleration  1 BLAS / 1 instance / 8192 unique triangles
+    nodes               2048
+    depth                 12
+    initial topology    22.820 ms CPU
+    transform/TLAS      0.019 ms median CPU
+    probe               0.010 ms median CPU
+
+  Decision from the measurements:
     Horse BLAS leaves use 8 triangles.
-    Relative to leaf 1 this cuts node count by 87.5%, topology build by about 28.5%, and transform refit by about 9.8% with no measured probe-update regression.
+    Relative to leaf 1 this cuts node count by 87.5%, topology build by about 28.5%, and the TLAS architecture reduces transform-only synchronization from roughly 2.7-3.0 ms to roughly 0.02 ms on the synthetic scene.
     Closest-hit traversal is near-child-first and occlusion uses a dedicated any-hit early-out path.
 
   Current architecture:
     Rigid world meshes use reusable mesh-local BLAS data plus an instance TLAS.
     Moving a rigid instance updates TLAS/instance state without rebuilding its mesh BLAS.
     Skinned/deformed geometry remains on the world-space SceneCache fallback.
-    GI resource/material state remains shared through SceneCache.
+    GI and Volumetrics consume one shared CPU acceleration state.
+    Volumetrics uploads that shared state into the same flat TLAS/BLAS representation for GPU shadow traversal.
+    The GPU upload cache remains Volumetrics-owned; CPU geometry ownership is shared.
 
-  The current benchmark therefore reports:
+  The benchmark reports:
     initial BLAS/TLAS build cost,
     unique BLAS triangles,
     BLAS and instance counts,
@@ -104,9 +114,11 @@ GI / acceleration CPU
     transform-only TLAS update cost,
     probe update cost.
 
+  Synthetic fallback also runs a shared-BLAS scaling sweep with 1 / 16 / 64 / 256 model copies. Each copy is parented at a different world transform, so the sweep measures TLAS growth while the mesh BLAS remains reusable. For every scale it reports BLAS count, instance count, nodes/depth, initial build cost, transform-only TLAS cost and probe cost.
+
   To measure another real GAME model:
     c build gi-benchmark
     ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
 
-  Next acceleration step after CPU validation:
-    migrate GPU volumetric visibility to the same flat TLAS/BLAS buffers so GI and volumetrics do not maintain different acceleration representations.
+  Remaining GI decision:
+    use the multi-instance sweep plus at least one representative GAME scene before deciding whether a baked/static-probe path is worth adding. Do not add another GI representation without that evidence.
