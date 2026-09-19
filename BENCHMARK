@@ -55,12 +55,13 @@ Local shadows
     Keep the current local shadow array + dirty-layer cache.
     Do not add a dedicated local-light atlas from this result.
 
-GI / BVH CPU
+GI / acceleration CPU
   c run gi-benchmark
 
   If Assets/Sponza/sponza.obj exists locally, it is used automatically.
   Otherwise the benchmark falls back to a deterministic 8192-triangle synthetic grid.
-  Sweeps 1 / 4 / 8 triangles per BVH leaf and reports topology build, geometry/refit, node count/depth, probe update cost, and cache update counts.
+
+  The earlier leaf-size sweep established 8 triangles per BLAS leaf as the default:
 
   2026-09-19 MacBook Air M2 synthetic 8192-triangle grid:
     leaf 1
@@ -84,12 +85,28 @@ GI / BVH CPU
       refit           2.675 ms median CPU
       probe           0.008 ms median CPU
 
-  Decision:
-    Horse default BVH leaf size is now 8 triangles.
+  Decision from the sweep:
+    Horse BLAS leaves use 8 triangles.
     Relative to leaf 1 this cuts node count by 87.5%, topology build by about 28.5%, and transform refit by about 9.8% with no measured probe-update regression.
     Closest-hit traversal is near-child-first and occlusion uses a dedicated any-hit early-out path.
-    World-space triangle maintenance remains the next GI structural bottleneck; TLAS/BLAS is the next large architecture step if representative real scenes confirm it.
+
+  Current architecture:
+    Rigid world meshes use reusable mesh-local BLAS data plus an instance TLAS.
+    Moving a rigid instance updates TLAS/instance state without rebuilding its mesh BLAS.
+    Skinned/deformed geometry remains on the world-space SceneCache fallback.
+    GI resource/material state remains shared through SceneCache.
+
+  The current benchmark therefore reports:
+    initial BLAS/TLAS build cost,
+    unique BLAS triangles,
+    BLAS and instance counts,
+    combined acceleration node/depth statistics,
+    transform-only TLAS update cost,
+    probe update cost.
 
   To measure another real GAME model:
     c build gi-benchmark
     ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
+
+  Next acceleration step after CPU validation:
+    migrate GPU volumetric visibility to the same flat TLAS/BLAS buffers so GI and volumetrics do not maintain different acceleration representations.
