@@ -8,6 +8,7 @@
 #include <Renderer/Manager.hpp>
 #include <Renderer/ModelScene.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
+#include <Renderer/SDLGPU/Context.hpp>
 
 #include <Rendering/ForwardPlusBenchmark.hpp>
 
@@ -83,6 +84,7 @@ bool sampleMode(
 
         const Clock::time_point started = Clock::now();
         renderers.render(world);
+        if (!SDL_WaitForGPUIdle(Renderer::SDLGPU::device())) return false;
         const double milliseconds = std::chrono::duration<double, std::milli>(
             Clock::now() - started
         ).count();
@@ -202,11 +204,11 @@ int main()
         full_loop.count
     );
     std::printf(
-        "[Forward+ Benchmark] full light loop: %.3f ms/frame CPU wall\n",
+        "[Forward+ Benchmark] full light loop: %.3f ms/frame synchronized wall\n",
         comparison.full_loop_ms
     );
     std::printf(
-        "[Forward+ Benchmark] Forward+: %.3f ms/frame CPU wall\n",
+        "[Forward+ Benchmark] Forward+: %.3f ms/frame synchronized wall\n",
         comparison.forward_plus_ms
     );
     std::printf(
