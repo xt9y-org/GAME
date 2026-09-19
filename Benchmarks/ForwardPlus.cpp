@@ -198,8 +198,8 @@ int main()
         sampleMode(renderers, rasterizer, world, false, full_loop);
 
     const Rendering::ForwardPlusBenchmark::Comparison comparison{
-        full_loop.averageMs(),
-        forward_plus.averageMs(),
+        full_loop.medianMs(),
+        forward_plus.medianMs(),
     };
 
     std::printf(
@@ -211,15 +211,17 @@ int main()
         full_loop.count
     );
     std::printf(
-        "[Forward+ Benchmark] full light loop: %.3f ms/frame synchronized wall\n",
-        comparison.full_loop_ms
+        "[Forward+ Benchmark] full light loop: %.3f ms median (%.3f mean) synchronized wall\n",
+        comparison.full_loop_ms,
+        full_loop.averageMs()
     );
     std::printf(
-        "[Forward+ Benchmark] Forward+: %.3f ms/frame synchronized wall\n",
-        comparison.forward_plus_ms
+        "[Forward+ Benchmark] Forward+: %.3f ms median (%.3f mean) synchronized wall\n",
+        comparison.forward_plus_ms,
+        forward_plus.averageMs()
     );
     std::printf(
-        "[Forward+ Benchmark] delta: %+.3f ms/frame, speedup: %+.2f%%\n",
+        "[Forward+ Benchmark] median delta: %+.3f ms/frame, speedup: %+.2f%%\n",
         comparison.deltaMs(),
         comparison.speedupPercent()
     );
