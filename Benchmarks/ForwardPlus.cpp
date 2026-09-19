@@ -26,6 +26,9 @@ using Rendering::ForwardPlusBenchmark::Samples;
 constexpr std::size_t WarmupFrames = 30u;
 constexpr std::size_t SampleFrames = 120u;
 constexpr int LightGrid = 16;
+constexpr int LightCount = LightGrid * LightGrid;
+constexpr int PointLightCount = LightCount / 2;
+constexpr int SpotLightCount = LightCount - PointLightCount;
 
 bool writeScene(const std::filesystem::path& path)
 {
@@ -51,13 +54,14 @@ void addLights(Ecs::World& world)
                 static_cast<float>(LightGrid - 1);
             const float fy = -8.0f + 16.0f * static_cast<float>(y) /
                 static_cast<float>(LightGrid - 1);
+            const bool spot = ((x + y) & 1) != 0;
 
             const Ecs::Entity light = world.createEntity();
             world.add<Renderer::Transform>(light, Renderer::Transform{
                 .position = {fx, fy, -17.0f},
             });
             world.add<Renderer::LightComponent>(light, Renderer::LightComponent{
-                .type = Renderer::LightType::Point,
+                .type = spot ? Renderer::LightType::Spot : Renderer::LightType::Point,
                 .color = {
                     0.65f + 0.35f * static_cast<float>(x & 1),
                     0.65f + 0.35f * static_cast<float>(y & 1),
@@ -65,6 +69,8 @@ void addLights(Ecs::World& world)
                 },
                 .intensity = 180.0f,
                 .range = 4.5f,
+                .inner_cone_degrees = 24.0f,
+                .outer_cone_degrees = 42.0f,
             });
         }
     }
@@ -197,8 +203,9 @@ int main()
     };
 
     std::printf(
-        "[Forward+ Benchmark] %d point lights, %dx%d, %zu samples/mode\n",
-        LightGrid * LightGrid,
+        "[Forward+ Benchmark] %d point + %d spot lights, %dx%d, %zu samples/mode\n",
+        PointLightCount,
+        SpotLightCount,
         Window::width(),
         Window::height(),
         full_loop.count
