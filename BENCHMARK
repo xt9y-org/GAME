@@ -109,17 +109,30 @@ GI / acceleration CPU
         64     1         64   2078     16       23.380 ms               0.802 ms      0.015 ms
        256     1        256   2174     18       26.530 ms               3.216 ms      0.017 ms
 
-  The flat BLAS count proves mesh-local acceleration reuse is working. Probe solving remains negligible across the sweep. The transform cost scaled because the TLAS was being repartitioned with nth_element after every transform revision.
+  The first stable-topology refit pass removed repartitioning but still retained full-scene transform work. Immediately before exact dirty-entity synchronization, 256 copies still measured 2.605 ms median TLAS sync and 2.822 ms median total GI update.
+
+  Shared-BLAS scaling after exact dirty-entity / dirty-instance / dirty-branch TLAS synchronization:
+    copies  BLAS  instances  nodes  depth  initial build  transform/TLAS median  total GI update median  probe median
+         1     1          1   2048     12       25.188 ms               0.019 ms                 0.041 ms      0.012 ms
+        16     1         16   2054     14       25.372 ms               0.020 ms                 0.048 ms      0.007 ms
+        64     1         64   2078     16       26.894 ms               0.021 ms                 0.098 ms      0.017 ms
+       256     1        256   2174     18       29.262 ms               0.023 ms                 0.246 ms      0.019 ms
+
+  The same exact-dirty build measured the single-copy synthetic scene at 25.355 ms initial topology sync, 0.047 ms unchanged-scene total GI update, 0.018 ms transform/TLAS sync, 0.039 ms total transform-frame GI update and 0.012 ms probe update.
+
+  The TLAS transform result is now effectively flat across 1 / 16 / 64 / 256 copies. At 256 instances, exact dirty synchronization reduces the measured TLAS transform cost from 2.605 ms immediately before the change to 0.023 ms, roughly 113x. Relative to the original 3.216 ms shared-BLAS baseline it is roughly 140x lower. Total GI update at 256 copies fell from 2.822 ms to 0.246 ms while probe work remained negligible.
 
   Decision from the measurements:
     Horse BLAS leaves use 8 triangles.
-    Relative to leaf 1 this cuts node count by 87.5%, topology build by about 28.5%, and the TLAS architecture reduces single-instance transform synchronization from roughly 2.7-3.0 ms to roughly 0.02 ms on the synthetic scene.
+    Relative to leaf 1 this cuts node count by 87.5% and topology build by about 28.5% in the original leaf sweep.
     Closest-hit traversal is near-child-first and occlusion uses a dedicated any-hit early-out path.
-    Transform-only TLAS updates now preserve leaf membership/order and refit AABBs bottom-up instead of repartitioning the tree. Topology/entity/mesh changes still rebuild the TLAS.
+    Transform-only rigid updates use exact ECS dirty-entity history, cached ancestor-to-render-item dependencies, dirty instance updates and leaf-to-root TLAS AABB refits.
+    Coarse transform marks, missing dirty history and topology/resource changes retain the safe full synchronization fallback.
+    Do not add a periodic TLAS rebuild heuristic from transform-update cost alone; the current refit cost no longer scales with unchanged instance count.
 
   Current architecture:
     Rigid world meshes use reusable mesh-local BLAS data plus an instance TLAS.
-    Moving a rigid instance updates TLAS/instance state without rebuilding its mesh BLAS.
+    Moving a rigid instance updates only affected render items, acceleration instances and TLAS branches when exact dirtiness is available.
     Skinned/deformed geometry remains on the world-space SceneCache fallback.
     GI and Volumetrics consume one shared CPU acceleration state.
     Volumetrics uploads that shared state into the same flat TLAS/BLAS representation for GPU shadow traversal.
@@ -138,4 +151,4 @@ GI / acceleration CPU
   Synthetic fallback also runs a shared-BLAS scaling sweep with 1 / 16 / 64 / 256 model copies. Each copy is parented at a different world transform, so the sweep measures TLAS growth while the mesh BLAS remains reusable. For every scale it reports BLAS count, instance count, nodes/depth, initial build cost, transform-only TLAS cost, total GI update cost and probe cost.
 
   Remaining GI decision:
-    rerun the instance sweep after the TLAS refit change, then use that result plus at least one representative GAME scene before deciding whether a baked/static-probe path is worth adding. Do not add another GI representation without that evidence.
+    Profile at least one representative GAME world scene before deciding whether a baked/static-probe path is worth adding. Synthetic acceleration scaling no longer justifies a second GI representation by itself. Do not add another GI representation without representative scene evidence.
