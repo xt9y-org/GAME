@@ -124,7 +124,7 @@ bool apply(Ecs::World& world, Ecs::Entity entity, const Pose& pose)
     transform->position = pose.position;
     transform->rotation = pose.rotation;
     transform->matrix_override_enabled = false;
-    world.markChanged(Ecs::ChangeKind::Transform);
+    world.markChanged(Ecs::ChangeKind::Transform, entity);
     return true;
 }
 
