@@ -1,6 +1,6 @@
 Renderer benchmark targets
 
-All GPU-facing benchmarks use synchronized wall time with SDL_WaitForGPUIdle so CPU submission time is not mistaken for completed GPU frame time. Median is the primary comparison; mean is printed as a noise indicator.
+GPU-facing benchmarks synchronize through Horse's backend-neutral Renderer::waitIdle() before recording wall time, so CPU command submission is not mistaken for completed GPU frame time. Median is the primary comparison; mean is printed as a noise indicator.
 
 Forward+ lighting
   c run forward-plus-benchmark
@@ -26,10 +26,11 @@ Local shadows
 GI / BVH CPU
   c run gi-benchmark
 
-  Default scene is a deterministic 8192-triangle synthetic grid.
+  If Assets/Sponza/sponza.obj exists locally, it is used automatically.
+  Otherwise the benchmark falls back to a deterministic 8192-triangle synthetic grid.
   Reports initial topology/BVH build, geometry/refit sync, probe update cost, and cache update counts.
 
-  To measure a real GAME model:
+  To measure another real GAME model:
     c build gi-benchmark
     ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
 
