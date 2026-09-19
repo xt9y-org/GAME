@@ -5,23 +5,55 @@ GPU-facing benchmarks synchronize through Horse's backend-neutral Renderer::wait
 Forward+ lighting
   c run forward-plus-benchmark
 
-  128 point + 128 spot lights at 1280x720.
+  128 point + 128 spot lights.
   Compares the original full-light loop against Forward+ with alternating sample order.
-  Use this result before adding depth slices.
+
+  2026-09-19 MacBook Air M2 / Metal, 2560x1440 framebuffer:
+    full loop   101.739 ms median
+    Forward+     41.881 ms median
+    delta       -59.858 ms
+    speedup      58.83%
+
+  Decision:
+    Keep tiled Forward+.
+    Do not add depth slices from this result; 2D tiles already remove most of the many-light cost.
 
 Volumetrics
   c run volumetrics-benchmark
 
-  Sweeps Low / Medium / High / Ultra at 1280x720.
+  Sweeps Low / Medium / High / Ultra.
   Compares Volumetrics disabled vs enabled for every quality level.
-  Use this result before deciding whether froxel migration is justified.
+
+  2026-09-19 MacBook Air M2 / Metal, 2560x1440 framebuffer:
+    Low       16.555 ms enabled / 16.791 ms disabled median
+    Medium    16.736 ms enabled / 16.817 ms disabled median
+    High      16.595 ms enabled / 16.797 ms disabled median
+    Ultra     46.336 ms enabled / 16.825 ms disabled median
+
+  The ~16.8 ms floor is consistent with VSYNC and prevents precise sub-frame overhead measurement for Low/Medium/High. Ultra clearly exceeds that floor by ~29.5 ms.
+
+  Decision:
+    Keep the existing march/blur architecture for Low/Medium/High.
+    Do not start froxel migration from this result.
+    Ultra remains an explicitly expensive full-resolution quality mode.
 
 Local shadows
   c run shadow-benchmark
 
   8 point + 8 spot shadow lights over 2048 triangles at Medium quality.
   Reports the cold dirty frame, steady cached frames, and one-light invalidation cost.
-  Use this result before adding a dedicated local shadow atlas.
+
+  2026-09-19 MacBook Air M2 / Metal, 2560x1440 framebuffer:
+    cold dirty frame       52.424 ms
+    cached                 16.815 ms median
+    one-light invalidated  16.937 ms median
+    invalidation delta      0.121 ms
+
+  The cached measurements also sit near the VSYNC floor, but the cold-vs-cached gap and tiny single-light invalidation delta show the dirty-layer cache is doing its job.
+
+  Decision:
+    Keep the current local shadow array + dirty-layer cache.
+    Do not add a dedicated local-light atlas from this result.
 
 GI / BVH CPU
   c run gi-benchmark
@@ -30,8 +62,34 @@ GI / BVH CPU
   Otherwise the benchmark falls back to a deterministic 8192-triangle synthetic grid.
   Sweeps 1 / 4 / 8 triangles per BVH leaf and reports topology build, geometry/refit, node count/depth, probe update cost, and cache update counts.
 
+  2026-09-19 MacBook Air M2 synthetic 8192-triangle grid:
+    leaf 1
+      nodes          16383
+      depth             14
+      topology       31.406 ms CPU
+      refit           2.965 ms median CPU
+      probe           0.008 ms median CPU
+
+    leaf 4
+      nodes           4095
+      depth             12
+      topology       25.028 ms CPU
+      refit           2.702 ms median CPU
+      probe           0.008 ms median CPU
+
+    leaf 8
+      nodes           2047
+      depth             11
+      topology       22.463 ms CPU
+      refit           2.675 ms median CPU
+      probe           0.008 ms median CPU
+
+  Decision:
+    Horse default BVH leaf size is now 8 triangles.
+    Relative to leaf 1 this cuts node count by 87.5%, topology build by about 28.5%, and transform refit by about 9.8% with no measured probe-update regression.
+    Closest-hit traversal is near-child-first and occlusion uses a dedicated any-hit early-out path.
+    World-space triangle maintenance remains the next GI structural bottleneck; TLAS/BLAS is the next large architecture step if representative real scenes confirm it.
+
   To measure another real GAME model:
     c build gi-benchmark
     ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
-
-  Use representative real models before deciding dynamic GI vs baked/static probes or TLAS/BLAS work.
