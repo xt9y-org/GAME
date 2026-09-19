@@ -8,7 +8,7 @@
 #include <Renderer/Manager.hpp>
 #include <Renderer/ModelScene.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
-#include <Renderer/SDLGPU/Context.hpp>
+#include <Renderer/Renderer.hpp>
 
 #include <Rendering/ForwardPlusBenchmark.hpp>
 
@@ -90,7 +90,7 @@ bool sampleMode(
 
         const Clock::time_point started = Clock::now();
         renderers.render(world);
-        if (!SDL_WaitForGPUIdle(Renderer::SDLGPU::device())) return false;
+        if (!Renderer::waitIdle()) return false;
         const double milliseconds = std::chrono::duration<double, std::milli>(
             Clock::now() - started
         ).count();
