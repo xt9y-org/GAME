@@ -10,10 +10,13 @@
 #include <Renderer/Quality.hpp>
 
 #include <Rendering/Benchmark.hpp>
+#include <Rendering/GiBenchmarkScene.hpp>
 
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -21,11 +24,20 @@
 
 namespace {
 
+using Clock = std::chrono::steady_clock;
+
 constexpr int SyntheticGrid = 64;
+constexpr std::size_t SteadySamples = 64u;
 constexpr std::size_t TransformSamples = 64u;
 constexpr std::size_t ScaleTransformSamples = 32u;
 constexpr std::array<std::size_t, 4> InstanceSweep {{1u, 16u, 64u, 256u}};
 constexpr const char *DefaultScene = "Assets/Sponza/sponza.obj";
+constexpr const char *SceneEnvironment = "GAME_GI_BENCHMARK_SCENE";
+
+double elapsedMilliseconds(Clock::time_point started)
+{
+    return std::chrono::duration<double, std::milli>(Clock::now() - started).count();
+}
 
 const char *sceneUpdateName(Renderer::GlobalIllumination::Debug::SceneUpdate update)
 {
@@ -202,14 +214,18 @@ bool runInstanceSweep(
             Renderer::GlobalIllumination::Debug::statistics();
 
         Rendering::Benchmark::Samples tlas_samples;
+        Rendering::Benchmark::Samples update_samples;
         Rendering::Benchmark::Samples probe_samples;
         std::size_t geometry_updates = 0u;
         Renderer::Transform *transform = world.get<Renderer::Transform>(parents.front());
         for (std::size_t sample = 0u; sample < ScaleTransformSamples && transform; ++sample) {
             transform->position.x += (sample & 1u) == 0u ? 0.01f : -0.01f;
             world.markChanged(Ecs::ChangeKind::Transform);
+
+            const Clock::time_point started = Clock::now();
             Renderer::Internal::updateShadingState(world);
             (void)Renderer::GlobalIllumination::update(world);
+            update_samples.add(elapsedMilliseconds(started));
 
             const Renderer::GlobalIllumination::Debug::Statistics stats =
                 Renderer::GlobalIllumination::Debug::statistics();
@@ -221,7 +237,7 @@ bool runInstanceSweep(
         }
 
         std::printf(
-            "[GI Benchmark] copies=%zu BLAS=%zu instances=%zu nodes=%zu depth=%u | build %.3f ms | TLAS %.3f ms median (%.3f mean) | probe %.3f ms median\n",
+            "[GI Benchmark] copies=%zu BLAS=%zu instances=%zu nodes=%zu depth=%u | build %.3f ms | TLAS %.3f ms median (%.3f mean) | GI update %.3f ms median | probe %.3f ms median\n",
             copy_count,
             initial.blases,
             initial.instances,
@@ -230,6 +246,7 @@ bool runInstanceSweep(
             initial.scene_build_ms,
             tlas_samples.medianMs(),
             tlas_samples.averageMs(),
+            update_samples.medianMs(),
             probe_samples.medianMs()
         );
         if (geometry_updates != ScaleTransformSamples) {
@@ -251,14 +268,24 @@ bool runInstanceSweep(
 
 int main(int argc, char **argv)
 {
-    bool generated_scene = false;
-    std::filesystem::path scene_path;
-    if (argc >= 2) {
-        scene_path = argv[1];
-    } else if (std::filesystem::exists(DefaultScene)) {
-        scene_path = DefaultScene;
-    } else {
-        generated_scene = true;
+    const std::filesystem::path argument_scene =
+        argc >= 2 ? std::filesystem::path(argv[1]) : std::filesystem::path{};
+    const char *configured_scene = std::getenv(SceneEnvironment);
+    const std::filesystem::path environment_scene =
+        configured_scene && configured_scene[0] != '\0'
+            ? std::filesystem::path(configured_scene)
+            : std::filesystem::path{};
+
+    Rendering::GiBenchmarkScene::Selection selection = Rendering::GiBenchmarkScene::select(
+        argument_scene,
+        environment_scene,
+        DefaultScene,
+        std::filesystem::exists(DefaultScene)
+    );
+
+    bool generated_scene = selection.generated();
+    std::filesystem::path scene_path = selection.path;
+    if (generated_scene) {
         scene_path = std::filesystem::temp_directory_path() / "game-gi-benchmark.obj";
         if (!writeSyntheticScene(scene_path)) {
             std::fprintf(stderr, "[GI Benchmark] could not create synthetic scene\n");
@@ -319,6 +346,10 @@ int main(int argc, char **argv)
         generated_scene ? "synthetic 64x64 grid" : scene_path.string().c_str()
     );
     std::printf(
+        "[GI Benchmark] scene source: %s\n",
+        Rendering::GiBenchmarkScene::sourceName(selection.source)
+    );
+    std::printf(
         "[GI Benchmark] rigid acceleration: %zu BLAS, %zu instances, %zu unique triangles, %zu nodes, depth %u\n",
         initial.blases,
         initial.instances,
@@ -333,6 +364,23 @@ int main(int argc, char **argv)
         initial.probe_update_ms
     );
 
+    Rendering::Benchmark::Samples steady_update_samples;
+    Rendering::Benchmark::Samples steady_probe_samples;
+    for (std::size_t sample = 0u; sample < SteadySamples; ++sample) {
+        const Clock::time_point started = Clock::now();
+        Renderer::Internal::updateShadingState(world);
+        (void)Renderer::GlobalIllumination::update(world);
+        steady_update_samples.add(elapsedMilliseconds(started));
+        steady_probe_samples.add(Renderer::GlobalIllumination::Debug::statistics().probe_update_ms);
+    }
+    std::printf(
+        "[GI Benchmark] unchanged-scene GI update: %.3f ms median (%.3f mean), %zu samples | probe %.3f ms median\n",
+        steady_update_samples.medianMs(),
+        steady_update_samples.averageMs(),
+        steady_update_samples.count,
+        steady_probe_samples.medianMs()
+    );
+
     const Ecs::Entity movable = movableEntity(world, scene);
     if (movable == Ecs::INVALID_ENTITY) {
         std::fprintf(stderr, "[GI Benchmark] no movable render entity found\n");
@@ -345,14 +393,18 @@ int main(int argc, char **argv)
     }
 
     Rendering::Benchmark::Samples tlas_samples;
+    Rendering::Benchmark::Samples transform_update_samples;
     Rendering::Benchmark::Samples probe_samples;
     std::size_t geometry_updates = 0u;
     Renderer::Transform *transform = world.get<Renderer::Transform>(movable);
     for (std::size_t sample = 0u; sample < TransformSamples && transform; ++sample) {
         transform->position.x += (sample & 1u) == 0u ? 0.01f : -0.01f;
         world.markChanged(Ecs::ChangeKind::Transform);
+
+        const Clock::time_point started = Clock::now();
         Renderer::Internal::updateShadingState(world);
         (void)Renderer::GlobalIllumination::update(world);
+        transform_update_samples.add(elapsedMilliseconds(started));
 
         const Renderer::GlobalIllumination::Debug::Statistics stats =
             Renderer::GlobalIllumination::Debug::statistics();
@@ -370,6 +422,12 @@ int main(int argc, char **argv)
         tlas_samples.medianMs(),
         tlas_samples.averageMs(),
         geometry_updates
+    );
+    std::printf(
+        "[GI Benchmark] transform GI update: %.3f ms median (%.3f mean), %zu samples\n",
+        transform_update_samples.medianMs(),
+        transform_update_samples.averageMs(),
+        transform_update_samples.count
     );
     std::printf(
         "[GI Benchmark] probe update: %.3f ms median (%.3f mean), %zu samples\n",
