@@ -34,6 +34,7 @@
 Horse
 └── Renderer
     ├── Rasterizer
+    │   ├── RenderGraph
     │   ├── Visibility
     │   ├── Shadows
     │   ├── PBR
@@ -114,7 +115,7 @@ Renderer
 └── Visibility
     ├── Frustum Culling
     ├── Occlusion Culling
-    └── GPU Driven           once implemented
+    └── GPU Driven
 ```
 
 Camera target:
@@ -282,7 +283,7 @@ conservative object-bound visibility tests
 
 **Goal:** Stop spending CPU/draw work on objects that cannot contribute to the frame.
 
-Current first stage:
+Current path:
 
 ```text
 CPU frustum entity mask
@@ -295,22 +296,29 @@ GPU static-object AABB test
     ↓
 refined entity visibility mask
     ↓
-PBR vertex/fragment path
+GPU compacted index ranges + indirect commands
+    ↓
+material-batched world PBR draws
 ```
 
 - Uses object/entity bounds, not triangle BVH nodes.
 - Dynamic/skinned/deformed/parented/overlay entities stay conservatively visible in the first implementation.
-- Current GPU visibility removes expensive shaded contribution but does not yet compact CPU draw calls.
-- Preserve CPU fallback where backend capability requires it.
-
-GPU-driven submission must not be implemented as a cosmetic swap from `SDL_DrawGPUPrimitives` to an indirect call. Horse's current raster draw representation still pushes a per-draw vertex offset through `VDraw.x`, indexes storage-backed vertices from `SV_VertexID`, and rebinds material textures per draw range. A useful GPU-driven path therefore needs a compact GPU draw list plus a material/draw batching representation that removes those CPU-side per-draw dependencies. Until that exists, keep the current explicit submission path rather than adding a misleading `GPU Driven` switch.
+- World opaque/masked draws are grouped by material and GPU-compacted from the refined visibility mask.
+- A compute reset pass and compact pass build one compact indirect command per eligible world material batch.
+- Hidden objects no longer consume world PBR vertex/draw work on the GPU-driven path.
+- Alpha-blended draws are deliberately excluded from compaction and remain in original per-item order so blending semantics are preserved.
+- Camera-layer/viewmodel draws remain on the static indexed/indirect path.
+- If compaction is unavailable or disabled, Horse keeps the stable static indexed/indirect fallback.
+- GAME exposes the real `Visibility -> GPU Driven` control; it gates compaction rather than toggling a cosmetic indirect-call substitution.
 
 - [x] Add object bounds buffer.
 - [x] Add GPU Hi-Z visibility compute pass.
-- [ ] Add compact visible instance/draw list.
+- [x] Add compact visible instance/draw list.
 - [x] Connect GPU visibility results to Rasterizer shading through the existing entity visibility buffer.
-- [ ] Redesign eligible raster batches so draw metadata and material selection can be consumed without per-draw CPU uniform/texture rebinding.
-- [ ] Move eligible batches to indirect/GPU-driven submission so hidden objects also stop consuming draw/vertex work.
+- [x] Redesign eligible raster batches so material selection no longer requires per-item CPU draw submission.
+- [x] Move eligible world batches to indirect/GPU-driven submission so hidden objects stop consuming draw/vertex work.
+- [x] Preserve ordered alpha-blended and camera-layer fallback paths.
+- [x] Verify the GPU-driven path through a real GAME Metal build/run.
 
 ## Phase 5 — Forward+ / Clustered Lighting
 
@@ -394,7 +402,7 @@ Player controls:
 - [x] Composite AO into PBR indirect/ambient contribution.
 - [x] Add GAME Debug controls without exposing internal sample counts.
 - [x] Keep AO inside the existing 16-sampler raster budget by using a storage buffer for the filtered result.
-- [ ] Verify AO compute shaders, storage-buffer binding and visual result on Metal through a real GAME build/run.
+- [x] Verify AO compute shaders, storage-buffer binding and visual result on Metal through a real GAME build/run.
 
 ## Phase 8 — Reflections + Better IBL
 
@@ -406,9 +414,7 @@ Priority:
 3. Selective planar reflection support if later required by a renderer feature.
 4. SSR only if it complements probes cleanly and does not become the primary reflection source.
 
-Current first-stage implementation reuses Horse's existing environment texture and sampler instead of introducing another backend-specific reflection resource. The active environment texture receives a physical mip chain; Reflection quality limits the usable roughness mip range. PBR selects an explicit environment LOD from material roughness and applies an analytic split-sum BRDF approximation. Reflection enabled/strength/quality state is packed into the existing shared shading-state header, so no extra raster sampler or descriptor set is consumed.
-
-This first stage is intentionally an IBL foundation rather than the final environment prefilter. Standard generated mips are not a replacement for a dedicated GGX-prefiltered environment representation, and local reflection probes still require their own scene representation and blending policy.
+Current implementation includes a cached reflection preprocessing path rather than relying only on ordinary generated mipmaps. Horse builds roughness-dependent GGX-prefiltered reflection data and irradiance SH, while PBR keeps the analytic split-sum BRDF approximation. Local reflection probes use `ProbeComponent` volumes, priority selection and blending of overlapping probes, with an SDL_GPU probe texture-array path. Reflection enabled/strength/quality state remains shared renderer state rather than game/backend-specific policy.
 
 Player controls:
 - Enabled
@@ -416,13 +422,13 @@ Player controls:
 - Strength
 
 - [x] Add non-destructive reflection feature/settings API and quality policy tests.
-- [x] Generate an environment mip chain without consuming another raster sampler.
-- [x] Add roughness-aware environment LOD selection.
+- [x] Generate the reflection mip/prefilter chain without consuming another normal material sampler.
+- [x] Add roughness-aware reflection LOD selection.
 - [x] Replace the previous ad-hoc environment roughness loss with analytic split-sum BRDF integration.
 - [x] Add GAME Reflections controls without exposing mip/internal sampling details.
-- [ ] Verify environment mip generation, HLSL `SampleLevel` path and visual controls on the Metal backend through a real GAME build/run.
-- [ ] Add dedicated irradiance + GGX-prefiltered environment preprocessing or an equivalent cached representation if measurements/quality justify it.
-- [ ] Add local reflection probe representation and blending.
+- [x] Verify reflection sampling and visual controls on the Metal backend through a real GAME build/run.
+- [x] Add cached irradiance SH + GGX-prefiltered reflection preprocessing.
+- [x] Add local reflection probe representation, priority selection and blending.
 
 ## Phase 9 — Global Illumination Cleanup
 
@@ -434,9 +440,12 @@ Player controls:
 - Investigate baked lightmaps + SH/light probes for static scenes before making dynamic GI more expensive.
 - Only after profiling, consider TLAS/BLAS + SAH BVH upgrade described above.
 
+Current CPU profiling hooks deliberately live in `GlobalIllumination::Debug`, not the normal Renderer menu. They report total trace-scene sync cost, whether the last sync was topology/geometry/resources, SceneCache update counters, photon-map rebuild cost and active per-frame probe-update cost. These are CPU timings and are never presented as GPU timings.
+
 - [x] Add GI quality presets.
 - [x] Remove low-level GAME Debug controls from the normal renderer menu.
-- [ ] Profile current CPU GI/BVH cost.
+- [x] Add CPU profiling hooks for trace-scene/BVH changes, photon rebuilds and per-frame probe work.
+- [ ] Profile current CPU GI/BVH cost on representative GAME scenes.
 - [ ] Decide dynamic GI vs baked/static-probe split from measured data.
 
 ## Phase 10 — Volumetrics Upgrade
@@ -451,8 +460,11 @@ Player controls:
 - Density
 - Distance
 
+**Status:** The current volumetric march/blur/composite path is functional on the Metal backend. Compute resource spaces follow the SDL_GPU convention (`space0` sampled/read-only, `space1` writable, `space2` uniforms), and pipeline initialization no longer retries/logs every frame after a hard failure.
+
 - [x] Add Volumetrics quality presets.
 - [x] Hide raw resolution/sample/blur controls from normal Debug UI.
+- [x] Verify the current volumetric compute path through a real GAME Metal build/run.
 - [ ] Profile existing implementation.
 - [ ] Evaluate froxel migration only from measured results.
 
@@ -460,30 +472,28 @@ Player controls:
 
 **Goal:** Keep pass/resource ownership clean as the rasterizer grows.
 
-The graph should describe dependencies and resource lifetime; it must not become a giant abstraction layer around SDL_GPU.
+`Renderer::RenderGraph::Graph` is intentionally small. It owns logical resource read/write dependencies, explicit pass dependencies, stable topological scheduling, cycle/multi-writer validation, transient logical lifetime ranges and pass callbacks. It does not wrap SDL_GPU resources or command recording.
 
-Example:
+The Rasterizer currently uses the graph for the dependency-sensitive pre-opaque chain:
 
 ```text
 Depth
  ├── Hi-Z
- ├── Shadows
+ │    └── Visibility
+ │         └── GPU Draw Compaction
  └── AO
 
-Visibility
- └── Opaque
-
 Lighting
- ├── Opaque
- └── Volumetrics
-
-Opaque
- ├── Reflections
- └── Transparent
+ └── Forward+
 ```
 
-- [ ] Introduce only when enough passes exist to remove actual duplication/resource lifetime complexity.
-- [ ] Keep API small and code-first.
+Shadow updates remain explicit because they own independent dirty-layer caching. Sky/PBR/camera-layer render-pass command recording also remains direct SDL_GPU code rather than being hidden behind a giant graph abstraction.
+
+- [x] Introduce the graph now that pass count/dependencies remove real sequencing duplication.
+- [x] Keep API small and code-first.
+- [x] Add dependency scheduling, cycle/multi-writer validation and logical lifetime tests.
+- [x] Integrate Depth, Hi-Z, Visibility, GPU draw compaction, AO and Forward+ scheduling.
+- [ ] Verify the render-graph-integrated Rasterizer through a full GAME Metal build/run.
 
 ---
 
