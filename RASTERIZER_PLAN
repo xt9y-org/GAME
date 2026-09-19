@@ -139,61 +139,42 @@ The normal menu must not expose `Rays / Probe`, `Probe Budget`, `Probe Dimension
 
 ---
 
-# Current BVH
+# Current Acceleration Structure
 
-Horse's existing BVH is **not** the Rasterizer's normal visibility system. It is a triangle-level acceleration structure in `Renderer::Scenes::SceneCache`, currently used by GI ray queries and by the experimental BVH visualizer.
+Horse's ray-query acceleration is **not** the Rasterizer's normal visibility system. Raster visibility remains object/instance bounds + depth prepass + Hi-Z + GPU occlusion. GI and Volumetrics use a separate shared acceleration state for ray queries.
 
-Current build:
+Current rigid path:
 
 ```text
 scene render items
     ↓
-world-space triangles
+shared AccelerationState
     ↓
-triangle centroids
-    ↓
-choose largest centroid extent X/Y/Z
-    ↓
-median split with std::nth_element
-    ↓
-binary AABB tree
+unique rigid meshes ────────→ reusable mesh-local BLAS
+    │                            ├── local triangles
+    │                            ├── 8 triangles / leaf
+    │                            └── median AABB tree
+    │
+    └── rigid instances ─────→ TLAS
+                                 ├── world transforms
+                                 ├── world AABBs
+                                 ├── 4 instances / leaf
+                                 └── transform-only AABB refit
 ```
 
-- `GpuNode` contains an AABB.
-- Internal nodes store two child indices.
-- Leaf nodes use `LeafBit` and own a contiguous triangle range.
-- The current default effectively allows one triangle per leaf because `leaf_size_` defaults to zero and build uses `max(leaf_size_, 1)`.
-- Topology changes rebuild the tree.
-- Transform/animation/deformation-only changes update world triangles and refit node AABBs bottom-up without rebuilding topology.
-- GI traversal uses CPU AABB slab tests followed by Möller-Trumbore triangle tests.
-- Closest-hit traversal currently pushes both children rather than near-child-first sorting.
-- GI also uses the same structure for shadow/occlusion checks from probe hits toward lights.
-- `Debug -> Experimental -> Show BVH` visualizes AABBs by tree depth.
+Dynamic/skinned/deformed geometry remains on the world-space `SceneCache` fallback until a dedicated deforming-BLAS path is justified.
 
-Do not use this triangle BVH as the Rasterizer's main occlusion system. Raster visibility uses object/instance bounds + Hi-Z on the GPU.
+- `GpuNode` contains an AABB; internal nodes store two child indices and leaves own contiguous ranges.
+- BLAS data is cached by mesh handle + mesh revision and reused by all rigid instances of that mesh.
+- Transform-only rigid changes update instance transforms/bounds and refit the existing TLAS bottom-up; they do not rebuild mesh BLAS data or repartition the TLAS.
+- Entity/instance/mesh topology changes rebuild TLAS partitioning.
+- Mesh geometry changes rebuild the affected BLAS and refresh/refit instance bounds.
+- GI CPU traversal is near-child-first for closest-hit rays and uses a specialized any-hit early-out path for occlusion.
+- Volumetrics uploads the same shared CPU TLAS/BLAS state to SDL_GPU buffers and uses it for volumetric shadow traversal.
+- GI and Volumetrics no longer maintain duplicate CPU acceleration copies.
+- The experimental BVH visualizer remains a debug-only tool and must not become the Rasterizer's primary visibility mechanism.
 
-Future GI BVH direction, after the rasterizer foundation is complete:
-
-```text
-GI Acceleration
-├── TLAS
-│   └── scene instances / transforms
-│
-└── BLAS
-    └── reusable mesh-local triangles
-
-Builder
-├── binned SAH
-├── 4-8 triangles per leaf
-└── static/dynamic separation
-
-Traversal
-├── near child first
-├── closest-hit early pruning
-└── specialized any-hit path for occlusion
-```
-
-This avoids baking duplicate mesh instances into world-space triangle arrays and makes static mesh acceleration reusable.
+Measured synthetic results are tracked in `BENCHMARK`. The 8-triangle BLAS leaf size is the measured winner from the 1/4/8 sweep. Binned SAH or a periodic TLAS rebuild heuristic should only be added if representative traversal measurements show that the current median trees/refits lose enough query performance to justify the added builder cost.
 
 ---
 
@@ -324,7 +305,7 @@ material-batched world PBR draws
 
 **Goal:** Keep PBR cost scalable as scenes gain many lights.
 
-The first implementation is tiled Forward+: 32x32 screen tiles with GPU-generated per-tile light lists. This deliberately establishes the scalable light-list path before adding depth slices. Depth-clustered refinement can be added later if measurements show the extra assignment complexity is useful.
+The implementation is tiled Forward+: 32x32 screen tiles with GPU-generated per-tile light lists.
 
 ```text
 camera frustum
@@ -347,15 +328,15 @@ PBR shades only relevant lights
 - If Forward+ initialization or assignment fails, Rasterizer disables it and uses the original full-light loop.
 - Forward+ is an internal rasterizer optimization, not another game-facing rendering system or normal Debug quality control.
 
-**Status:** Forward+ HLSL/resource binding has been compiled and run successfully through the real GAME Metal backend. Stress testing with many point/spot lights is still outstanding.
+**Measured status:** 128 point + 128 spot lights at 2560x1440 on the MacBook Air M2 / Metal measured 101.739 ms median for the full light loop versus 41.881 ms for Forward+, a 58.83% speedup. This result does not justify adding depth slices.
 
 - [x] Add tiled Forward+ grid and GPU tile buffers.
 - [x] Add GPU light-to-tile assignment using the shared shading/light buffer.
 - [x] Change PBR direct-light loop to tile-local light indices with conservative full-loop fallback.
 - [x] Add Forward+ grid/settings tests.
 - [x] Verify Forward+ HLSL and resource binding on Metal through a real GAME build/run.
-- [ ] Stress-test many point/spot lights and compare frame cost against the full-light fallback.
-- [ ] Add depth slices only if profiling shows 2D tiles are insufficient.
+- [x] Stress-test many point/spot lights and compare frame cost against the full-light fallback.
+- [x] Evaluate depth slices from profiling; current measurements do not justify adding them.
 
 ## Phase 6 — Shadow System Upgrade
 
@@ -378,11 +359,13 @@ Shadows
 
 Player controls remain only Enabled, Quality, Distance and visible Softness where supported.
 
+**Measured status:** with 8 point + 8 spot shadow lights, cached frames measured 16.815 ms median and one-light invalidation 16.937 ms median, only +0.121 ms above the cached floor. The current dirty-layer cache is effective; a new local-light atlas is not justified by this result.
+
 - [x] Directional cascades already use texel snapping.
 - [x] Add explicit cascade transition blending.
 - [x] Current comparison sampler already provides filtered shadow sampling.
 - [x] Cache local point/spot shadow layers independently so camera-only movement does not redraw them.
-- [ ] Add a dedicated local-light shadow atlas only if profiling shows the current array allocation is a meaningful limitation.
+- [x] Evaluate a dedicated local-light shadow atlas from profiling; current measurements do not justify adding one.
 
 ## Phase 7 — Ambient Occlusion
 
@@ -437,22 +420,34 @@ Player controls:
 - Debug exposes Enabled, Quality and Strength only.
 - Quality presets own rays/probe budgets/probe dimensions/bounce budgets/photon limits internally.
 - Photon mapping remains an implementation choice rather than a player-facing toggle unless a later visual mode genuinely requires it.
-- Investigate baked lightmaps + SH/light probes for static scenes before making dynamic GI more expensive.
-- Only after profiling, consider TLAS/BLAS + SAH BVH upgrade described above.
+- A baked/static-probe path is not added merely because it is conventional; it must be justified by representative GAME-scene measurements.
 
-Current CPU profiling hooks deliberately live in `GlobalIllumination::Debug`, not the normal Renderer menu. They report total trace-scene sync cost, whether the last sync was topology/geometry/resources, SceneCache update counters, photon-map rebuild cost and active per-frame probe-update cost. These are CPU timings and are never presented as GPU timings.
+Current acceleration/profiling state:
+- GI profiling hooks live in `GlobalIllumination::Debug` and report CPU scene-sync, update classification, photon rebuild and probe-update cost. These are CPU timings and are never presented as GPU timings.
+- Rigid world geometry uses reusable 8-triangle-leaf mesh BLAS data plus an instance TLAS.
+- Skinned/deformed geometry remains on the legacy world-space fallback.
+- GI and Volumetrics share one CPU acceleration state.
+- Volumetrics uploads the same flat TLAS/BLAS representation to SDL_GPU.
+- Closest-hit traversal is near-child-first; occlusion uses a dedicated any-hit path.
+- Synthetic scaling confirms one BLAS is reused across 1/16/64/256 instances while probe solve cost remains negligible.
+- Before transform-refit optimization, 256 shared-BLAS instances measured 3.216 ms median transform/TLAS sync; transform-only TLAS updates are now implemented as stable-topology AABB refits and require a post-change benchmark rerun.
 
 - [x] Add GI quality presets.
 - [x] Remove low-level GAME Debug controls from the normal renderer menu.
 - [x] Add CPU profiling hooks for trace-scene/BVH changes, photon rebuilds and per-frame probe work.
-- [ ] Profile current CPU GI/BVH cost on representative GAME scenes.
-- [ ] Decide dynamic GI vs baked/static-probe split from measured data.
+- [x] Measure BLAS leaf-size tradeoffs and choose the 8-triangle leaf default.
+- [x] Add reusable mesh-local BLAS + instance TLAS for rigid geometry.
+- [x] Share CPU acceleration state between GI and Volumetrics.
+- [x] Migrate volumetric GPU shadow traversal to the shared flat TLAS/BLAS representation and verify it on Metal.
+- [x] Add transform-only TLAS refit without repartitioning topology.
+- [ ] Re-run the 1/16/64/256 instance scaling benchmark after TLAS refit.
+- [ ] Profile current CPU GI/acceleration cost on at least one representative GAME scene rather than only synthetic scenes.
+- [ ] Decide dynamic GI vs baked/static-probe split from representative measured data.
+- [ ] Consider binned SAH or periodic TLAS rebuild only if measured traversal degradation justifies the added build cost.
 
 ## Phase 10 — Volumetrics Upgrade
 
 **Goal:** Replace raw tuning knobs with quality-driven volumetrics and improve scalability.
-
-Long-term preferred direction: froxel/grid volumetrics rather than brute-force screen work where it offers a real performance/quality improvement.
 
 Player controls:
 - Enabled
@@ -460,13 +455,15 @@ Player controls:
 - Density
 - Distance
 
-**Status:** The current volumetric march/blur/composite path is functional on the Metal backend. Compute resource spaces follow the SDL_GPU convention (`space0` sampled/read-only, `space1` writable, `space2` uniforms), and pipeline initialization no longer retries/logs every frame after a hard failure.
+**Measured status:** the current march/blur/composite path and shared TLAS/BLAS shadow traversal are functional on Metal. Low/Medium/High remain around the VSYNC floor in the current benchmark. Ultra is clearly expensive at full resolution (~56.5 ms enabled vs ~16.8 ms disabled median), but it is explicitly the highest-quality mode.
 
 - [x] Add Volumetrics quality presets.
 - [x] Hide raw resolution/sample/blur controls from normal Debug UI.
 - [x] Verify the current volumetric compute path through a real GAME Metal build/run.
-- [ ] Profile existing implementation.
-- [ ] Evaluate froxel migration only from measured results.
+- [x] Profile the existing implementation across Low/Medium/High/Ultra.
+- [x] Evaluate froxel migration from measured results; current Low/Medium/High results do not justify replacing the march/blur architecture.
+- [x] Share TLAS/BLAS shadow acceleration with GI and verify the GPU path on Metal.
+- [ ] Revisit froxels only if future uncapped/representative measurements or Ultra requirements justify the architecture change.
 
 ## Phase 11 — Lightweight Render Graph
 
@@ -493,7 +490,7 @@ Shadow updates remain explicit because they own independent dirty-layer caching.
 - [x] Keep API small and code-first.
 - [x] Add dependency scheduling, cycle/multi-writer validation and logical lifetime tests.
 - [x] Integrate Depth, Hi-Z, Visibility, GPU draw compaction, AO and Forward+ scheduling.
-- [ ] Verify the render-graph-integrated Rasterizer through a full GAME Metal build/run.
+- [x] Verify the render-graph-integrated Rasterizer through a full GAME Metal build/run.
 
 ---
 
@@ -524,7 +521,7 @@ Implement in this order unless measurements justify moving a phase:
 6. Shadow upgrade.
 7. GTAO.
 8. Better IBL + reflection probes.
-9. GI cleanup / measured BVH improvements.
+9. GI cleanup / measured acceleration improvements.
 10. Volumetrics upgrade.
 11. Lightweight render graph when pass count justifies it.
 
