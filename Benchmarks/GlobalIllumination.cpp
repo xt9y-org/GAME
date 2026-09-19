@@ -19,6 +19,7 @@ namespace {
 
 constexpr int SyntheticGrid = 64;
 constexpr std::size_t RefitSamples = 32u;
+constexpr const char *DefaultScene = "Assets/Sponza/sponza.obj";
 
 const char *sceneUpdateName(Renderer::GlobalIllumination::Debug::SceneUpdate update)
 {
@@ -87,16 +88,19 @@ Ecs::Entity movableEntity(
 
 int main(int argc, char **argv)
 {
-    bool generated_scene = argc < 2;
+    bool generated_scene = false;
     std::filesystem::path scene_path;
-    if (generated_scene) {
+    if (argc >= 2) {
+        scene_path = argv[1];
+    } else if (std::filesystem::exists(DefaultScene)) {
+        scene_path = DefaultScene;
+    } else {
+        generated_scene = true;
         scene_path = std::filesystem::temp_directory_path() / "game-gi-benchmark.obj";
         if (!writeSyntheticScene(scene_path)) {
             std::fprintf(stderr, "[GI Benchmark] could not create synthetic scene\n");
             return 1;
         }
-    } else {
-        scene_path = argv[1];
     }
 
     std::string error;
