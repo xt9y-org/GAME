@@ -9,7 +9,7 @@
 #include <Renderer/ModelScene.hpp>
 #include <Renderer/Quality.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
-#include <Renderer/SDLGPU/Context.hpp>
+#include <Renderer/Renderer.hpp>
 
 #include <Rendering/Benchmark.hpp>
 
@@ -98,7 +98,7 @@ double renderFrame(Renderer::Manager& renderers, Ecs::World& world)
 {
     const Clock::time_point started = Clock::now();
     renderers.render(world);
-    if (!SDL_WaitForGPUIdle(Renderer::SDLGPU::device())) return -1.0;
+    if (!Renderer::waitIdle()) return -1.0;
     return std::chrono::duration<double, std::milli>(Clock::now() - started).count();
 }
 
