@@ -60,4 +60,9 @@ void build(C_Build *b)
     c_link_system(renderer_setup_test, "dl");
     c_link_system(renderer_setup_test, "pthread");
     c_use(renderer_setup_test, horse);
+
+    C_Target *gi_metrics_test = c_test(b, "debugging-gi-metrics-test");
+    c_sources(gi_metrics_test, "Tests/DebuggingGiMetrics.cpp");
+    c_flag(gi_metrics_test, "-std=c++20");
+    c_link_system(gi_metrics_test, "stdc++");
 }
