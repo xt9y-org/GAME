@@ -79,6 +79,12 @@ void build(C_Build *b)
     c_flag(forward_plus_benchmark_test, "-std=c++20");
     c_link_system(forward_plus_benchmark_test, "stdc++");
 
+    C_Target *volumetrics_benchmark_test = c_test(b, "volumetrics-benchmark-test");
+    c_sources(volumetrics_benchmark_test, "Tests/VolumetricsBenchmark.cpp");
+    c_include(volumetrics_benchmark_test, "Sources");
+    c_flag(volumetrics_benchmark_test, "-std=c++20");
+    c_link_system(volumetrics_benchmark_test, "stdc++");
+
     C_Target *forward_plus_benchmark = c_executable(b, "forward-plus-benchmark");
     c_sources(forward_plus_benchmark, "Benchmarks/ForwardPlus.cpp");
     c_include(forward_plus_benchmark, "Sources");
@@ -88,4 +94,14 @@ void build(C_Build *b)
     c_link_system(forward_plus_benchmark, "dl");
     c_link_system(forward_plus_benchmark, "pthread");
     c_use(forward_plus_benchmark, horse);
+
+    C_Target *volumetrics_benchmark = c_executable(b, "volumetrics-benchmark");
+    c_sources(volumetrics_benchmark, "Benchmarks/Volumetrics.cpp");
+    c_include(volumetrics_benchmark, "Sources");
+    c_flag(volumetrics_benchmark, "-std=c++20");
+    c_link_system(volumetrics_benchmark, "stdc++");
+    c_link_system(volumetrics_benchmark, "m");
+    c_link_system(volumetrics_benchmark, "dl");
+    c_link_system(volumetrics_benchmark, "pthread");
+    c_use(volumetrics_benchmark, horse);
 }
