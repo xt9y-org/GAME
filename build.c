@@ -72,4 +72,20 @@ void build(C_Build *b)
     c_flag(debug_layout_test, "-std=c++20");
     c_link_system(debug_layout_test, "stdc++");
     c_use(debug_layout_test, horse);
+
+    C_Target *forward_plus_benchmark_test = c_test(b, "forward-plus-benchmark-test");
+    c_sources(forward_plus_benchmark_test, "Tests/ForwardPlusBenchmark.cpp");
+    c_include(forward_plus_benchmark_test, "Sources");
+    c_flag(forward_plus_benchmark_test, "-std=c++20");
+    c_link_system(forward_plus_benchmark_test, "stdc++");
+
+    C_Target *forward_plus_benchmark = c_executable(b, "forward-plus-benchmark");
+    c_sources(forward_plus_benchmark, "Benchmarks/ForwardPlus.cpp");
+    c_include(forward_plus_benchmark, "Sources");
+    c_flag(forward_plus_benchmark, "-std=c++20");
+    c_link_system(forward_plus_benchmark, "stdc++");
+    c_link_system(forward_plus_benchmark, "m");
+    c_link_system(forward_plus_benchmark, "dl");
+    c_link_system(forward_plus_benchmark, "pthread");
+    c_use(forward_plus_benchmark, horse);
 }
