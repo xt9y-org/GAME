@@ -65,4 +65,11 @@ void build(C_Build *b)
     c_sources(gi_metrics_test, "Tests/DebuggingGiMetrics.cpp");
     c_flag(gi_metrics_test, "-std=c++20");
     c_link_system(gi_metrics_test, "stdc++");
+
+    C_Target *debug_layout_test = c_test(b, "debug-layout-test");
+    c_sources(debug_layout_test, "Tests/DebugLayout.cpp");
+    c_include(debug_layout_test, "Sources");
+    c_flag(debug_layout_test, "-std=c++20");
+    c_link_system(debug_layout_test, "stdc++");
+    c_use(debug_layout_test, horse);
 }
