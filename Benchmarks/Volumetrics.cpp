@@ -9,7 +9,7 @@
 #include <Renderer/ModelScene.hpp>
 #include <Renderer/Quality.hpp>
 #include <Renderer/Rasterizer/Rasterizer.hpp>
-#include <Renderer/SDLGPU/Context.hpp>
+#include <Renderer/Renderer.hpp>
 #include <Renderer/Volumetrics/Volumetrics.hpp>
 
 #include <Rendering/VolumetricsBenchmark.hpp>
@@ -91,7 +91,7 @@ bool sampleMode(
 
         const Clock::time_point started = Clock::now();
         renderers.render(world);
-        if (!SDL_WaitForGPUIdle(Renderer::SDLGPU::device())) return false;
+        if (!Renderer::waitIdle()) return false;
         const double milliseconds = std::chrono::duration<double, std::milli>(
             Clock::now() - started
         ).count();
