@@ -114,4 +114,14 @@ void build(C_Build *b)
     c_link_system(gi_benchmark, "dl");
     c_link_system(gi_benchmark, "pthread");
     c_use(gi_benchmark, horse);
+
+    C_Target *shadow_benchmark = c_executable(b, "shadow-benchmark");
+    c_sources(shadow_benchmark, "Benchmarks/Shadows.cpp");
+    c_include(shadow_benchmark, "Sources");
+    c_flag(shadow_benchmark, "-std=c++20");
+    c_link_system(shadow_benchmark, "stdc++");
+    c_link_system(shadow_benchmark, "m");
+    c_link_system(shadow_benchmark, "dl");
+    c_link_system(shadow_benchmark, "pthread");
+    c_use(shadow_benchmark, horse);
 }
