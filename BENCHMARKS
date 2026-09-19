@@ -28,10 +28,10 @@ GI / BVH CPU
 
   If Assets/Sponza/sponza.obj exists locally, it is used automatically.
   Otherwise the benchmark falls back to a deterministic 8192-triangle synthetic grid.
-  Reports initial topology/BVH build, geometry/refit sync, probe update cost, and cache update counts.
+  Sweeps 1 / 4 / 8 triangles per BVH leaf and reports topology build, node count/depth, transform refit cost and probe traversal cost for each configuration.
 
   To measure another real GAME model:
     c build gi-benchmark
     ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
 
-  Use representative real models before deciding dynamic GI vs baked/static probes or TLAS/BLAS work.
+  Use representative real models before choosing the BVH leaf default or deciding whether TLAS/BLAS and baked/static probes are justified.
