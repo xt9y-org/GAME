@@ -14,6 +14,7 @@
 
 #include <Rendering/VolumetricsBenchmark.hpp>
 
+#include <array>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -25,8 +26,20 @@ namespace {
 using Clock = std::chrono::steady_clock;
 using Rendering::VolumetricsBenchmark::Samples;
 
-constexpr std::size_t WarmupFrames = 30u;
-constexpr std::size_t SampleFrames = 120u;
+constexpr std::size_t WarmupFrames = 20u;
+constexpr std::size_t SampleFrames = 60u;
+
+struct QualityCase {
+    Renderer::Quality quality = Renderer::Quality::High;
+    const char *name = "High";
+};
+
+constexpr std::array<QualityCase, 4> QualityCases {{
+    {Renderer::Quality::Low, "Low"},
+    {Renderer::Quality::Medium, "Medium"},
+    {Renderer::Quality::High, "High"},
+    {Renderer::Quality::Ultra, "Ultra"},
+}};
 
 bool writeScene(const std::filesystem::path& path)
 {
@@ -85,6 +98,46 @@ bool sampleMode(
 
         if (frame >= WarmupFrames) samples.add(milliseconds);
     }
+    return true;
+}
+
+bool benchmarkQuality(
+    Renderer::Manager& renderers,
+    Ecs::World& world,
+    const QualityCase& quality_case)
+{
+    Renderer::Volumetrics::setQuality(quality_case.quality);
+
+    Samples disabled;
+    Samples enabled;
+    if (!sampleMode(renderers, world, false, disabled) ||
+        !sampleMode(renderers, world, true, enabled) ||
+        !sampleMode(renderers, world, true, enabled) ||
+        !sampleMode(renderers, world, false, disabled))
+        return false;
+
+    const Rendering::VolumetricsBenchmark::Comparison comparison{
+        disabled.averageMs(),
+        enabled.averageMs(),
+    };
+
+    const Renderer::Volumetrics::Settings& settings =
+        Renderer::Volumetrics::currentSettings();
+    std::printf(
+        "[Volumetrics Benchmark] %s: divisor=%d samples=%u blur=%u, %zu samples/mode\n",
+        quality_case.name,
+        settings.resolution_divisor,
+        settings.sample_count,
+        settings.blur_passes,
+        disabled.count
+    );
+    std::printf(
+        "[Volumetrics Benchmark]   disabled %.3f ms | enabled %.3f ms | overhead %+.3f ms (%+.2f%%)\n",
+        comparison.disabled_ms,
+        comparison.enabled_ms,
+        comparison.deltaMs(),
+        comparison.overheadPercent()
+    );
     return true;
 }
 
@@ -159,8 +212,6 @@ int main()
     features.volumetrics = false;
     features.gaussian_splat = false;
 
-    Renderer::Volumetrics::setQuality(Renderer::Quality::High);
-
     Renderer::Manager renderers;
     Renderer::Rasterizer& rasterizer = renderers.add<Renderer::Rasterizer>("Rasterizer");
     rasterizer.setDepthPrepass(false);
@@ -179,39 +230,21 @@ int main()
     }
     renderers.resize(Window::width(), Window::height());
 
-    Samples disabled;
-    Samples enabled;
-    const bool completed =
-        sampleMode(renderers, world, false, disabled) &&
-        sampleMode(renderers, world, true, enabled) &&
-        sampleMode(renderers, world, true, enabled) &&
-        sampleMode(renderers, world, false, disabled);
-
-    const Rendering::VolumetricsBenchmark::Comparison comparison{
-        disabled.averageMs(),
-        enabled.averageMs(),
-    };
-
     std::printf(
-        "[Volumetrics Benchmark] High quality, %dx%d, %zu samples/mode\n",
+        "[Volumetrics Benchmark] %dx%d synchronized wall-time quality sweep\n",
         Window::width(),
-        Window::height(),
-        disabled.count
-    );
-    std::printf(
-        "[Volumetrics Benchmark] disabled: %.3f ms/frame synchronized wall\n",
-        comparison.disabled_ms
-    );
-    std::printf(
-        "[Volumetrics Benchmark] enabled: %.3f ms/frame synchronized wall\n",
-        comparison.enabled_ms
-    );
-    std::printf(
-        "[Volumetrics Benchmark] overhead: %+.3f ms/frame, %+.2f%%\n",
-        comparison.deltaMs(),
-        comparison.overheadPercent()
+        Window::height()
     );
 
+    bool completed = true;
+    for (const QualityCase& quality_case : QualityCases) {
+        if (!benchmarkQuality(renderers, world, quality_case)) {
+            completed = false;
+            break;
+        }
+    }
+
+    Renderer::Features::settings().volumetrics = false;
     renderers.shutdown();
     Renderer::ModelScene::destroy(world, scene);
     Models::clearCache();
