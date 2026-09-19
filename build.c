@@ -104,4 +104,14 @@ void build(C_Build *b)
     c_link_system(volumetrics_benchmark, "dl");
     c_link_system(volumetrics_benchmark, "pthread");
     c_use(volumetrics_benchmark, horse);
+
+    C_Target *gi_benchmark = c_executable(b, "gi-benchmark");
+    c_sources(gi_benchmark, "Benchmarks/GlobalIllumination.cpp");
+    c_include(gi_benchmark, "Sources");
+    c_flag(gi_benchmark, "-std=c++20");
+    c_link_system(gi_benchmark, "stdc++");
+    c_link_system(gi_benchmark, "m");
+    c_link_system(gi_benchmark, "dl");
+    c_link_system(gi_benchmark, "pthread");
+    c_use(gi_benchmark, horse);
 }
