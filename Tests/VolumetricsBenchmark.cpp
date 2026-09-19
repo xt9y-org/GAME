@@ -9,9 +9,13 @@ int main()
 
     Samples samples;
     assert(samples.averageMs() == 0.0);
-    samples.add(5.0);
+    assert(samples.medianMs() == 0.0);
     samples.add(7.0);
+    samples.add(5.0);
     assert(std::abs(samples.averageMs() - 6.0) < 1.0e-9);
+    assert(std::abs(samples.medianMs() - 6.0) < 1.0e-9);
+    samples.add(6.0);
+    assert(std::abs(samples.medianMs() - 6.0) < 1.0e-9);
 
     const Comparison overhead{10.0, 12.5};
     assert(std::abs(overhead.deltaMs() - 2.5) < 1.0e-9);
