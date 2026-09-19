@@ -220,7 +220,7 @@ bool runInstanceSweep(
         Renderer::Transform *transform = world.get<Renderer::Transform>(parents.front());
         for (std::size_t sample = 0u; sample < ScaleTransformSamples && transform; ++sample) {
             transform->position.x += (sample & 1u) == 0u ? 0.01f : -0.01f;
-            world.markChanged(Ecs::ChangeKind::Transform);
+            world.markChanged(Ecs::ChangeKind::Transform, parents.front());
 
             const Clock::time_point started = Clock::now();
             Renderer::Internal::updateShadingState(world);
@@ -399,7 +399,7 @@ int main(int argc, char **argv)
     Renderer::Transform *transform = world.get<Renderer::Transform>(movable);
     for (std::size_t sample = 0u; sample < TransformSamples && transform; ++sample) {
         transform->position.x += (sample & 1u) == 0u ? 0.01f : -0.01f;
-        world.markChanged(Ecs::ChangeKind::Transform);
+        world.markChanged(Ecs::ChangeKind::Transform, movable);
 
         const Clock::time_point started = Clock::now();
         Renderer::Internal::updateShadingState(world);
