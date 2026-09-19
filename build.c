@@ -85,6 +85,12 @@ void build(C_Build *b)
     c_flag(volumetrics_benchmark_test, "-std=c++20");
     c_link_system(volumetrics_benchmark_test, "stdc++");
 
+    C_Target *gi_benchmark_test = c_test(b, "gi-benchmark-test");
+    c_sources(gi_benchmark_test, "Tests/GlobalIlluminationBenchmark.cpp");
+    c_include(gi_benchmark_test, "Sources");
+    c_flag(gi_benchmark_test, "-std=c++20");
+    c_link_system(gi_benchmark_test, "stdc++");
+
     C_Target *forward_plus_benchmark = c_executable(b, "forward-plus-benchmark");
     c_sources(forward_plus_benchmark, "Benchmarks/ForwardPlus.cpp");
     c_include(forward_plus_benchmark, "Sources");
