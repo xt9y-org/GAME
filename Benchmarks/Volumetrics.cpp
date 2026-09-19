@@ -117,8 +117,8 @@ bool benchmarkQuality(
         return false;
 
     const Rendering::VolumetricsBenchmark::Comparison comparison{
-        disabled.averageMs(),
-        enabled.averageMs(),
+        disabled.medianMs(),
+        enabled.medianMs(),
     };
 
     const Renderer::Volumetrics::Settings& settings =
@@ -132,11 +132,16 @@ bool benchmarkQuality(
         disabled.count
     );
     std::printf(
-        "[Volumetrics Benchmark]   disabled %.3f ms | enabled %.3f ms | overhead %+.3f ms (%+.2f%%)\n",
+        "[Volumetrics Benchmark]   median disabled %.3f ms | enabled %.3f ms | overhead %+.3f ms (%+.2f%%)\n",
         comparison.disabled_ms,
         comparison.enabled_ms,
         comparison.deltaMs(),
         comparison.overheadPercent()
+    );
+    std::printf(
+        "[Volumetrics Benchmark]   mean   disabled %.3f ms | enabled %.3f ms\n",
+        disabled.averageMs(),
+        enabled.averageMs()
     );
     return true;
 }
