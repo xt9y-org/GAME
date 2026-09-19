@@ -205,12 +205,14 @@ int main(int argc, char **argv)
     }
 
     std::printf(
-        "[GI Benchmark] geometry/refit sync: %.3f ms CPU average (%zu samples)\n",
+        "[GI Benchmark] geometry/refit sync: %.3f ms median (%.3f mean) CPU, %zu samples\n",
+        refit_samples.medianMs(),
         refit_samples.averageMs(),
         geometry_updates
     );
     std::printf(
-        "[GI Benchmark] probe update: %.3f ms CPU average (%zu samples)\n",
+        "[GI Benchmark] probe update: %.3f ms median (%.3f mean) CPU, %zu samples\n",
+        probe_samples.medianMs(),
         probe_samples.averageMs(),
         probe_samples.count
     );
