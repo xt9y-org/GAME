@@ -1,0 +1,37 @@
+Renderer benchmark targets
+
+GPU-facing benchmarks synchronize through Horse's backend-neutral Renderer::waitIdle() before recording wall time, so CPU command submission is not mistaken for completed GPU frame time. Median is the primary comparison; mean is printed as a noise indicator.
+
+Forward+ lighting
+  c run forward-plus-benchmark
+
+  128 point + 128 spot lights at 1280x720.
+  Compares the original full-light loop against Forward+ with alternating sample order.
+  Use this result before adding depth slices.
+
+Volumetrics
+  c run volumetrics-benchmark
+
+  Sweeps Low / Medium / High / Ultra at 1280x720.
+  Compares Volumetrics disabled vs enabled for every quality level.
+  Use this result before deciding whether froxel migration is justified.
+
+Local shadows
+  c run shadow-benchmark
+
+  8 point + 8 spot shadow lights over 2048 triangles at Medium quality.
+  Reports the cold dirty frame, steady cached frames, and one-light invalidation cost.
+  Use this result before adding a dedicated local shadow atlas.
+
+GI / BVH CPU
+  c run gi-benchmark
+
+  If Assets/Sponza/sponza.obj exists locally, it is used automatically.
+  Otherwise the benchmark falls back to a deterministic 8192-triangle synthetic grid.
+  Sweeps 1 / 4 / 8 triangles per BVH leaf and reports topology build, geometry/refit, node count/depth, probe update cost, and cache update counts.
+
+  To measure another real GAME model:
+    c build gi-benchmark
+    ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
+
+  Use representative real models before deciding dynamic GI vs baked/static probes or TLAS/BLAS work.
