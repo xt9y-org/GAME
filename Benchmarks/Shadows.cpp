@@ -242,6 +242,9 @@ int main()
         !lights.empty() &&
         sampleInvalidated(renderers, world, lights.front(), invalidated);
 
+    const double cached_median = cached.medianMs();
+    const double invalidated_median = invalidated.medianMs();
+
     std::printf(
         "[Shadow Benchmark] %d point + %d spot shadow lights, %d triangles, Medium quality\n",
         PointLights,
@@ -250,18 +253,20 @@ int main()
     );
     std::printf("[Shadow Benchmark] cold dirty frame: %.3f ms synchronized wall\n", cold_ms);
     std::printf(
-        "[Shadow Benchmark] cached frames: %.3f ms/frame synchronized wall (%zu samples)\n",
+        "[Shadow Benchmark] cached: %.3f ms median (%.3f mean), %zu samples\n",
+        cached_median,
         cached.averageMs(),
         cached.count
     );
     std::printf(
-        "[Shadow Benchmark] one-light invalidation: %.3f ms/frame synchronized wall (%zu samples)\n",
+        "[Shadow Benchmark] one-light invalidation: %.3f ms median (%.3f mean), %zu samples\n",
+        invalidated_median,
         invalidated.averageMs(),
         invalidated.count
     );
     std::printf(
-        "[Shadow Benchmark] invalidation delta vs cached: %+.3f ms/frame\n",
-        Rendering::Benchmark::deltaMs(cached.averageMs(), invalidated.averageMs())
+        "[Shadow Benchmark] median invalidation delta vs cached: %+.3f ms/frame\n",
+        Rendering::Benchmark::deltaMs(cached_median, invalidated_median)
     );
 
     renderers.shutdown();
