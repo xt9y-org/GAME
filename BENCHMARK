@@ -61,6 +61,15 @@ GI / acceleration CPU
   If Assets/Sponza/sponza.obj exists locally, it is used automatically.
   Otherwise the benchmark falls back to a deterministic 8192-triangle synthetic grid.
 
+  A representative local scene can be selected without hardcoding its path into GAME:
+    GAME_GI_BENCHMARK_SCENE="/absolute/path/to/model.gltf" c run gi-benchmark
+
+  A direct executable argument still has highest priority:
+    c build gi-benchmark
+    ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
+
+  Scene selection priority is argument, GAME_GI_BENCHMARK_SCENE, Assets/Sponza/sponza.obj, then synthetic fallback.
+
   The earlier leaf-size sweep established 8 triangles per BLAS leaf as the default:
 
   2026-09-19 MacBook Air M2 synthetic 8192-triangle grid:
@@ -121,14 +130,12 @@ GI / acceleration CPU
     unique BLAS triangles,
     BLAS and instance counts,
     combined acceleration node/depth statistics,
+    unchanged-scene total GI CPU update cost,
     transform-only TLAS update cost,
+    transform-frame total GI CPU update cost,
     probe update cost.
 
-  Synthetic fallback also runs a shared-BLAS scaling sweep with 1 / 16 / 64 / 256 model copies. Each copy is parented at a different world transform, so the sweep measures TLAS growth while the mesh BLAS remains reusable. For every scale it reports BLAS count, instance count, nodes/depth, initial build cost, transform-only TLAS cost and probe cost.
-
-  To measure another real GAME model:
-    c build gi-benchmark
-    ./build/debug/gi-benchmark "/absolute/path/to/model.gltf"
+  Synthetic fallback also runs a shared-BLAS scaling sweep with 1 / 16 / 64 / 256 model copies. Each copy is parented at a different world transform, so the sweep measures TLAS growth while the mesh BLAS remains reusable. For every scale it reports BLAS count, instance count, nodes/depth, initial build cost, transform-only TLAS cost, total GI update cost and probe cost.
 
   Remaining GI decision:
     rerun the instance sweep after the TLAS refit change, then use that result plus at least one representative GAME scene before deciding whether a baked/static-probe path is worth adding. Do not add another GI representation without that evidence.
