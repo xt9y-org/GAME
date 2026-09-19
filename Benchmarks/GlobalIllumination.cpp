@@ -7,9 +7,11 @@
 #include <Renderer/Internal/ShadingState.hpp>
 #include <Renderer/ModelScene.hpp>
 #include <Renderer/Quality.hpp>
+#include <Renderer/Scenes/SceneCache.hpp>
 
 #include <Rendering/Benchmark.hpp>
 
+#include <array>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -20,6 +22,7 @@ namespace {
 constexpr int SyntheticGrid = 64;
 constexpr std::size_t RefitSamples = 32u;
 constexpr const char *DefaultScene = "Assets/Sponza/sponza.obj";
+constexpr std::array<std::uint32_t, 3> LeafSizes {{1u, 4u, 8u}};
 
 const char *sceneUpdateName(Renderer::GlobalIllumination::Debug::SceneUpdate update)
 {
@@ -82,6 +85,68 @@ Ecs::Entity movableEntity(
             return part.entity;
     }
     return Ecs::INVALID_ENTITY;
+}
+
+void runLeafCase(
+    Ecs::World& world,
+    Ecs::Entity movable,
+    std::uint32_t leaf_size)
+{
+    Renderer::Scenes::SceneCache::setLeafSize(leaf_size);
+    Renderer::GlobalIllumination::reset();
+    Renderer::Internal::updateShadingState(world);
+    (void)Renderer::GlobalIllumination::update(world);
+
+    const Renderer::GlobalIllumination::Debug::Statistics initial =
+        Renderer::GlobalIllumination::Debug::statistics();
+
+    Rendering::Benchmark::Samples refit_samples;
+    Rendering::Benchmark::Samples probe_samples;
+    std::size_t geometry_updates = 0u;
+
+    Renderer::Transform *transform = world.get<Renderer::Transform>(movable);
+    if (transform) {
+        for (std::size_t sample = 0u; sample < RefitSamples; ++sample) {
+            transform->position.x += (sample & 1u) == 0u ? 0.01f : -0.01f;
+            world.markChanged(Ecs::ChangeKind::Transform);
+            Renderer::Internal::updateShadingState(world);
+            (void)Renderer::GlobalIllumination::update(world);
+
+            const Renderer::GlobalIllumination::Debug::Statistics stats =
+                Renderer::GlobalIllumination::Debug::statistics();
+            if (stats.scene_update == Renderer::GlobalIllumination::Debug::SceneUpdate::Geometry) {
+                refit_samples.add(stats.scene_build_ms);
+                ++geometry_updates;
+            }
+            probe_samples.add(stats.probe_update_ms);
+        }
+    }
+
+    std::printf(
+        "[GI Benchmark] leaf=%u triangles=%zu nodes=%zu depth=%u\n",
+        leaf_size,
+        initial.triangles,
+        initial.bvh_nodes,
+        initial.bvh_depth
+    );
+    std::printf(
+        "[GI Benchmark]   initial %s sync: %.3f ms CPU | first probe %.3f ms\n",
+        sceneUpdateName(initial.scene_update),
+        initial.scene_build_ms,
+        initial.probe_update_ms
+    );
+    std::printf(
+        "[GI Benchmark]   geometry/refit: %.3f ms median (%.3f mean), %zu samples\n",
+        refit_samples.medianMs(),
+        refit_samples.averageMs(),
+        geometry_updates
+    );
+    std::printf(
+        "[GI Benchmark]   probe update: %.3f ms median (%.3f mean), %zu samples\n",
+        probe_samples.medianMs(),
+        probe_samples.averageMs(),
+        probe_samples.count
+    );
 }
 
 } // namespace
@@ -160,76 +225,27 @@ int main(int argc, char **argv)
     features.gaussian_splat = false;
 
     Renderer::GlobalIllumination::setQuality(Renderer::Quality::Low);
-    Renderer::Internal::updateShadingState(world);
-    (void)Renderer::GlobalIllumination::update(world);
 
-    const Renderer::GlobalIllumination::Debug::Statistics initial =
-        Renderer::GlobalIllumination::Debug::statistics();
     std::printf(
         "[GI Benchmark] scene: %s\n",
         generated_scene ? "synthetic 64x64 grid" : scene_path.string().c_str()
     );
-    std::printf(
-        "[GI Benchmark] triangles: %zu, BVH nodes: %zu, depth: %u\n",
-        initial.triangles,
-        initial.bvh_nodes,
-        initial.bvh_depth
-    );
-    std::printf(
-        "[GI Benchmark] initial %s sync: %.3f ms CPU\n",
-        sceneUpdateName(initial.scene_update),
-        initial.scene_build_ms
-    );
-    std::printf(
-        "[GI Benchmark] first probe update: %.3f ms CPU\n",
-        initial.probe_update_ms
-    );
+    std::printf("[GI Benchmark] leaf-size sweep: 1 / 4 / 8 triangles per leaf\n");
 
-    Rendering::Benchmark::Samples refit_samples;
-    Rendering::Benchmark::Samples probe_samples;
-    std::size_t geometry_updates = 0u;
     const Ecs::Entity movable = movableEntity(world, scene);
-    if (movable != Ecs::INVALID_ENTITY) {
-        Renderer::Transform *transform = world.get<Renderer::Transform>(movable);
-        for (std::size_t sample = 0u; sample < RefitSamples; ++sample) {
-            if (!transform) break;
-            transform->position.x += (sample & 1u) == 0u ? 0.01f : -0.01f;
-            world.markChanged(Ecs::ChangeKind::Transform);
-            Renderer::Internal::updateShadingState(world);
-            (void)Renderer::GlobalIllumination::update(world);
-
-            const Renderer::GlobalIllumination::Debug::Statistics stats =
-                Renderer::GlobalIllumination::Debug::statistics();
-            if (stats.scene_update == Renderer::GlobalIllumination::Debug::SceneUpdate::Geometry) {
-                refit_samples.add(stats.scene_build_ms);
-                ++geometry_updates;
-            }
-            probe_samples.add(stats.probe_update_ms);
-        }
+    if (movable == Ecs::INVALID_ENTITY) {
+        std::fprintf(stderr, "[GI Benchmark] no movable render entity found\n");
+        Renderer::ModelScene::destroy(world, scene);
+        Models::clearCache();
+        if (generated_scene) std::filesystem::remove(scene_path);
+        return 1;
     }
 
-    std::printf(
-        "[GI Benchmark] geometry/refit sync: %.3f ms median (%.3f mean) CPU, %zu samples\n",
-        refit_samples.medianMs(),
-        refit_samples.averageMs(),
-        geometry_updates
-    );
-    std::printf(
-        "[GI Benchmark] probe update: %.3f ms median (%.3f mean) CPU, %zu samples\n",
-        probe_samples.medianMs(),
-        probe_samples.averageMs(),
-        probe_samples.count
-    );
+    const std::uint32_t original_leaf_size = Renderer::Scenes::SceneCache::leafSize();
+    for (const std::uint32_t leaf_size : LeafSizes)
+        runLeafCase(world, movable, leaf_size);
 
-    const Renderer::GlobalIllumination::Debug::Statistics final_stats =
-        Renderer::GlobalIllumination::Debug::statistics();
-    std::printf(
-        "[GI Benchmark] cache updates topology=%llu geometry=%llu resources=%llu\n",
-        static_cast<unsigned long long>(final_stats.topology_updates),
-        static_cast<unsigned long long>(final_stats.geometry_updates),
-        static_cast<unsigned long long>(final_stats.resource_updates)
-    );
-
+    Renderer::Scenes::SceneCache::setLeafSize(original_leaf_size);
     Renderer::GlobalIllumination::reset();
     Renderer::ModelScene::destroy(world, scene);
     Models::clearCache();
